@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 
 const SUPABASE_URL = "https://autpzeeprcyosyqegtai.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dHB6ZWVwcmN5b3N5cWVndGFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTEwMDUsImV4cCI6MjA5MjgyNzAwNX0.YWH6PvFYu2n2BN5aWQZ8KaPKv4Ns4K_ObfyK28Gdq18";
@@ -40,8 +40,8 @@ export default function App() {
   const [cats, setCats] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  // UI状態
-  const [selectedCatId, setSelectedCatId] = useState(null);
+  const [selectedCatId, setSelectedCatId] = useState("all");
+  const [mainTab, setMainTab] = useState("stock"); // stock | order
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
   const [addMenu, setAddMenu] = useState(false);
@@ -50,26 +50,20 @@ export default function App() {
   const [stCatId, setStCatId] = useState(null);
   const [stBrandId, setStBrandId] = useState(null);
 
-  // モーダル
-  const [itemDetail, setItemDetail] = useState(null); // {catId,brandId,item}
+  const [itemDetail, setItemDetail] = useState(null);
   const [detailStock, setDetailStock] = useState(0);
-  const [addModal, setAddModal] = useState(null); // "cat"|"brand"|"item"
+  const [addModal, setAddModal] = useState(null);
   const [editItemModal, setEditItemModal] = useState(null);
   const [editItemF, setEditItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "" });
-  const [minModal, setMinModal] = useState(null);
-  const [minVal, setMinVal] = useState("");
 
-  // 追加フォーム
   const [newCatF, setNewCatF] = useState("");
   const [newBrandF, setNewBrandF] = useState({ name: "", catId: "" });
   const [newItemF, setNewItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "", catId: "", brandId: "" });
 
-  // 設定パネル名前変更
   const [rnCat, setRnCat] = useState(null); const [rnCatV, setRnCatV] = useState("");
   const [rnBrand, setRnBrand] = useState(null); const [rnBrandV, setRnBrandV] = useState("");
   const [rnItem, setRnItem] = useState(null); const [rnItemV, setRnItemV] = useState("");
 
-  // ── データ取得 ────────────────────
   const loadData = async () => {
     try {
       const [catsData, brandsData, itemsData] = await Promise.all([
@@ -77,7 +71,7 @@ export default function App() {
         api("brands?select=*&order=order.asc"),
         api("items?select=*&order=order.asc"),
       ]);
-      const merged = catsData.map(c => ({
+      setCats(catsData.map(c => ({
         ...c,
         brands: brandsData.filter(b => b.category_id === c.id).map(b => ({
           ...b,
@@ -87,9 +81,7 @@ export default function App() {
             costPrice: i.cost_price, order: i.order,
           })).sort((a, b) => a.order - b.order),
         })).sort((a, b) => a.order - b.order),
-      }));
-      setCats(merged);
-      if (!selectedCatId && merged.length > 0) setSelectedCatId(merged[0].id);
+      })));
     } catch (e) { console.error(e); }
     setScreen("main");
   };
@@ -99,9 +91,16 @@ export default function App() {
     else { setPwErr(true); setPwVal(""); setTimeout(() => setPwErr(false), 2000); }
   };
 
-  // ── 派生 ─────────────────────────
   const sortedCats = [...cats].sort((a, b) => a.order - b.order);
-  const selectedCat = cats.find(c => c.id === selectedCatId);
+
+  // 表示するブランド一覧（「すべて」か特定カテゴリ）
+  const displayBrands = useMemo(() => {
+    if (selectedCatId === "all") {
+      return sortedCats.flatMap(c => (c.brands || []).map(b => ({ ...b, catName: c.name })));
+    }
+    const cat = cats.find(c => c.id === selectedCatId);
+    return (cat?.brands || []).map(b => ({ ...b, catName: cat.name }));
+  }, [cats, selectedCatId]);
 
   const needOrder = useMemo(() => {
     const r = [];
@@ -111,7 +110,6 @@ export default function App() {
     return r;
   }, [cats]);
 
-  // 検索候補
   const searchResults = useMemo(() => {
     if (!searchQ.trim()) return [];
     const q = searchQ.toLowerCase();
@@ -134,7 +132,6 @@ export default function App() {
       })
     }));
 
-  // ── 商品詳細（在庫変更） ──────────
   const openDetail = (catId, brandId, item) => {
     setItemDetail({ catId, brandId, item });
     setDetailStock(item.stock);
@@ -150,7 +147,6 @@ export default function App() {
     setSaving(false);
   };
 
-  // ── 商品編集 ──────────────────────
   const openEditItem = (catId, brandId, item) => {
     setEditItemModal({ catId, brandId, itemId: item.id });
     setEditItemF({ name: item.name, stock: String(item.stock), minStock: String(item.minStock), retailPrice: String(item.retailPrice || ""), costPrice: String(item.costPrice || "") });
@@ -166,7 +162,6 @@ export default function App() {
     setSaving(false);
   };
 
-  // ── 追加 ─────────────────────────
   const doAddCat = async () => {
     if (!newCatF.trim()) return;
     const maxOrd = cats.reduce((m, c) => Math.max(m, c.order), -1);
@@ -200,15 +195,6 @@ export default function App() {
     setSaving(false);
   };
 
-  const doMin = async () => {
-    if (!minModal || minVal === "") return;
-    const n = parseInt(minVal); if (isNaN(n) || n < 0) return;
-    updItemLocal(minModal.catId, minModal.brandId, minModal.itemId, { minStock: n });
-    const sid = minModal.itemId; setMinModal(null); setMinVal("");
-    setSaving(true); await api(`items?id=eq.${sid}`, "PATCH", { min_stock: n }); setSaving(false);
-  };
-
-  // ── 設定 ─────────────────────────
   const moveCat = async (catId, dir) => {
     const s = [...cats].sort((a, b) => a.order - b.order);
     const idx = s.findIndex(c => c.id === catId); const sw = idx + dir;
@@ -244,7 +230,6 @@ export default function App() {
     if (!window.confirm("このカテゴリとブランド・商品を全て削除しますか？")) return;
     setCats(p => p.filter(c => c.id !== catId));
     if (stCatId === catId) { setStCatId(null); setStBrandId(null); }
-    if (selectedCatId === catId) setSelectedCatId(cats.find(c => c.id !== catId)?.id || null);
     setSaving(true); await api(`categories?id=eq.${catId}`, "DELETE"); setSaving(false);
   };
 
@@ -316,10 +301,10 @@ export default function App() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {saving && <span style={{ fontSize: 10, color: "#b0a898" }}>保存中...</span>}
-          <button className="icobtn" onClick={() => { setScreen("loading"); loadData(); }} title="更新"><Ico.Refresh /></button>
-          <button className="icobtn" onClick={() => { setSearchOpen(true); setSearchQ(""); }} title="検索"><Ico.Search /></button>
-          <button className="icobtn" onClick={() => setAddMenu(!addMenu)} title="追加" style={addMenu ? { background: "#2a2018", color: "#f5f0e8" } : {}}><Ico.Plus /></button>
-          <button className="icobtn" onClick={() => setStOpen(true)} title="設定"><Ico.Settings /></button>
+          <button className="icobtn" onClick={() => { setScreen("loading"); loadData(); }}><Ico.Refresh /></button>
+          <button className="icobtn" onClick={() => { setSearchOpen(true); setSearchQ(""); }}><Ico.Search /></button>
+          <button className="icobtn" onClick={() => setAddMenu(!addMenu)} style={addMenu ? { background: "#2a2018", color: "#f5f0e8" } : {}}><Ico.Plus /></button>
+          <button className="icobtn" onClick={() => setStOpen(true)}><Ico.Settings /></button>
         </div>
       </header>
 
@@ -341,53 +326,82 @@ export default function App() {
       )}
 
       {/* カテゴリ横スクロール */}
-      <div style={{ background: "#faf7f2", borderBottom: "1px solid #e0d9ce", padding: "12px 20px", overflowX: "auto", whiteSpace: "nowrap" }} className="hide-scroll">
+      <div style={{ background: "#faf7f2", borderBottom: "1px solid #e0d9ce", padding: "10px 20px", overflowX: "auto", whiteSpace: "nowrap", display: "flex", gap: 4 }} className="hide-scroll">
+        {/* すべてタブ */}
+        <button className={`cat-tab ${selectedCatId === "all" && mainTab === "stock" ? "cat-tab-on" : ""}`} onClick={() => { setSelectedCatId("all"); setMainTab("stock"); }}>
+          すべて
+        </button>
         {sortedCats.map(cat => (
-          <button key={cat.id} className={`cat-tab ${selectedCatId === cat.id ? "cat-tab-on" : ""}`} onClick={() => setSelectedCatId(cat.id)}>
+          <button key={cat.id} className={`cat-tab ${selectedCatId === cat.id && mainTab === "stock" ? "cat-tab-on" : ""}`} onClick={() => { setSelectedCatId(cat.id); setMainTab("stock"); }}>
             {cat.name}
           </button>
         ))}
-        {sortedCats.length === 0 && <span style={{ color: "#c8bfb0", fontSize: 13 }}>カテゴリがありません。＋から追加してください</span>}
+        {/* 注文が必要タブ */}
+        <button className={`cat-tab ${mainTab === "order" ? "cat-tab-order" : ""}`} onClick={() => setMainTab("order")} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {needOrder.length > 0 && <span className="dot" style={{ width: 6, height: 6 }} />}
+          要注文
+          {needOrder.length > 0 && <span style={{ background: "#c0392b", color: "#fff", borderRadius: 99, padding: "0px 5px", fontSize: 10, fontWeight: 700 }}>{needOrder.length}</span>}
+        </button>
       </div>
 
       {/* コンテンツ */}
       <main style={S.main}>
-        {selectedCat ? (
-          [...(selectedCat.brands || [])].sort((a, b) => a.order - b.order).map(brand => (
-            <div key={brand.id} style={S.brandBlk}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={S.brandNm}>🏷 {brand.name}</span>
-                <span style={{ color: "#b0a898", fontSize: 11 }}>{brand.items.length}種類</span>
+
+        {/* 注文が必要タブ */}
+        {mainTab === "order" && (
+          needOrder.length === 0
+            ? <div style={S.empty}><div style={{ fontSize: 38 }}>✅</div><p style={{ color: "#9a8f82", marginTop: 12 }}>注文が必要な商品はありません</p></div>
+            : needOrder.map(i => (
+              <div key={i.id} className="irow" onClick={() => openDetail(i.catId, i.brandId, i)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 700, color: "#2a2018", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{i.name}</span>
+                    <span className={`tag ${i.stock === 0 ? "tcrit" : "tlow"}`}>{i.stock === 0 ? "在庫切れ" : "要注文"}</span>
+                  </div>
+                  <span style={{ color: "#b0a898", fontSize: 11 }}>{i.catName} › {i.brandName}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                  <span className={`snum ${i.stock === 0 ? "scrit" : "slow"}`}>{i.stock}</span>
+                  <span style={{ fontSize: 10, color: "#b0a898", marginTop: 1 }}>ライン:{i.minStock}</span>
+                </div>
               </div>
-              {brand.items.length === 0 && <p style={{ color: "#c8bfb0", fontSize: 12, padding: "4px 0" }}>商品がまだありません</p>}
-              {[...brand.items].sort((a, b) => a.order - b.order).map(item => {
-                const low = item.stock <= item.minStock;
-                const crit = item.stock === 0;
-                const sc = crit ? "scrit" : low ? "slow" : "sok";
-                return (
-                  <div key={item.id} className="irow" onClick={() => openDetail(selectedCat.id, brand.id, item)}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontWeight: 700, color: "#2a2018", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
-                        {low && <span className={`tag ${crit ? "tcrit" : "tlow"}`}>{crit ? "在庫切れ" : "要注文"}</span>}
-                      </div>
-                      <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap" }}>
-                        {item.retailPrice > 0 && <span style={{ color: "#2a7a5a", fontSize: 11, fontWeight: 600 }}>定価 ¥{item.retailPrice.toLocaleString()}</span>}
-                        {item.costPrice > 0 && <span style={{ color: "#9a8f82", fontSize: 11 }}>仕入 ¥{item.costPrice.toLocaleString()}</span>}
-                      </div>
+            ))
+        )}
+
+        {/* 在庫タブ */}
+        {mainTab === "stock" && displayBrands.map(brand => (
+          <div key={brand.id} style={S.brandBlk}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              {selectedCatId === "all" && <span style={{ color: "#b0a898", fontSize: 11, fontFamily: "Noto Sans JP,sans-serif" }}>{brand.catName} ›</span>}
+              <span style={S.brandNm}>🏷 {brand.name}</span>
+              <span style={{ color: "#b0a898", fontSize: 11 }}>{brand.items.length}種類</span>
+            </div>
+            {brand.items.length === 0 && <p style={{ color: "#c8bfb0", fontSize: 12, padding: "4px 0" }}>商品がまだありません</p>}
+            {[...brand.items].sort((a, b) => a.order - b.order).map(item => {
+              const low = item.stock <= item.minStock;
+              const crit = item.stock === 0;
+              const sc = crit ? "scrit" : low ? "slow" : "sok";
+              return (
+                <div key={item.id} className="irow" onClick={() => openDetail(brand.category_id || brand.catId || cats.find(c => c.brands?.some(b => b.id === brand.id))?.id, brand.id, item)}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 700, color: "#2a2018", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+                      {low && <span className={`tag ${crit ? "tcrit" : "tlow"}`}>{crit ? "在庫切れ" : "要注文"}</span>}
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
-                      <span className={`snum ${sc}`}>{item.stock}</span>
-                      <span style={{ fontSize: 10, color: "#b0a898", marginTop: 1 }}>ライン:{item.minStock}</span>
+                    <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap" }}>
+                      {item.retailPrice > 0 && <span style={{ color: "#2a7a5a", fontSize: 11, fontWeight: 600 }}>定価 ¥{item.retailPrice.toLocaleString()}</span>}
+                      {item.costPrice > 0 && <span style={{ color: "#9a8f82", fontSize: 11 }}>仕入 ¥{item.costPrice.toLocaleString()}</span>}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ))
-        ) : (
-          <div style={S.empty}><div style={{ fontSize: 38 }}>📦</div><p style={{ color: "#9a8f82", marginTop: 12 }}>カテゴリを選んでください</p></div>
-        )}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                    <span className={`snum ${sc}`}>{item.stock}</span>
+                    <span style={{ fontSize: 10, color: "#b0a898", marginTop: 1 }}>ライン:{item.minStock}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </main>
 
       {/* 検索パネル */}
@@ -408,7 +422,7 @@ export default function App() {
               const crit = item.stock === 0;
               const sc = crit ? "scrit" : low ? "slow" : "sok";
               return (
-                <div key={item.id} className="irow" style={{ marginBottom: 6 }} onClick={() => { setSelectedCatId(item.catId); setSearchOpen(false); openDetail(item.catId, item.brandId, item); }}>
+                <div key={item.id} className="irow" style={{ marginBottom: 6 }} onClick={() => { setSelectedCatId(item.catId); setMainTab("stock"); setSearchOpen(false); openDetail(item.catId, item.brandId, item); }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontWeight: 700, color: "#2a2018", fontSize: 14 }}>{item.name}</span>
@@ -431,40 +445,36 @@ export default function App() {
       {/* 商品詳細モーダル */}
       {itemDetail && (() => {
         const { catId, brandId, item } = itemDetail;
+        const cat = cats.find(c => c.id === catId);
+        const brand = cat?.brands?.find(b => b.id === brandId);
         return (
           <div className="mover" onClick={() => setItemDetail(null)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                <h3 style={{ flex: 1, marginBottom: 0 }}>{item.name}</h3>
-                <button className="icobtn" onClick={() => setItemDetail(null)} style={{ marginLeft: 8 }}><Ico.X /></button>
+                <h3 style={{ flex: 1, marginBottom: 0, fontFamily: "Noto Sans JP,sans-serif", fontWeight: 700, fontSize: 17, color: "#2a2018" }}>{item.name}</h3>
+                <button className="icobtn" onClick={() => setItemDetail(null)} style={{ marginLeft: 8, flexShrink: 0 }}><Ico.X /></button>
               </div>
-              <p style={{ color: "#b0a898", fontSize: 12, marginBottom: 20 }}>{cats.find(c=>c.id===catId)?.name} › {cats.find(c=>c.id===catId)?.brands?.find(b=>b.id===brandId)?.name}</p>
-
-              {item.retailPrice > 0 && <p style={{ color: "#2a7a5a", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>定価 ¥{item.retailPrice.toLocaleString()}</p>}
-              {item.costPrice > 0 && <p style={{ color: "#9a8f82", fontSize: 13, marginBottom: 16 }}>仕入 ¥{item.costPrice.toLocaleString()}</p>}
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, margin: "20px 0" }}>
+              <p style={{ color: "#b0a898", fontSize: 12, marginBottom: 16 }}>{cat?.name} › {brand?.name}</p>
+              <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                {item.retailPrice > 0 && <span style={{ color: "#2a7a5a", fontSize: 13, fontWeight: 600 }}>定価 ¥{item.retailPrice.toLocaleString()}</span>}
+                {item.costPrice > 0 && <span style={{ color: "#9a8f82", fontSize: 13 }}>仕入 ¥{item.costPrice.toLocaleString()}</span>}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, margin: "16px 0 20px" }}>
                 <button className="big-adj dec" onClick={() => setDetailStock(s => Math.max(0, s - 1))}>−</button>
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 48, color: detailStock === 0 ? "#c0392b" : detailStock <= item.minStock ? "#c87a00" : "#2d7a44", lineHeight: 1 }}>{detailStock}</div>
-                  <div style={{ color: "#b0a898", fontSize: 11, marginTop: 4 }}>注文ライン: {item.minStock}</div>
+                  <div style={{ fontFamily: "Noto Sans JP,sans-serif", fontWeight: 700, fontSize: 52, color: detailStock === 0 ? "#c0392b" : detailStock <= item.minStock ? "#c87a00" : "#2d7a44", lineHeight: 1 }}>{detailStock}</div>
+                  <div style={{ color: "#b0a898", fontSize: 11, marginTop: 6 }}>注文ライン: {item.minStock}</div>
                 </div>
                 <button className="big-adj inc" onClick={() => setDetailStock(s => s + 1)}>+</button>
               </div>
-
-              <div style={{ display: "flex", gap: 9, marginTop: 8 }}>
+              <div style={{ display: "flex", gap: 9 }}>
                 <button className="gbtn" style={{ flex: 1 }} onClick={() => setItemDetail(null)}>キャンセル</button>
                 <button className="pbtn" style={{ flex: 2 }} onClick={confirmStock}>確定</button>
               </div>
-
-              <div style={{ borderTop: "1px solid #e8e2d8", marginTop: 16, paddingTop: 12, display: "flex", gap: 8 }}>
-                <button style={{ flex: 1, background: "#f5f0e8", border: "1px solid #e0d9ce", borderRadius: 8, padding: "8px", fontSize: 12, color: "#7a6f63", cursor: "pointer", fontFamily: "Noto Sans JP,sans-serif" }}
-                  onClick={() => { setItemDetail(null); setMinModal({ catId, brandId, itemId: item.id }); setMinVal(String(item.minStock)); }}>
-                  注文ライン変更
-                </button>
-                <button style={{ flex: 1, background: "#f5f0e8", border: "1px solid #e0d9ce", borderRadius: 8, padding: "8px", fontSize: 12, color: "#7a6f63", cursor: "pointer", fontFamily: "Noto Sans JP,sans-serif" }}
+              <div style={{ borderTop: "1px solid #e8e2d8", marginTop: 14, paddingTop: 12 }}>
+                <button style={{ width: "100%", background: "#f5f0e8", border: "1px solid #e0d9ce", borderRadius: 8, padding: "9px", fontSize: 13, color: "#7a6f63", cursor: "pointer", fontFamily: "Noto Sans JP,sans-serif" }}
                   onClick={() => { setItemDetail(null); openEditItem(catId, brandId, item); }}>
-                  詳細編集
+                  📝 詳細編集（名前・価格・注文ライン）
                 </button>
               </div>
             </div>
@@ -472,7 +482,7 @@ export default function App() {
         );
       })()}
 
-      {/* 商品詳細編集モーダル */}
+      {/* 詳細編集モーダル */}
       {editItemModal && (
         <div className="mover" onClick={() => setEditItemModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -494,7 +504,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 追加モーダル: カテゴリ */}
+      {/* カテゴリ追加モーダル */}
       {addModal === "cat" && (
         <div className="mover" onClick={() => setAddModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -508,7 +518,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 追加モーダル: ブランド */}
+      {/* ブランド追加モーダル */}
       {addModal === "brand" && (
         <div className="mover" onClick={() => setAddModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -528,7 +538,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 追加モーダル: 商品 */}
+      {/* 商品追加モーダル */}
       {addModal === "item" && (
         <div className="mover" onClick={() => setAddModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -564,26 +574,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 注文ライン変更モーダル */}
-      {minModal && (() => {
-        const c = cats.find(c => c.id === minModal.catId);
-        const b = c?.brands?.find(b => b.id === minModal.brandId);
-        const i = b?.items?.find(i => i.id === minModal.itemId);
-        return (
-          <div className="mover" onClick={() => setMinModal(null)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <h3>⚙️ 注文ラインを変更</h3>
-              <p style={{ color: "#9a8f82", fontSize: 13, marginBottom: 16 }}>{i?.name}</p>
-              <div className="fg"><label>この個数以下で「要注文」と表示</label><input type="number" min="0" value={minVal} onChange={e => setMinVal(e.target.value)} autoFocus onKeyDown={e => e.key === "Enter" && doMin()} /></div>
-              <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
-                <button className="gbtn" onClick={() => setMinModal(null)}>キャンセル</button>
-                <button className="pbtn" onClick={doMin}>保存</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* 設定パネル */}
       {stOpen && (
         <div className="stover" onClick={() => setStOpen(false)}>
@@ -599,7 +589,6 @@ export default function App() {
                 </button>
               ))}
             </div>
-
             {stTab === "cats" && (
               <>
                 <p style={{ fontSize: 11, color: "#b0a898", marginBottom: 11 }}>↑↓ 順番変更　✏ 名前変更　🗑 削除</p>
@@ -619,7 +608,6 @@ export default function App() {
                 ))}
               </>
             )}
-
             {stTab === "brands" && (
               <>
                 <div style={{ marginBottom: 14 }}>
@@ -650,7 +638,6 @@ export default function App() {
                 ) : <p style={{ color: "#c8bfb0", fontSize: 13, paddingTop: 6 }}>カテゴリを選んでください</p>}
               </>
             )}
-
             {stTab === "items" && (
               <>
                 <div style={{ marginBottom: 10 }}>
@@ -714,20 +701,21 @@ const CSS = `
   .gbtn:hover { background: #ddd6ca; color: #2a2018; }
   .icobtn { background: #e8e2d8; border: none; cursor: pointer; border-radius: 9px; padding: 8px; display: flex; align-items: center; justify-content: center; color: #7a6f63; transition: background .15s, color .15s; }
   .icobtn:hover { background: #2a2018; color: #f5f0e8; }
-  .cat-tab { background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; margin-right: 6px; color: #c8bfb0; transition: all .15s; white-space: nowrap; }
-  .cat-tab:hover { color: #7a6f63; }
-  .cat-tab-on { background: #2a2018; color: #f5f0e8; }
+  .cat-tab { background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 20px; color: #c8bfb0; transition: all .15s; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+  .cat-tab:hover { color: #7a6f63; background: #f0ece4; }
+  .cat-tab-on { background: #2a2018; color: #f5f0e8 !important; }
+  .cat-tab-order { background: #fdf0ee; color: #c0392b !important; border: 1px solid #f0c8c4; }
   .add-chip { background: #f5f0e8; border: 1.5px solid #e0d9ce; border-radius: 20px; padding: 7px 16px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; font-weight: 600; color: #2a2018; cursor: pointer; transition: all .12s; }
   .add-chip:hover { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
-  .irow { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid #e8e2d8; margin-bottom: 6px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
-  .irow:hover { border-color: #c8bfb0; box-shadow: 0 2px 8px rgba(42,32,24,.08); transform: translateY(-1px); }
-  .snum { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; }
+  .irow { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid #e8e2d8; margin-bottom: 6px; cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .12s; }
+  .irow:hover { border-color: #c8bfb0; box-shadow: 0 2px 10px rgba(42,32,24,.09); transform: translateY(-1px); }
+  .snum { font-family: 'Noto Sans JP', sans-serif; font-weight: 700; font-size: 22px; }
   .sok { color: #2d7a44; } .slow { color: #c87a00; } .scrit { color: #c0392b; }
-  .tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-family: 'Syne', sans-serif; font-weight: 700; flex-shrink: 0; }
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-family: 'Noto Sans JP', sans-serif; font-weight: 700; flex-shrink: 0; }
   .tlow { background: #c87a0015; color: #c87a00; border: 1px solid #c87a0040; } .tcrit { background: #c0392b15; color: #c0392b; border: 1px solid #c0392b40; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; display: inline-block; animation: pulse 1.5s infinite; flex-shrink: 0; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-  .big-adj { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all .12s; }
+  .big-adj { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all .12s; font-family: 'Noto Sans JP', sans-serif; }
   .big-adj.dec { background: #f0d9d6; color: #c0392b; } .big-adj.dec:hover { background: #e8c8c4; transform: scale(1.05); }
   .big-adj.inc { background: #d6ead9; color: #2d7a44; } .big-adj.inc:hover { background: #c2dfc7; transform: scale(1.05); }
   .search-overlay { position: fixed; inset: 0; background: rgba(42,32,24,.4); z-index: 950; display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; backdrop-filter: blur(4px); }
@@ -750,7 +738,6 @@ const CSS = `
   .rninput { flex: 1; background: #fff; border: 1.5px solid #2a2018; border-radius: 6px; padding: 5px 9px; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; color: #2a2018; outline: none; }
   .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; transition: all .12s; }
   .chip:hover { background: #ddd6ca; color: #2a2018; } .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
-  .ocard { background: #fdf0ee; border: 1px solid #f0c8c4; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
 `;
 
 const S = {
