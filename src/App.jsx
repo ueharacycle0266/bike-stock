@@ -90,13 +90,6 @@ export default function App() {
   const [adjVal, setAdjVal] = useState("");
   const [minVal, setMinVal] = useState("");
 
-  const handleLogin = () => {
-    sessionStorage.setItem("bike_auth", "1");
-    setLoggedIn(true);
-  };
-
-  if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
-
   const loadData = async () => {
     setLoading(true);
     try {
@@ -121,6 +114,13 @@ export default function App() {
   };
 
   useEffect(() => { if (loggedIn) loadData(); }, [loggedIn]);
+
+  const handleLogin = () => {
+    sessionStorage.setItem("bike_auth", "1");
+    setLoggedIn(true);
+  };
+
+  if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
 
   const sortedCats = [...cats].sort((a, b) => a.order - b.order);
   const needOrder = useMemo(() => {
