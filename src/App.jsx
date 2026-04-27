@@ -22,67 +22,37 @@ const api = async (path, method = "GET", body = null) => {
 const uid = () => "x" + Math.random().toString(36).slice(2, 9);
 
 const Ico = {
-  Settings: () => (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-  ),
+  Settings: () => (<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>),
   Up: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>),
   Down: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>),
   Edit: () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>),
   Trash: () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>),
   X: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>),
   Refresh: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>),
-  Lock: () => (<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>),
 };
 
-function LoginScreen({ onLogin }) {
-  const [pw, setPw] = useState("");
-  const [err, setErr] = useState(false);
-  const handleLogin = () => {
-    if (pw === PASSWORD) { onLogin(); }
-    else { setErr(true); setPw(""); setTimeout(() => setErr(false), 2000); }
-  };
-  return (
-    <div style={{ background: "#f5f0e8", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <style>{CSS}</style>
-      <div style={{ background: "#faf7f2", border: "1px solid #e0d9ce", borderRadius: 20, padding: "40px 36px", width: 320, maxWidth: "90vw", boxShadow: "0 8px 32px rgba(42,32,24,.1)", textAlign: "center" }}>
-        <div style={{ color: "#2a2018", marginBottom: 8 }}><Ico.Lock /></div>
-        <div style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 22, color: "#2a2018", marginBottom: 6 }}>🚲 在庫管理</div>
-        <div style={{ fontFamily: "Syne,sans-serif", fontSize: 10, color: "#b0a898", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 28 }}>Bike Parts Inventory</div>
-        <input type="password" value={pw} onChange={e => { setPw(e.target.value); setErr(false); }} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="パスワードを入力"
-          style={{ width: "100%", background: err ? "#fdf0ee" : "#f5f0e8", border: `1.5px solid ${err ? "#c0392b" : "#ccc5ba"}`, borderRadius: 10, padding: "12px 14px", color: "#2a2018", fontFamily: "Noto Sans JP,sans-serif", fontSize: 16, outline: "none", textAlign: "center", letterSpacing: "0.2em", marginBottom: 8 }} autoFocus />
-        {err && <p style={{ color: "#c0392b", fontSize: 12, marginBottom: 8, fontFamily: "Noto Sans JP,sans-serif" }}>パスワードが違います</p>}
-        <button className="pbtn" style={{ width: "100%", padding: "12px" }} onClick={handleLogin}>入る</button>
-      </div>
-    </div>
-  );
-}
-
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(() => sessionStorage.getItem("bike_auth") === "1");
+  // ── 状態 ──────────────────────────
+  const [screen, setScreen] = useState("login"); // login | loading | main
+  const [pwVal, setPwVal] = useState("");
+  const [pwErr, setPwErr] = useState(false);
   const [cats, setCats] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("all");
 
   const [adjModal, setAdjModal] = useState(null);
   const [addItemModal, setAddItemModal] = useState(null);
-  const [editItemModal, setEditItemModal] = useState(null); // 商品編集モーダル
+  const [editItemModal, setEditItemModal] = useState(null);
   const [addBrandModal, setAddBrandModal] = useState(null);
   const [addCatModal, setAddCatModal] = useState(false);
   const [minModal, setMinModal] = useState(null);
-
   const [stOpen, setStOpen] = useState(false);
   const [stTab, setStTab] = useState("cats");
   const [stCatId, setStCatId] = useState(null);
   const [stBrandId, setStBrandId] = useState(null);
-
   const [rnCat, setRnCat] = useState(null); const [rnCatV, setRnCatV] = useState("");
   const [rnBrand, setRnBrand] = useState(null); const [rnBrandV, setRnBrandV] = useState("");
   const [rnItem, setRnItem] = useState(null); const [rnItemV, setRnItemV] = useState("");
-
   const [newItemF, setNewItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "", catId: "", brandId: "" });
   const [editItemF, setEditItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "" });
   const [newBrandF, setNewBrandF] = useState("");
@@ -90,8 +60,8 @@ export default function App() {
   const [adjVal, setAdjVal] = useState("");
   const [minVal, setMinVal] = useState("");
 
+  // ── データ取得 ────────────────────
   const loadData = async () => {
-    setLoading(true);
     try {
       const [catsData, brandsData, itemsData] = await Promise.all([
         api("categories?select=*&order=order.asc"),
@@ -110,18 +80,22 @@ export default function App() {
         })),
       })));
     } catch (e) { console.error(e); }
-    setLoading(false);
+    setScreen("main");
   };
 
-  useEffect(() => { if (loggedIn) loadData(); }, [loggedIn]);
-
+  // ── ログイン ──────────────────────
   const handleLogin = () => {
-    sessionStorage.setItem("bike_auth", "1");
-    setLoggedIn(true);
+    if (pwVal === PASSWORD) {
+      setScreen("loading");
+      loadData();
+    } else {
+      setPwErr(true);
+      setPwVal("");
+      setTimeout(() => setPwErr(false), 2000);
+    }
   };
 
-  if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
-
+  // ── 派生 ─────────────────────────
   const sortedCats = [...cats].sort((a, b) => a.order - b.order);
   const needOrder = useMemo(() => {
     const r = [];
@@ -130,7 +104,6 @@ export default function App() {
     })));
     return r;
   }, [cats]);
-
   const stCat = cats.find(c => c.id === stCatId);
   const sortedStBrands = stCat ? [...(stCat.brands || [])].sort((a, b) => a.order - b.order) : [];
   const stBrand = stCat?.brands?.find(b => b.id === stBrandId);
@@ -143,7 +116,7 @@ export default function App() {
       })
     }));
 
-  // 在庫増減
+  // ── ハンドラ ──────────────────────
   const doAdj = async () => {
     if (!adjModal || adjVal === "") return;
     const n = parseInt(adjVal); if (isNaN(n) || n < 0) return;
@@ -156,14 +129,13 @@ export default function App() {
     setSaving(true); await api(`items?id=eq.${sid}`, "PATCH", { stock: newStock }); setSaving(false);
   };
 
-  // 商品編集
   const openEditItem = (catId, brandId, item) => {
     setEditItemModal({ catId, brandId, itemId: item.id });
     setEditItemF({ name: item.name, stock: String(item.stock), minStock: String(item.minStock), retailPrice: String(item.retailPrice || ""), costPrice: String(item.costPrice || "") });
   };
 
   const doEditItem = async () => {
-    if (!editItemModal || !editItemF.name || editItemF.stock === "" || editItemF.minStock === "") return;
+    if (!editItemModal || !editItemF.name) return;
     const patch = { name: editItemF.name, stock: +editItemF.stock || 0, minStock: +editItemF.minStock || 0, retailPrice: +editItemF.retailPrice || 0, costPrice: +editItemF.costPrice || 0 };
     updItemLocal(editItemModal.catId, editItemModal.brandId, editItemModal.itemId, patch);
     const sid = editItemModal.itemId; setEditItemModal(null);
@@ -172,7 +144,6 @@ export default function App() {
     setSaving(false);
   };
 
-  // 商品追加
   const doAddItem = async () => {
     if (!newItemF.name || newItemF.stock === "" || newItemF.minStock === "") return;
     const catId = addItemModal?.catId || newItemF.catId;
@@ -288,7 +259,28 @@ export default function App() {
     setRnItem(null); setSaving(true); await api(`items?id=eq.${itemId}`, "PATCH", { name: rnItemV.trim() }); setSaving(false);
   };
 
-  if (loading) return (
+  // ── ログイン画面 ──────────────────
+  if (screen === "login") return (
+    <div style={{ background: "#f5f0e8", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <style>{CSS}</style>
+      <div style={{ background: "#faf7f2", border: "1px solid #e0d9ce", borderRadius: 20, padding: "40px 36px", width: 320, maxWidth: "90vw", boxShadow: "0 8px 32px rgba(42,32,24,.1)", textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+        <div style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 22, color: "#2a2018", marginBottom: 6 }}>🚲 在庫管理</div>
+        <div style={{ fontFamily: "Syne,sans-serif", fontSize: 10, color: "#b0a898", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 28 }}>Bike Parts Inventory</div>
+        <input type="password" value={pwVal}
+          onChange={e => { setPwVal(e.target.value); setPwErr(false); }}
+          onKeyDown={e => e.key === "Enter" && handleLogin()}
+          placeholder="パスワードを入力"
+          style={{ width: "100%", background: pwErr ? "#fdf0ee" : "#f5f0e8", border: `1.5px solid ${pwErr ? "#c0392b" : "#ccc5ba"}`, borderRadius: 10, padding: "12px 14px", color: "#2a2018", fontFamily: "Noto Sans JP,sans-serif", fontSize: 16, outline: "none", textAlign: "center", letterSpacing: "0.2em", marginBottom: 8 }}
+          autoFocus />
+        {pwErr && <p style={{ color: "#c0392b", fontSize: 12, marginBottom: 8 }}>パスワードが違います</p>}
+        <button className="pbtn" style={{ width: "100%", padding: "12px" }} onClick={handleLogin}>入る</button>
+      </div>
+    </div>
+  );
+
+  // ── ローディング画面 ──────────────
+  if (screen === "loading") return (
     <div style={{ background: "#f5f0e8", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
       <style>{CSS}</style>
       <div className="spin" />
@@ -296,6 +288,7 @@ export default function App() {
     </div>
   );
 
+  // ── メイン画面 ────────────────────
   return (
     <div style={S.root}>
       <style>{CSS}</style>
@@ -307,7 +300,7 @@ export default function App() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           {saving && <span style={{ fontSize: 11, color: "#9a8f82" }}>保存中...</span>}
-          <button className="icobtn" onClick={loadData}><Ico.Refresh /></button>
+          <button className="icobtn" onClick={() => { setScreen("loading"); loadData(); }}><Ico.Refresh /></button>
           <button className="gbtn" onClick={() => setAddItemModal({ catId: "", brandId: "" })}>+ 商品追加</button>
           <button className="pbtn" onClick={() => setAddCatModal(true)}>+ カテゴリ追加</button>
           <button className="icobtn" onClick={() => setStOpen(true)}><Ico.Settings /></button>
@@ -384,10 +377,9 @@ export default function App() {
                               {item.retailPrice > 0 && <span style={{ color: "#2a7a5a", fontSize: 11, fontWeight: 600 }}>定価 ¥{item.retailPrice.toLocaleString()}</span>}
                               {item.costPrice > 0 && <span style={{ color: "#9a8f82", fontSize: 11 }}>仕入 ¥{item.costPrice.toLocaleString()}</span>}
                               <span className="minlink" onClick={() => { setMinModal({ catId: cat.id, brandId: brand.id, itemId: item.id }); setMinVal(String(item.minStock)); }}>注文ライン: {item.minStock}</span>
-                              
                             </div>
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                             <button className="adjbtn dec" onClick={() => { setAdjModal({ catId: cat.id, brandId: brand.id, itemId: item.id, mode: "sub" }); setAdjVal(""); }}>−</button>
                             <span className={`snum ${sc}`}>{item.stock}</span>
                             <button className="adjbtn inc" onClick={() => { setAdjModal({ catId: cat.id, brandId: brand.id, itemId: item.id, mode: "add" }); setAdjVal(""); }}>+</button>
@@ -421,6 +413,7 @@ export default function App() {
                 </button>
               ))}
             </div>
+
             {stTab === "cats" && (
               <>
                 <p style={{ fontSize: 11, color: "#b0a898", marginBottom: 11 }}>↑↓ 順番変更　✏ 名前変更　🗑 削除</p>
@@ -440,6 +433,7 @@ export default function App() {
                 ))}
               </>
             )}
+
             {stTab === "brands" && (
               <>
                 <div style={{ marginBottom: 14 }}>
@@ -470,6 +464,7 @@ export default function App() {
                 ) : <p style={{ color: "#c8bfb0", fontSize: 13, paddingTop: 6 }}>カテゴリを選んでください</p>}
               </>
             )}
+
             {stTab === "items" && (
               <>
                 <div style={{ marginBottom: 10 }}>
@@ -488,7 +483,7 @@ export default function App() {
                 </div>
                 {stBrandId ? (
                   <>
-                    <p style={{ fontSize: 11, color: "#b0a898", marginBottom: 10 }}>↑↓ 順番変更　✏ 名前変更　🗑 削除</p>
+                    <p style={{ fontSize: 11, color: "#b0a898", marginBottom: 10 }}>↑↓ 順番　✏ 名前変更　📝 詳細編集　🗑 削除</p>
                     {sortedStItems.map((item, idx) => {
                       const rk = `${stBrandId}:${item.id}`;
                       return (
@@ -500,7 +495,8 @@ export default function App() {
                           <div style={{ display: "flex", gap: 4 }}>
                             <button className="sico" onClick={() => moveItem(stCatId, stBrandId, item.id, -1)} disabled={idx === 0}><Ico.Up /></button>
                             <button className="sico" onClick={() => moveItem(stCatId, stBrandId, item.id, 1)} disabled={idx === sortedStItems.length - 1}><Ico.Down /></button>
-                            <button className="sico sedit" onClick={() => { setStOpen(false); openEditItem(stCatId, stBrandId, item); }}><Ico.Edit /></button>
+                            <button className="sico sedit" title="名前変更" onClick={() => { setRnItem(rk); setRnItemV(item.name); }}><Ico.Edit /></button>
+                            <button className="sico" style={{ background: "#e8f0d6", color: "#2d7a44", border: "1px solid #c8e0b0" }} title="詳細編集" onClick={() => { setStOpen(false); openEditItem(stCatId, stBrandId, item); }}>📝</button>
                             <button className="sico sdel" onClick={() => delItem(stCatId, stBrandId, item.id)}><Ico.Trash /></button>
                           </div>
                         </div>
@@ -542,8 +538,8 @@ export default function App() {
       {editItemModal && (
         <div className="mover" onClick={() => setEditItemModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>✏️ 商品を編集</h3>
-            <div className="fg"><label>商品名</label><input value={editItemF.name} onChange={e => setEditItemF(n => ({ ...n, name: e.target.value }))} placeholder="商品名" /></div>
+            <h3>📝 商品を編集</h3>
+            <div className="fg"><label>商品名</label><input value={editItemF.name} onChange={e => setEditItemF(n => ({ ...n, name: e.target.value }))} /></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div className="fg"><label>在庫数</label><input type="number" min="0" value={editItemF.stock} onChange={e => setEditItemF(n => ({ ...n, stock: e.target.value }))} /></div>
               <div className="fg"><label>注文ライン</label><input type="number" min="0" value={editItemF.minStock} onChange={e => setEditItemF(n => ({ ...n, minStock: e.target.value }))} /></div>
@@ -663,14 +659,9 @@ const CSS = `
   .smbtn { background: #e8e2d8; color: #7a6f63; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-weight: 500; transition: background .12s; }
   .smbtn:hover { background: #ddd6ca; color: #2a2018; }
   .smbtn.brand { background: #d6e4f0; color: #2563a8; } .smbtn.brand:hover { background: #c4d6ea; }
-  .ibtn { background: #d6ead9; color: #2d7a44; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-weight: 500; transition: background .12s; }
-  .ibtn:hover { background: #c2dfc7; }
-  .dbtn { background: #f0d9d6; color: #c0392b; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-weight: 500; transition: background .12s; }
-  .dbtn:hover { background: #e8c8c4; }
-  .adjbtn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .12s; }
+  .adjbtn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .12s; }
   .adjbtn.dec { background: #f0d9d6; color: #c0392b; } .adjbtn.dec:hover { background: #e8c8c4; }
   .adjbtn.inc { background: #d6ead9; color: #2d7a44; } .adjbtn.inc:hover { background: #c2dfc7; }
-  .edit-inline-btn:hover { color: #2563a8; }
   .tbtn { background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; padding: 10px 20px; border-radius: 8px; transition: all .18s; letter-spacing: .03em; display: flex; align-items: center; gap: 7px; }
   .ton { background: #2a2018; color: #f5f0e8; } .toff { color: #9a8f82; } .toff:hover { color: #2a2018; background: #e8e2d8; } .tred { background: #c0392b; color: #fff; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; animation: pulse 1.5s infinite; }
@@ -698,7 +689,7 @@ const CSS = `
   .sttab { flex: 1; background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 0; border-radius: 7px; color: #9a8f82; transition: all .13s; }
   .sttabon { background: #faf7f2; color: #2a2018; box-shadow: 0 1px 4px rgba(42,32,24,.09); }
   .strow { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border-radius: 9px; background: #f5f0e8; border: 1px solid #e8e2d8; margin-bottom: 6px; min-height: 48px; } .strow:hover { border-color: #c8bfb0; }
-  .sico { background: #f0ece4; border: 1px solid #e0d9ce; cursor: pointer; border-radius: 6px; padding: 5px; display: flex; align-items: center; justify-content: center; color: #9a8f82; transition: all .12s; }
+  .sico { background: #f0ece4; border: 1px solid #e0d9ce; cursor: pointer; border-radius: 6px; padding: 5px; display: flex; align-items: center; justify-content: center; color: #9a8f82; transition: all .12s; font-size: 13px; }
   .sico:hover { background: #e8e2d8; color: #2a2018; } .sico:disabled { opacity: .22; cursor: not-allowed; }
   .sedit:hover { background: #d6e4f0; color: #2563a8; } .sdel:hover { background: #f0d9d6; color: #c0392b; }
   .rninput { flex: 1; background: #fff; border: 1.5px solid #2a2018; border-radius: 6px; padding: 5px 9px; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; color: #2a2018; outline: none; }
