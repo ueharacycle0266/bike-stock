@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
 
 const SUPABASE_URL = "https://autpzeeprcyosyqegtai.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dHB6ZWVwcmN5b3N5cWVndGFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTEwMDUsImV4cCI6MjA5MjgyNzAwNX0.YWH6PvFYu2n2BN5aWQZ8KaPKv4Ns4K_ObfyK28Gdq18";
@@ -22,43 +22,52 @@ const api = async (path, method = "GET", body = null) => {
 const uid = () => "x" + Math.random().toString(36).slice(2, 9);
 
 const Ico = {
-  Settings: () => (<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>),
+  Settings: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>),
+  Search: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>),
+  Plus: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>),
+  Refresh: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>),
+  X: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>),
   Up: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>),
   Down: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>),
   Edit: () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>),
   Trash: () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>),
-  X: () => (<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>),
-  Refresh: () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>),
 };
 
 export default function App() {
-  // ── 状態 ──────────────────────────
-  const [screen, setScreen] = useState("login"); // login | loading | main
+  const [screen, setScreen] = useState("login");
   const [pwVal, setPwVal] = useState("");
   const [pwErr, setPwErr] = useState(false);
   const [cats, setCats] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState("all");
 
-  const [adjModal, setAdjModal] = useState(null);
-  const [addItemModal, setAddItemModal] = useState(null);
-  const [editItemModal, setEditItemModal] = useState(null);
-  const [addBrandModal, setAddBrandModal] = useState(null);
-  const [addCatModal, setAddCatModal] = useState(false);
-  const [minModal, setMinModal] = useState(null);
+  // UI状態
+  const [selectedCatId, setSelectedCatId] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [addMenu, setAddMenu] = useState(false);
   const [stOpen, setStOpen] = useState(false);
   const [stTab, setStTab] = useState("cats");
   const [stCatId, setStCatId] = useState(null);
   const [stBrandId, setStBrandId] = useState(null);
+
+  // モーダル
+  const [itemDetail, setItemDetail] = useState(null); // {catId,brandId,item}
+  const [detailStock, setDetailStock] = useState(0);
+  const [addModal, setAddModal] = useState(null); // "cat"|"brand"|"item"
+  const [editItemModal, setEditItemModal] = useState(null);
+  const [editItemF, setEditItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "" });
+  const [minModal, setMinModal] = useState(null);
+  const [minVal, setMinVal] = useState("");
+
+  // 追加フォーム
+  const [newCatF, setNewCatF] = useState("");
+  const [newBrandF, setNewBrandF] = useState({ name: "", catId: "" });
+  const [newItemF, setNewItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "", catId: "", brandId: "" });
+
+  // 設定パネル名前変更
   const [rnCat, setRnCat] = useState(null); const [rnCatV, setRnCatV] = useState("");
   const [rnBrand, setRnBrand] = useState(null); const [rnBrandV, setRnBrandV] = useState("");
   const [rnItem, setRnItem] = useState(null); const [rnItemV, setRnItemV] = useState("");
-  const [newItemF, setNewItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "", catId: "", brandId: "" });
-  const [editItemF, setEditItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "" });
-  const [newBrandF, setNewBrandF] = useState("");
-  const [newCatF, setNewCatF] = useState("");
-  const [adjVal, setAdjVal] = useState("");
-  const [minVal, setMinVal] = useState("");
 
   // ── データ取得 ────────────────────
   const loadData = async () => {
@@ -68,7 +77,7 @@ export default function App() {
         api("brands?select=*&order=order.asc"),
         api("items?select=*&order=order.asc"),
       ]);
-      setCats(catsData.map(c => ({
+      const merged = catsData.map(c => ({
         ...c,
         brands: brandsData.filter(b => b.category_id === c.id).map(b => ({
           ...b,
@@ -76,27 +85,24 @@ export default function App() {
             id: i.id, name: i.name, stock: i.stock,
             minStock: i.min_stock, retailPrice: i.retail_price,
             costPrice: i.cost_price, order: i.order,
-          })),
-        })),
-      })));
+          })).sort((a, b) => a.order - b.order),
+        })).sort((a, b) => a.order - b.order),
+      }));
+      setCats(merged);
+      if (!selectedCatId && merged.length > 0) setSelectedCatId(merged[0].id);
     } catch (e) { console.error(e); }
     setScreen("main");
   };
 
-  // ── ログイン ──────────────────────
   const handleLogin = () => {
-    if (pwVal === PASSWORD) {
-      setScreen("loading");
-      loadData();
-    } else {
-      setPwErr(true);
-      setPwVal("");
-      setTimeout(() => setPwErr(false), 2000);
-    }
+    if (pwVal === PASSWORD) { setScreen("loading"); loadData(); }
+    else { setPwErr(true); setPwVal(""); setTimeout(() => setPwErr(false), 2000); }
   };
 
   // ── 派生 ─────────────────────────
   const sortedCats = [...cats].sort((a, b) => a.order - b.order);
+  const selectedCat = cats.find(c => c.id === selectedCatId);
+
   const needOrder = useMemo(() => {
     const r = [];
     cats.forEach(c => c.brands?.forEach(b => b.items?.forEach(i => {
@@ -104,6 +110,18 @@ export default function App() {
     })));
     return r;
   }, [cats]);
+
+  // 検索候補
+  const searchResults = useMemo(() => {
+    if (!searchQ.trim()) return [];
+    const q = searchQ.toLowerCase();
+    const r = [];
+    cats.forEach(c => c.brands?.forEach(b => b.items?.forEach(i => {
+      if (i.name.toLowerCase().includes(q)) r.push({ ...i, catName: c.name, brandName: b.name, catId: c.id, brandId: b.id });
+    })));
+    return r.slice(0, 8);
+  }, [searchQ, cats]);
+
   const stCat = cats.find(c => c.id === stCatId);
   const sortedStBrands = stCat ? [...(stCat.brands || [])].sort((a, b) => a.order - b.order) : [];
   const stBrand = stCat?.brands?.find(b => b.id === stBrandId);
@@ -116,19 +134,23 @@ export default function App() {
       })
     }));
 
-  // ── ハンドラ ──────────────────────
-  const doAdj = async () => {
-    if (!adjModal || adjVal === "") return;
-    const n = parseInt(adjVal); if (isNaN(n) || n < 0) return;
-    const c = cats.find(c => c.id === adjModal.catId);
-    const b = c?.brands?.find(b => b.id === adjModal.brandId);
-    const i = b?.items?.find(i => i.id === adjModal.itemId); if (!i) return;
-    const newStock = adjModal.mode === "add" ? i.stock + n : Math.max(0, i.stock - n);
-    updItemLocal(adjModal.catId, adjModal.brandId, adjModal.itemId, { stock: newStock });
-    const sid = adjModal.itemId; setAdjModal(null); setAdjVal("");
-    setSaving(true); await api(`items?id=eq.${sid}`, "PATCH", { stock: newStock }); setSaving(false);
+  // ── 商品詳細（在庫変更） ──────────
+  const openDetail = (catId, brandId, item) => {
+    setItemDetail({ catId, brandId, item });
+    setDetailStock(item.stock);
   };
 
+  const confirmStock = async () => {
+    if (!itemDetail) return;
+    const { catId, brandId, item } = itemDetail;
+    updItemLocal(catId, brandId, item.id, { stock: detailStock });
+    setItemDetail(null);
+    setSaving(true);
+    await api(`items?id=eq.${item.id}`, "PATCH", { stock: detailStock });
+    setSaving(false);
+  };
+
+  // ── 商品編集 ──────────────────────
   const openEditItem = (catId, brandId, item) => {
     setEditItemModal({ catId, brandId, itemId: item.id });
     setEditItemF({ name: item.name, stock: String(item.stock), minStock: String(item.minStock), retailPrice: String(item.retailPrice || ""), costPrice: String(item.costPrice || "") });
@@ -144,42 +166,38 @@ export default function App() {
     setSaving(false);
   };
 
-  const doAddItem = async () => {
-    if (!newItemF.name || newItemF.stock === "" || newItemF.minStock === "") return;
-    const catId = addItemModal?.catId || newItemF.catId;
-    const brandId = addItemModal?.brandId || newItemF.brandId;
-    if (!catId || !brandId) return;
-    const cat = cats.find(c => c.id === catId);
-    const brand = cat?.brands?.find(b => b.id === brandId); if (!brand) return;
-    const maxOrd = (brand.items || []).reduce((m, i) => Math.max(m, i.order), -1);
-    const newId = uid();
-    const newItem = { id: newId, name: newItemF.name, stock: +newItemF.stock || 0, minStock: +newItemF.minStock || 0, retailPrice: +newItemF.retailPrice || 0, costPrice: +newItemF.costPrice || 0, order: maxOrd + 1 };
-    setCats(p => p.map(c => c.id !== catId ? c : { ...c, brands: c.brands.map(b => b.id !== brandId ? b : { ...b, items: [...(b.items || []), newItem] }) }));
-    setNewItemF({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "", catId: "", brandId: "" });
-    setAddItemModal(null);
-    setSaving(true);
-    await api("items", "POST", { id: newId, brand_id: brandId, category_id: catId, name: newItem.name, stock: newItem.stock, min_stock: newItem.minStock, retail_price: newItem.retailPrice, cost_price: newItem.costPrice, order: newItem.order });
-    setSaving(false);
-  };
-
-  const doAddBrand = async () => {
-    if (!newBrandF.trim() || !addBrandModal?.catId) return;
-    const catId = addBrandModal.catId;
-    const cat = cats.find(c => c.id === catId); if (!cat) return;
-    const maxOrd = (cat.brands || []).reduce((m, b) => Math.max(m, b.order), -1);
-    const newId = uid();
-    setCats(p => p.map(c => c.id !== catId ? c : { ...c, brands: [...(c.brands || []), { id: newId, category_id: catId, name: newBrandF.trim(), order: maxOrd + 1, items: [] }] }));
-    setNewBrandF(""); setAddBrandModal(null);
-    setSaving(true); await api("brands", "POST", { id: newId, category_id: catId, name: newBrandF.trim(), order: maxOrd + 1 }); setSaving(false);
-  };
-
+  // ── 追加 ─────────────────────────
   const doAddCat = async () => {
     if (!newCatF.trim()) return;
     const maxOrd = cats.reduce((m, c) => Math.max(m, c.order), -1);
     const newId = uid();
     setCats(p => [...p, { id: newId, name: newCatF.trim(), order: maxOrd + 1, brands: [] }]);
-    setNewCatF(""); setAddCatModal(false);
+    setNewCatF(""); setAddModal(null);
     setSaving(true); await api("categories", "POST", { id: newId, name: newCatF.trim(), order: maxOrd + 1 }); setSaving(false);
+  };
+
+  const doAddBrand = async () => {
+    if (!newBrandF.name.trim() || !newBrandF.catId) return;
+    const cat = cats.find(c => c.id === newBrandF.catId); if (!cat) return;
+    const maxOrd = (cat.brands || []).reduce((m, b) => Math.max(m, b.order), -1);
+    const newId = uid();
+    setCats(p => p.map(c => c.id !== newBrandF.catId ? c : { ...c, brands: [...(c.brands || []), { id: newId, category_id: newBrandF.catId, name: newBrandF.name.trim(), order: maxOrd + 1, items: [] }] }));
+    setNewBrandF({ name: "", catId: "" }); setAddModal(null);
+    setSaving(true); await api("brands", "POST", { id: newId, category_id: newBrandF.catId, name: newBrandF.name.trim(), order: maxOrd + 1 }); setSaving(false);
+  };
+
+  const doAddItem = async () => {
+    if (!newItemF.name || newItemF.stock === "" || newItemF.minStock === "" || !newItemF.catId || !newItemF.brandId) return;
+    const cat = cats.find(c => c.id === newItemF.catId);
+    const brand = cat?.brands?.find(b => b.id === newItemF.brandId); if (!brand) return;
+    const maxOrd = (brand.items || []).reduce((m, i) => Math.max(m, i.order), -1);
+    const newId = uid();
+    const newItem = { id: newId, name: newItemF.name, stock: +newItemF.stock || 0, minStock: +newItemF.minStock || 0, retailPrice: +newItemF.retailPrice || 0, costPrice: +newItemF.costPrice || 0, order: maxOrd + 1 };
+    setCats(p => p.map(c => c.id !== newItemF.catId ? c : { ...c, brands: c.brands.map(b => b.id !== newItemF.brandId ? b : { ...b, items: [...(b.items || []), newItem] }) }));
+    setNewItemF({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "", catId: "", brandId: "" }); setAddModal(null);
+    setSaving(true);
+    await api("items", "POST", { id: newId, brand_id: newItemF.brandId, category_id: newItemF.catId, name: newItem.name, stock: newItem.stock, min_stock: newItem.minStock, retail_price: newItem.retailPrice, cost_price: newItem.costPrice, order: newItem.order });
+    setSaving(false);
   };
 
   const doMin = async () => {
@@ -190,6 +208,7 @@ export default function App() {
     setSaving(true); await api(`items?id=eq.${sid}`, "PATCH", { min_stock: n }); setSaving(false);
   };
 
+  // ── 設定 ─────────────────────────
   const moveCat = async (catId, dir) => {
     const s = [...cats].sort((a, b) => a.order - b.order);
     const idx = s.findIndex(c => c.id === catId); const sw = idx + dir;
@@ -225,6 +244,7 @@ export default function App() {
     if (!window.confirm("このカテゴリとブランド・商品を全て削除しますか？")) return;
     setCats(p => p.filter(c => c.id !== catId));
     if (stCatId === catId) { setStCatId(null); setStBrandId(null); }
+    if (selectedCatId === catId) setSelectedCatId(cats.find(c => c.id !== catId)?.id || null);
     setSaving(true); await api(`categories?id=eq.${catId}`, "DELETE"); setSaving(false);
   };
 
@@ -267,19 +287,14 @@ export default function App() {
         <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
         <div style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 22, color: "#2a2018", marginBottom: 6 }}>🚲 在庫管理</div>
         <div style={{ fontFamily: "Syne,sans-serif", fontSize: 10, color: "#b0a898", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 28 }}>Bike Parts Inventory</div>
-        <input type="password" value={pwVal}
-          onChange={e => { setPwVal(e.target.value); setPwErr(false); }}
-          onKeyDown={e => e.key === "Enter" && handleLogin()}
-          placeholder="パスワードを入力"
-          style={{ width: "100%", background: pwErr ? "#fdf0ee" : "#f5f0e8", border: `1.5px solid ${pwErr ? "#c0392b" : "#ccc5ba"}`, borderRadius: 10, padding: "12px 14px", color: "#2a2018", fontFamily: "Noto Sans JP,sans-serif", fontSize: 16, outline: "none", textAlign: "center", letterSpacing: "0.2em", marginBottom: 8 }}
-          autoFocus />
+        <input type="password" value={pwVal} onChange={e => { setPwVal(e.target.value); setPwErr(false); }} onKeyDown={e => e.key === "Enter" && handleLogin()} placeholder="パスワードを入力"
+          style={{ width: "100%", background: pwErr ? "#fdf0ee" : "#f5f0e8", border: `1.5px solid ${pwErr ? "#c0392b" : "#ccc5ba"}`, borderRadius: 10, padding: "12px 14px", color: "#2a2018", fontFamily: "Noto Sans JP,sans-serif", fontSize: 16, outline: "none", textAlign: "center", letterSpacing: "0.2em", marginBottom: 8 }} autoFocus />
         {pwErr && <p style={{ color: "#c0392b", fontSize: 12, marginBottom: 8 }}>パスワードが違います</p>}
         <button className="pbtn" style={{ width: "100%", padding: "12px" }} onClick={handleLogin}>入る</button>
       </div>
     </div>
   );
 
-  // ── ローディング画面 ──────────────
   if (screen === "loading") return (
     <div style={{ background: "#f5f0e8", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
       <style>{CSS}</style>
@@ -293,110 +308,281 @@ export default function App() {
     <div style={S.root}>
       <style>{CSS}</style>
 
+      {/* ヘッダー */}
       <header style={S.hdr}>
         <div>
           <div style={S.logo}>🚲 在庫管理</div>
           <div style={S.sub}>Bike Parts Inventory</div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {saving && <span style={{ fontSize: 11, color: "#9a8f82" }}>保存中...</span>}
-          <button className="icobtn" onClick={() => { setScreen("loading"); loadData(); }}><Ico.Refresh /></button>
-          <button className="gbtn" onClick={() => setAddItemModal({ catId: "", brandId: "" })}>+ 商品追加</button>
-          <button className="pbtn" onClick={() => setAddCatModal(true)}>+ カテゴリ追加</button>
-          <button className="icobtn" onClick={() => setStOpen(true)}><Ico.Settings /></button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {saving && <span style={{ fontSize: 10, color: "#b0a898" }}>保存中...</span>}
+          <button className="icobtn" onClick={() => { setScreen("loading"); loadData(); }} title="更新"><Ico.Refresh /></button>
+          <button className="icobtn" onClick={() => { setSearchOpen(true); setSearchQ(""); }} title="検索"><Ico.Search /></button>
+          <button className="icobtn" onClick={() => setAddMenu(!addMenu)} title="追加" style={addMenu ? { background: "#2a2018", color: "#f5f0e8" } : {}}><Ico.Plus /></button>
+          <button className="icobtn" onClick={() => setStOpen(true)} title="設定"><Ico.Settings /></button>
         </div>
       </header>
 
-      <nav style={S.nav}>
-        <button className={`tbtn ${tab === "all" ? "ton" : "toff"}`} onClick={() => setTab("all")}>全在庫</button>
-        <button className={`tbtn ${tab === "order" ? "tred" : "toff"}`} onClick={() => setTab("order")} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          {needOrder.length > 0 && <span className="dot" />}
-          注文が必要
-          {needOrder.length > 0 && <span className="badge">{needOrder.length}</span>}
-        </button>
-      </nav>
+      {/* ＋メニュー */}
+      {addMenu && (
+        <div style={{ background: "#faf7f2", borderBottom: "1px solid #e0d9ce", padding: "10px 20px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="add-chip" onClick={() => { setAddModal("cat"); setAddMenu(false); }}>📁 カテゴリ追加</button>
+          <button className="add-chip" onClick={() => { setAddModal("brand"); setAddMenu(false); }}>🏷 ブランド追加</button>
+          <button className="add-chip" onClick={() => { setAddModal("item"); setAddMenu(false); }}>🔧 商品追加</button>
+        </div>
+      )}
 
+      {/* 注文が必要バナー */}
+      {needOrder.length > 0 && (
+        <div style={{ background: "#fdf0ee", borderBottom: "1px solid #f0c8c4", padding: "8px 20px", display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="dot" />
+          <span style={{ fontSize: 12, color: "#c0392b", fontWeight: 700 }}>注文が必要な商品が{needOrder.length}点あります</span>
+        </div>
+      )}
+
+      {/* カテゴリ横スクロール */}
+      <div style={{ background: "#faf7f2", borderBottom: "1px solid #e0d9ce", padding: "12px 20px", overflowX: "auto", whiteSpace: "nowrap" }} className="hide-scroll">
+        {sortedCats.map(cat => (
+          <button key={cat.id} className={`cat-tab ${selectedCatId === cat.id ? "cat-tab-on" : ""}`} onClick={() => setSelectedCatId(cat.id)}>
+            {cat.name}
+          </button>
+        ))}
+        {sortedCats.length === 0 && <span style={{ color: "#c8bfb0", fontSize: 13 }}>カテゴリがありません。＋から追加してください</span>}
+      </div>
+
+      {/* コンテンツ */}
       <main style={S.main}>
-        {tab === "order" && (
-          needOrder.length === 0
-            ? <div style={S.empty}><div style={{ fontSize: 38 }}>✅</div><p style={{ color: "#9a8f82", marginTop: 12 }}>注文が必要な商品はありません</p></div>
-            : <>
-              <p style={{ color: "#c0392b", fontFamily: "Syne,sans-serif", fontWeight: 700, marginBottom: 16, fontSize: 14 }}>⚠️ {needOrder.length}点が注文ラインに達しています</p>
-              {needOrder.map(i => (
-                <div className="ocard" key={i.id}>
-                  <div>
-                    <div style={{ color: "#9a8f82", fontSize: 11, marginBottom: 2 }}>{i.catName} › {i.brandName}</div>
-                    <div style={{ color: "#2a2018", fontWeight: 700, fontSize: 15 }}>{i.name}</div>
-                    <div style={{ color: "#b0a898", fontSize: 11, marginTop: 2 }}>注文ライン: {i.minStock}個以下</div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 30, color: i.stock === 0 ? "#c0392b" : "#c87a00" }}>{i.stock}</div>
-                    <div style={{ color: "#b0a898", fontSize: 11 }}>現在庫</div>
-                  </div>
-                </div>
-              ))}
-            </>
-        )}
-
-        {tab === "all" && sortedCats.map(cat => {
-          const sortedBrands = [...(cat.brands || [])].sort((a, b) => a.order - b.order);
-          return (
-            <section key={cat.id} style={S.catBlk}>
-              <div className="cathdr">
-                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  <span style={S.catNm}>{cat.name}</span>
-                  <span style={{ color: "#b0a898", fontSize: 12 }}>{sortedBrands.length}ブランド</span>
-                </div>
-                <button className="smbtn brand" onClick={() => setAddBrandModal({ catId: cat.id })}>+ ブランド追加</button>
+        {selectedCat ? (
+          [...(selectedCat.brands || [])].sort((a, b) => a.order - b.order).map(brand => (
+            <div key={brand.id} style={S.brandBlk}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={S.brandNm}>🏷 {brand.name}</span>
+                <span style={{ color: "#b0a898", fontSize: 11 }}>{brand.items.length}種類</span>
               </div>
-              {sortedBrands.length === 0 && <p style={{ color: "#c8bfb0", fontSize: 13, padding: "8px 0" }}>ブランドを追加してください</p>}
-              {sortedBrands.map(brand => {
-                const sortedItems = [...(brand.items || [])].sort((a, b) => a.order - b.order);
+              {brand.items.length === 0 && <p style={{ color: "#c8bfb0", fontSize: 12, padding: "4px 0" }}>商品がまだありません</p>}
+              {[...brand.items].sort((a, b) => a.order - b.order).map(item => {
+                const low = item.stock <= item.minStock;
+                const crit = item.stock === 0;
+                const sc = crit ? "scrit" : low ? "slow" : "sok";
                 return (
-                  <div key={brand.id} style={S.brandBlk}>
-                    <div className="brandhdr">
-                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <span style={S.brandNm}>🏷 {brand.name}</span>
-                        <span style={{ color: "#b0a898", fontSize: 11 }}>{sortedItems.length}種類</span>
+                  <div key={item.id} className="irow" onClick={() => openDetail(selectedCat.id, brand.id, item)}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontWeight: 700, color: "#2a2018", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+                        {low && <span className={`tag ${crit ? "tcrit" : "tlow"}`}>{crit ? "在庫切れ" : "要注文"}</span>}
                       </div>
-                      <button className="smbtn" onClick={() => setAddItemModal({ catId: cat.id, brandId: brand.id })}>+ 商品追加</button>
+                      <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap" }}>
+                        {item.retailPrice > 0 && <span style={{ color: "#2a7a5a", fontSize: 11, fontWeight: 600 }}>定価 ¥{item.retailPrice.toLocaleString()}</span>}
+                        {item.costPrice > 0 && <span style={{ color: "#9a8f82", fontSize: 11 }}>仕入 ¥{item.costPrice.toLocaleString()}</span>}
+                      </div>
                     </div>
-                    {sortedItems.length === 0 && <p style={{ color: "#c8bfb0", fontSize: 12, padding: "6px 0" }}>商品がまだありません</p>}
-                    {sortedItems.map(item => {
-                      const low = item.stock <= item.minStock;
-                      const crit = item.stock === 0;
-                      const sc = crit ? "scrit" : low ? "slow" : "sok";
-                      return (
-                        <div key={item.id} className="irow">
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontWeight: 700, color: "#2a2018", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
-                              {low && <span className={`tag ${crit ? "tcrit" : "tlow"}`}>{crit ? "在庫切れ" : "要注文"}</span>}
-                            </div>
-                            <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap", alignItems: "center" }}>
-                              {item.retailPrice > 0 && <span style={{ color: "#2a7a5a", fontSize: 11, fontWeight: 600 }}>定価 ¥{item.retailPrice.toLocaleString()}</span>}
-                              {item.costPrice > 0 && <span style={{ color: "#9a8f82", fontSize: 11 }}>仕入 ¥{item.costPrice.toLocaleString()}</span>}
-                              <span className="minlink" onClick={() => { setMinModal({ catId: cat.id, brandId: brand.id, itemId: item.id }); setMinVal(String(item.minStock)); }}>注文ライン: {item.minStock}</span>
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                            <button className="adjbtn dec" onClick={() => { setAdjModal({ catId: cat.id, brandId: brand.id, itemId: item.id, mode: "sub" }); setAdjVal(""); }}>−</button>
-                            <span className={`snum ${sc}`}>{item.stock}</span>
-                            <button className="adjbtn inc" onClick={() => { setAdjModal({ catId: cat.id, brandId: brand.id, itemId: item.id, mode: "add" }); setAdjVal(""); }}>+</button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
+                      <span className={`snum ${sc}`}>{item.stock}</span>
+                      <span style={{ fontSize: 10, color: "#b0a898", marginTop: 1 }}>ライン:{item.minStock}</span>
+                    </div>
                   </div>
                 );
               })}
-            </section>
-          );
-        })}
-        {tab === "all" && sortedCats.length === 0 && (
-          <div style={S.empty}><div style={{ fontSize: 38 }}>📦</div><p style={{ color: "#9a8f82", marginTop: 12 }}>カテゴリを追加して始めましょう</p></div>
+            </div>
+          ))
+        ) : (
+          <div style={S.empty}><div style={{ fontSize: 38 }}>📦</div><p style={{ color: "#9a8f82", marginTop: 12 }}>カテゴリを選んでください</p></div>
         )}
       </main>
+
+      {/* 検索パネル */}
+      {searchOpen && (
+        <div className="search-overlay" onClick={() => setSearchOpen(false)}>
+          <div className="search-panel" onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "#f5f0e8", border: "1.5px solid #ccc5ba", borderRadius: 10, padding: "8px 12px" }}>
+                <Ico.Search />
+                <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="商品名で検索..." autoFocus
+                  style={{ flex: 1, background: "none", border: "none", outline: "none", fontSize: 15, color: "#2a2018", fontFamily: "Noto Sans JP,sans-serif" }} />
+              </div>
+              <button className="icobtn" onClick={() => setSearchOpen(false)}><Ico.X /></button>
+            </div>
+            {searchQ && searchResults.length === 0 && <p style={{ color: "#b0a898", fontSize: 13, padding: "8px 0" }}>見つかりませんでした</p>}
+            {searchResults.map(item => {
+              const low = item.stock <= item.minStock;
+              const crit = item.stock === 0;
+              const sc = crit ? "scrit" : low ? "slow" : "sok";
+              return (
+                <div key={item.id} className="irow" style={{ marginBottom: 6 }} onClick={() => { setSelectedCatId(item.catId); setSearchOpen(false); openDetail(item.catId, item.brandId, item); }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontWeight: 700, color: "#2a2018", fontSize: 14 }}>{item.name}</span>
+                      {low && <span className={`tag ${crit ? "tcrit" : "tlow"}`}>{crit ? "在庫切れ" : "要注文"}</span>}
+                    </div>
+                    <span style={{ color: "#b0a898", fontSize: 11 }}>{item.catName} › {item.brandName}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                    <span className={`snum ${sc}`}>{item.stock}</span>
+                    <span style={{ fontSize: 10, color: "#b0a898" }}>ライン:{item.minStock}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {!searchQ && <p style={{ color: "#c8bfb0", fontSize: 13, padding: "8px 0" }}>商品名を入力してください</p>}
+          </div>
+        </div>
+      )}
+
+      {/* 商品詳細モーダル */}
+      {itemDetail && (() => {
+        const { catId, brandId, item } = itemDetail;
+        return (
+          <div className="mover" onClick={() => setItemDetail(null)}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                <h3 style={{ flex: 1, marginBottom: 0 }}>{item.name}</h3>
+                <button className="icobtn" onClick={() => setItemDetail(null)} style={{ marginLeft: 8 }}><Ico.X /></button>
+              </div>
+              <p style={{ color: "#b0a898", fontSize: 12, marginBottom: 20 }}>{cats.find(c=>c.id===catId)?.name} › {cats.find(c=>c.id===catId)?.brands?.find(b=>b.id===brandId)?.name}</p>
+
+              {item.retailPrice > 0 && <p style={{ color: "#2a7a5a", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>定価 ¥{item.retailPrice.toLocaleString()}</p>}
+              {item.costPrice > 0 && <p style={{ color: "#9a8f82", fontSize: 13, marginBottom: 16 }}>仕入 ¥{item.costPrice.toLocaleString()}</p>}
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, margin: "20px 0" }}>
+                <button className="big-adj dec" onClick={() => setDetailStock(s => Math.max(0, s - 1))}>−</button>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 48, color: detailStock === 0 ? "#c0392b" : detailStock <= item.minStock ? "#c87a00" : "#2d7a44", lineHeight: 1 }}>{detailStock}</div>
+                  <div style={{ color: "#b0a898", fontSize: 11, marginTop: 4 }}>注文ライン: {item.minStock}</div>
+                </div>
+                <button className="big-adj inc" onClick={() => setDetailStock(s => s + 1)}>+</button>
+              </div>
+
+              <div style={{ display: "flex", gap: 9, marginTop: 8 }}>
+                <button className="gbtn" style={{ flex: 1 }} onClick={() => setItemDetail(null)}>キャンセル</button>
+                <button className="pbtn" style={{ flex: 2 }} onClick={confirmStock}>確定</button>
+              </div>
+
+              <div style={{ borderTop: "1px solid #e8e2d8", marginTop: 16, paddingTop: 12, display: "flex", gap: 8 }}>
+                <button style={{ flex: 1, background: "#f5f0e8", border: "1px solid #e0d9ce", borderRadius: 8, padding: "8px", fontSize: 12, color: "#7a6f63", cursor: "pointer", fontFamily: "Noto Sans JP,sans-serif" }}
+                  onClick={() => { setItemDetail(null); setMinModal({ catId, brandId, itemId: item.id }); setMinVal(String(item.minStock)); }}>
+                  注文ライン変更
+                </button>
+                <button style={{ flex: 1, background: "#f5f0e8", border: "1px solid #e0d9ce", borderRadius: 8, padding: "8px", fontSize: 12, color: "#7a6f63", cursor: "pointer", fontFamily: "Noto Sans JP,sans-serif" }}
+                  onClick={() => { setItemDetail(null); openEditItem(catId, brandId, item); }}>
+                  詳細編集
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 商品詳細編集モーダル */}
+      {editItemModal && (
+        <div className="mover" onClick={() => setEditItemModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>📝 商品を編集</h3>
+            <div className="fg"><label>商品名</label><input value={editItemF.name} onChange={e => setEditItemF(n => ({ ...n, name: e.target.value }))} /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="fg"><label>在庫数</label><input type="number" min="0" value={editItemF.stock} onChange={e => setEditItemF(n => ({ ...n, stock: e.target.value }))} /></div>
+              <div className="fg"><label>注文ライン</label><input type="number" min="0" value={editItemF.minStock} onChange={e => setEditItemF(n => ({ ...n, minStock: e.target.value }))} /></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="fg"><label>定価（円）</label><input type="number" min="0" value={editItemF.retailPrice} onChange={e => setEditItemF(n => ({ ...n, retailPrice: e.target.value }))} placeholder="0" /></div>
+              <div className="fg"><label>仕入れ価格（円）</label><input type="number" min="0" value={editItemF.costPrice} onChange={e => setEditItemF(n => ({ ...n, costPrice: e.target.value }))} placeholder="0" /></div>
+            </div>
+            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end", marginTop: 4 }}>
+              <button className="gbtn" onClick={() => setEditItemModal(null)}>キャンセル</button>
+              <button className="pbtn" onClick={doEditItem}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 追加モーダル: カテゴリ */}
+      {addModal === "cat" && (
+        <div className="mover" onClick={() => setAddModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>📁 カテゴリを追加</h3>
+            <div className="fg"><label>カテゴリ名</label><input value={newCatF} onChange={e => setNewCatF(e.target.value)} placeholder="例: タイヤ・チューブ" autoFocus onKeyDown={e => e.key === "Enter" && doAddCat()} /></div>
+            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
+              <button className="gbtn" onClick={() => setAddModal(null)}>キャンセル</button>
+              <button className="pbtn" onClick={doAddCat}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 追加モーダル: ブランド */}
+      {addModal === "brand" && (
+        <div className="mover" onClick={() => setAddModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>🏷 ブランドを追加</h3>
+            <div className="fg"><label>カテゴリ</label>
+              <select value={newBrandF.catId} onChange={e => setNewBrandF(n => ({ ...n, catId: e.target.value }))}>
+                <option value="">選択してください</option>
+                {sortedCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="fg"><label>ブランド名</label><input value={newBrandF.name} onChange={e => setNewBrandF(n => ({ ...n, name: e.target.value }))} placeholder="例: Panaracer" onKeyDown={e => e.key === "Enter" && doAddBrand()} /></div>
+            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
+              <button className="gbtn" onClick={() => setAddModal(null)}>キャンセル</button>
+              <button className="pbtn" onClick={doAddBrand}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 追加モーダル: 商品 */}
+      {addModal === "item" && (
+        <div className="mover" onClick={() => setAddModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>🔧 商品を追加</h3>
+            <div className="fg"><label>カテゴリ</label>
+              <select value={newItemF.catId} onChange={e => setNewItemF(n => ({ ...n, catId: e.target.value, brandId: "" }))}>
+                <option value="">選択してください</option>
+                {sortedCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            {newItemF.catId && (
+              <div className="fg"><label>ブランド</label>
+                <select value={newItemF.brandId} onChange={e => setNewItemF(n => ({ ...n, brandId: e.target.value }))}>
+                  <option value="">選択してください</option>
+                  {[...(cats.find(c => c.id === newItemF.catId)?.brands || [])].sort((a, b) => a.order - b.order).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="fg"><label>商品名 *</label><input value={newItemF.name} onChange={e => setNewItemF(n => ({ ...n, name: e.target.value }))} placeholder="例: 26インチ タイヤ" /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="fg"><label>在庫数 *</label><input type="number" min="0" value={newItemF.stock} onChange={e => setNewItemF(n => ({ ...n, stock: e.target.value }))} placeholder="0" /></div>
+              <div className="fg"><label>注文ライン *</label><input type="number" min="0" value={newItemF.minStock} onChange={e => setNewItemF(n => ({ ...n, minStock: e.target.value }))} placeholder="5" /></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div className="fg"><label>定価（円）</label><input type="number" min="0" value={newItemF.retailPrice} onChange={e => setNewItemF(n => ({ ...n, retailPrice: e.target.value }))} placeholder="0" /></div>
+              <div className="fg"><label>仕入れ価格（円）</label><input type="number" min="0" value={newItemF.costPrice} onChange={e => setNewItemF(n => ({ ...n, costPrice: e.target.value }))} placeholder="0" /></div>
+            </div>
+            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end", marginTop: 4 }}>
+              <button className="gbtn" onClick={() => setAddModal(null)}>キャンセル</button>
+              <button className="pbtn" onClick={doAddItem}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 注文ライン変更モーダル */}
+      {minModal && (() => {
+        const c = cats.find(c => c.id === minModal.catId);
+        const b = c?.brands?.find(b => b.id === minModal.brandId);
+        const i = b?.items?.find(i => i.id === minModal.itemId);
+        return (
+          <div className="mover" onClick={() => setMinModal(null)}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+              <h3>⚙️ 注文ラインを変更</h3>
+              <p style={{ color: "#9a8f82", fontSize: 13, marginBottom: 16 }}>{i?.name}</p>
+              <div className="fg"><label>この個数以下で「要注文」と表示</label><input type="number" min="0" value={minVal} onChange={e => setMinVal(e.target.value)} autoFocus onKeyDown={e => e.key === "Enter" && doMin()} /></div>
+              <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
+                <button className="gbtn" onClick={() => setMinModal(null)}>キャンセル</button>
+                <button className="pbtn" onClick={doMin}>保存</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 設定パネル */}
       {stOpen && (
@@ -495,8 +681,8 @@ export default function App() {
                           <div style={{ display: "flex", gap: 4 }}>
                             <button className="sico" onClick={() => moveItem(stCatId, stBrandId, item.id, -1)} disabled={idx === 0}><Ico.Up /></button>
                             <button className="sico" onClick={() => moveItem(stCatId, stBrandId, item.id, 1)} disabled={idx === sortedStItems.length - 1}><Ico.Down /></button>
-                            <button className="sico sedit" title="名前変更" onClick={() => { setRnItem(rk); setRnItemV(item.name); }}><Ico.Edit /></button>
-                            <button className="sico" style={{ background: "#e8f0d6", color: "#2d7a44", border: "1px solid #c8e0b0" }} title="詳細編集" onClick={() => { setStOpen(false); openEditItem(stCatId, stBrandId, item); }}>📝</button>
+                            <button className="sico sedit" onClick={() => { setRnItem(rk); setRnItemV(item.name); }}><Ico.Edit /></button>
+                            <button className="sico" style={{ background: "#e8f0d6", color: "#2d7a44", border: "1px solid #c8e0b0", fontSize: 13 }} onClick={() => { setStOpen(false); openEditItem(stCatId, stBrandId, item); }}>📝</button>
                             <button className="sico sdel" onClick={() => delItem(stCatId, stBrandId, item.id)}><Ico.Trash /></button>
                           </div>
                         </div>
@@ -510,135 +696,6 @@ export default function App() {
           </aside>
         </div>
       )}
-
-      {/* 在庫増減モーダル */}
-      {adjModal && (() => {
-        const c = cats.find(c => c.id === adjModal.catId);
-        const b = c?.brands?.find(b => b.id === adjModal.brandId);
-        const i = b?.items?.find(i => i.id === adjModal.itemId);
-        return (
-          <div className="mover" onClick={() => setAdjModal(null)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <h3>{adjModal.mode === "add" ? "📦 在庫を増やす" : "📤 在庫を減らす"}</h3>
-              <p style={{ color: "#9a8f82", fontSize: 13, marginBottom: 16 }}>{i?.name}　現在: <strong style={{ color: "#c87a00" }}>{i?.stock}個</strong></p>
-              <div className="fg"><label>{adjModal.mode === "add" ? "追加する数量" : "減らす数量"}</label><input type="number" min="0" value={adjVal} onChange={e => setAdjVal(e.target.value)} placeholder="数量を入力" autoFocus onKeyDown={e => e.key === "Enter" && doAdj()} /></div>
-              {adjVal !== "" && !isNaN(parseInt(adjVal)) && (
-                <p style={{ color: "#9a8f82", fontSize: 12, marginBottom: 14 }}>変更後: <strong style={{ color: "#2d7a44" }}>{adjModal.mode === "add" ? (i?.stock || 0) + parseInt(adjVal) : Math.max(0, (i?.stock || 0) - parseInt(adjVal))}個</strong></p>
-              )}
-              <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
-                <button className="gbtn" onClick={() => setAdjModal(null)}>キャンセル</button>
-                <button className="pbtn" onClick={doAdj}>確定</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* 商品編集モーダル */}
-      {editItemModal && (
-        <div className="mover" onClick={() => setEditItemModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>📝 商品を編集</h3>
-            <div className="fg"><label>商品名</label><input value={editItemF.name} onChange={e => setEditItemF(n => ({ ...n, name: e.target.value }))} /></div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div className="fg"><label>在庫数</label><input type="number" min="0" value={editItemF.stock} onChange={e => setEditItemF(n => ({ ...n, stock: e.target.value }))} /></div>
-              <div className="fg"><label>注文ライン</label><input type="number" min="0" value={editItemF.minStock} onChange={e => setEditItemF(n => ({ ...n, minStock: e.target.value }))} /></div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div className="fg"><label>定価（円）</label><input type="number" min="0" value={editItemF.retailPrice} onChange={e => setEditItemF(n => ({ ...n, retailPrice: e.target.value }))} placeholder="0" /></div>
-              <div className="fg"><label>仕入れ価格（円）</label><input type="number" min="0" value={editItemF.costPrice} onChange={e => setEditItemF(n => ({ ...n, costPrice: e.target.value }))} placeholder="0" /></div>
-            </div>
-            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end", marginTop: 4 }}>
-              <button className="gbtn" onClick={() => setEditItemModal(null)}>キャンセル</button>
-              <button className="pbtn" onClick={doEditItem}>保存</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 商品追加モーダル */}
-      {addItemModal && (
-        <div className="mover" onClick={() => setAddItemModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>🔧 商品を追加</h3>
-            <div className="fg"><label>カテゴリ</label>
-              <select value={addItemModal.catId || newItemF.catId} onChange={e => { setAddItemModal(m => ({ ...m, catId: e.target.value, brandId: "" })); setNewItemF(n => ({ ...n, catId: e.target.value, brandId: "" })); }}>
-                <option value="">選択してください</option>
-                {sortedCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            {(addItemModal.catId || newItemF.catId) && (
-              <div className="fg"><label>ブランド</label>
-                <select value={addItemModal.brandId || newItemF.brandId} onChange={e => { setAddItemModal(m => ({ ...m, brandId: e.target.value })); setNewItemF(n => ({ ...n, brandId: e.target.value })); }}>
-                  <option value="">選択してください</option>
-                  {[...(cats.find(c => c.id === (addItemModal.catId || newItemF.catId))?.brands || [])].sort((a, b) => a.order - b.order).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-              </div>
-            )}
-            <div className="fg"><label>商品名 *</label><input value={newItemF.name} onChange={e => setNewItemF(n => ({ ...n, name: e.target.value }))} placeholder="例: 26インチ タイヤ" /></div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div className="fg"><label>在庫数 *</label><input type="number" min="0" value={newItemF.stock} onChange={e => setNewItemF(n => ({ ...n, stock: e.target.value }))} placeholder="0" /></div>
-              <div className="fg"><label>注文ライン *</label><input type="number" min="0" value={newItemF.minStock} onChange={e => setNewItemF(n => ({ ...n, minStock: e.target.value }))} placeholder="5" /></div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div className="fg"><label>定価（円）</label><input type="number" min="0" value={newItemF.retailPrice} onChange={e => setNewItemF(n => ({ ...n, retailPrice: e.target.value }))} placeholder="0" /></div>
-              <div className="fg"><label>仕入れ価格（円）</label><input type="number" min="0" value={newItemF.costPrice} onChange={e => setNewItemF(n => ({ ...n, costPrice: e.target.value }))} placeholder="0" /></div>
-            </div>
-            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end", marginTop: 4 }}>
-              <button className="gbtn" onClick={() => { setAddItemModal(null); setNewItemF({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "", catId: "", brandId: "" }); }}>キャンセル</button>
-              <button className="pbtn" onClick={doAddItem}>追加</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ブランド追加モーダル */}
-      {addBrandModal && (
-        <div className="mover" onClick={() => setAddBrandModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>🏷 ブランドを追加</h3>
-            <div className="fg"><label>ブランド名</label><input value={newBrandF} onChange={e => setNewBrandF(e.target.value)} placeholder="例: Panaracer" autoFocus onKeyDown={e => e.key === "Enter" && doAddBrand()} /></div>
-            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
-              <button className="gbtn" onClick={() => setAddBrandModal(null)}>キャンセル</button>
-              <button className="pbtn" onClick={doAddBrand}>追加</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* カテゴリ追加モーダル */}
-      {addCatModal && (
-        <div className="mover" onClick={() => setAddCatModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>📁 カテゴリを追加</h3>
-            <div className="fg"><label>カテゴリ名</label><input value={newCatF} onChange={e => setNewCatF(e.target.value)} placeholder="例: ライト・アクセサリー" autoFocus onKeyDown={e => e.key === "Enter" && doAddCat()} /></div>
-            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
-              <button className="gbtn" onClick={() => setAddCatModal(false)}>キャンセル</button>
-              <button className="pbtn" onClick={doAddCat}>追加</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 注文ライン変更モーダル */}
-      {minModal && (() => {
-        const c = cats.find(c => c.id === minModal.catId);
-        const b = c?.brands?.find(b => b.id === minModal.brandId);
-        const i = b?.items?.find(i => i.id === minModal.itemId);
-        return (
-          <div className="mover" onClick={() => setMinModal(null)}>
-            <div className="modal" onClick={e => e.stopPropagation()}>
-              <h3>⚙️ 注文ラインを変更</h3>
-              <p style={{ color: "#9a8f82", fontSize: 13, marginBottom: 16 }}>{i?.name}</p>
-              <div className="fg"><label>この個数以下で「要注文」と表示</label><input type="number" min="0" value={minVal} onChange={e => setMinVal(e.target.value)} autoFocus onKeyDown={e => e.key === "Enter" && doMin()} /></div>
-              <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
-                <button className="gbtn" onClick={() => setMinModal(null)}>キャンセル</button>
-                <button className="pbtn" onClick={doMin}>保存</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }
@@ -648,35 +705,33 @@ const CSS = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #f5f0e8; font-family: 'Noto Sans JP', sans-serif; color: #2a2018; }
   ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #ede8df; } ::-webkit-scrollbar-thumb { background: #c8bfb0; border-radius: 2px; }
+  .hide-scroll::-webkit-scrollbar { display: none; }
   .spin { width: 36px; height: 36px; border: 3px solid #e0d9ce; border-top-color: #2a2018; border-radius: 50%; animation: rot .7s linear infinite; }
   @keyframes rot { to { transform: rotate(360deg); } }
-  .pbtn { background: #2a2018; color: #f5f0e8; font-weight: 700; padding: 9px 22px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Syne', sans-serif; transition: background .15s, transform .15s; }
-  .pbtn:hover { background: #3d3020; transform: translateY(-1px); }
+  .pbtn { background: #2a2018; color: #f5f0e8; font-weight: 700; padding: 9px 22px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Syne', sans-serif; transition: background .15s; }
+  .pbtn:hover { background: #3d3020; }
   .gbtn { background: #e8e2d8; color: #7a6f63; font-weight: 600; padding: 9px 18px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Syne', sans-serif; transition: background .15s; }
   .gbtn:hover { background: #ddd6ca; color: #2a2018; }
   .icobtn { background: #e8e2d8; border: none; cursor: pointer; border-radius: 9px; padding: 8px; display: flex; align-items: center; justify-content: center; color: #7a6f63; transition: background .15s, color .15s; }
   .icobtn:hover { background: #2a2018; color: #f5f0e8; }
-  .smbtn { background: #e8e2d8; color: #7a6f63; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-weight: 500; transition: background .12s; }
-  .smbtn:hover { background: #ddd6ca; color: #2a2018; }
-  .smbtn.brand { background: #d6e4f0; color: #2563a8; } .smbtn.brand:hover { background: #c4d6ea; }
-  .adjbtn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .12s; }
-  .adjbtn.dec { background: #f0d9d6; color: #c0392b; } .adjbtn.dec:hover { background: #e8c8c4; }
-  .adjbtn.inc { background: #d6ead9; color: #2d7a44; } .adjbtn.inc:hover { background: #c2dfc7; }
-  .tbtn { background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; padding: 10px 20px; border-radius: 8px; transition: all .18s; letter-spacing: .03em; display: flex; align-items: center; gap: 7px; }
-  .ton { background: #2a2018; color: #f5f0e8; } .toff { color: #9a8f82; } .toff:hover { color: #2a2018; background: #e8e2d8; } .tred { background: #c0392b; color: #fff; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; animation: pulse 1.5s infinite; }
-  .badge { background: #c0392b; color: #fff; border-radius: 99px; padding: 1px 7px; font-size: 11px; font-weight: 700; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-  .irow { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; background: #fff; border: 1px solid #e8e2d8; margin-bottom: 5px; transition: border-color .12s, box-shadow .12s; }
-  .irow:hover { border-color: #c8bfb0; box-shadow: 0 2px 8px rgba(42,32,24,.06); }
-  .snum { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 21px; min-width: 34px; text-align: center; }
+  .cat-tab { background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; padding: 6px 16px; border-radius: 20px; margin-right: 6px; color: #c8bfb0; transition: all .15s; white-space: nowrap; }
+  .cat-tab:hover { color: #7a6f63; }
+  .cat-tab-on { background: #2a2018; color: #f5f0e8; }
+  .add-chip { background: #f5f0e8; border: 1.5px solid #e0d9ce; border-radius: 20px; padding: 7px 16px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; font-weight: 600; color: #2a2018; cursor: pointer; transition: all .12s; }
+  .add-chip:hover { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
+  .irow { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid #e8e2d8; margin-bottom: 6px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+  .irow:hover { border-color: #c8bfb0; box-shadow: 0 2px 8px rgba(42,32,24,.08); transform: translateY(-1px); }
+  .snum { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; }
   .sok { color: #2d7a44; } .slow { color: #c87a00; } .scrit { color: #c0392b; }
   .tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-family: 'Syne', sans-serif; font-weight: 700; flex-shrink: 0; }
   .tlow { background: #c87a0015; color: #c87a00; border: 1px solid #c87a0040; } .tcrit { background: #c0392b15; color: #c0392b; border: 1px solid #c0392b40; }
-  .minlink { color: #b0a898; font-size: 11px; cursor: pointer; text-decoration: underline; } .minlink:hover { color: #7a6f63; }
-  .cathdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .brandhdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .ocard { background: #fdf0ee; border: 1px solid #f0c8c4; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; display: inline-block; animation: pulse 1.5s infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .big-adj { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all .12s; }
+  .big-adj.dec { background: #f0d9d6; color: #c0392b; } .big-adj.dec:hover { background: #e8c8c4; transform: scale(1.05); }
+  .big-adj.inc { background: #d6ead9; color: #2d7a44; } .big-adj.inc:hover { background: #c2dfc7; transform: scale(1.05); }
+  .search-overlay { position: fixed; inset: 0; background: rgba(42,32,24,.4); z-index: 950; display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; backdrop-filter: blur(4px); }
+  .search-panel { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 16px; width: 420px; max-width: 93vw; max-height: 70vh; overflow-y: auto; box-shadow: 0 10px 36px rgba(42,32,24,.15); }
   .mover { position: fixed; inset: 0; background: rgba(42,32,24,.42); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
   .modal { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 26px; width: 370px; max-width: 92vw; box-shadow: 0 10px 36px rgba(42,32,24,.13); max-height: 90vh; overflow-y: auto; }
   .modal h3 { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: #2a2018; margin-bottom: 18px; }
@@ -695,18 +750,16 @@ const CSS = `
   .rninput { flex: 1; background: #fff; border: 1.5px solid #2a2018; border-radius: 6px; padding: 5px 9px; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; color: #2a2018; outline: none; }
   .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; transition: all .12s; }
   .chip:hover { background: #ddd6ca; color: #2a2018; } .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
+  .ocard { background: #fdf0ee; border: 1px solid #f0c8c4; border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
 `;
 
 const S = {
   root: { background: "#f5f0e8", minHeight: "100vh" },
-  hdr: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 16px", borderBottom: "1px solid #e0d9ce", background: "#faf7f2", flexWrap: "wrap", gap: 10 },
+  hdr: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #e0d9ce", background: "#faf7f2" },
   logo: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 20, color: "#2a2018", letterSpacing: "-.02em" },
   sub: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#b0a898", letterSpacing: ".1em", marginTop: 2, textTransform: "uppercase" },
-  nav: { display: "flex", gap: 7, padding: "10px 20px", borderBottom: "1px solid #e0d9ce", background: "#faf7f2" },
-  main: { padding: "20px", maxWidth: 860 },
-  catBlk: { marginBottom: 28 },
-  brandBlk: { background: "#faf7f2", border: "1px solid #e8e2d8", borderRadius: 12, padding: "12px 14px", marginBottom: 10 },
-  catNm: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 15, color: "#2a2018" },
+  main: { padding: "16px 20px", maxWidth: 860 },
+  brandBlk: { background: "#faf7f2", border: "1px solid #e8e2d8", borderRadius: 12, padding: "12px 14px", marginBottom: 12 },
   brandNm: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 13, color: "#2563a8" },
   empty: { textAlign: "center", padding: "64px 0" },
 };
