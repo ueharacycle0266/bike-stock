@@ -380,13 +380,13 @@ export default function App() {
                               {item.retailPrice > 0 && <span style={{ color: "#2a7a5a", fontSize: 11, fontWeight: 600 }}>定価 ¥{item.retailPrice.toLocaleString()}</span>}
                               {item.costPrice > 0 && <span style={{ color: "#9a8f82", fontSize: 11 }}>仕入 ¥{item.costPrice.toLocaleString()}</span>}
                               <span className="minlink" onClick={() => { setMinModal({ catId: cat.id, brandId: brand.id, itemId: item.id }); setMinVal(String(item.minStock)); }}>注文ライン: {item.minStock}</span>
-                              <button className="edit-inline-btn" onClick={() => openEditItem(cat.id, brand.id, item)}>✏️ 編集</button>
+                              
                             </div>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                            <button className="dbtn" onClick={() => { setAdjModal({ catId: cat.id, brandId: brand.id, itemId: item.id, mode: "sub" }); setAdjVal(""); }}>− 減らす</button>
+                            <button className="adjbtn dec" onClick={() => { setAdjModal({ catId: cat.id, brandId: brand.id, itemId: item.id, mode: "sub" }); setAdjVal(""); }}>−</button>
                             <span className={`snum ${sc}`}>{item.stock}</span>
-                            <button className="ibtn" onClick={() => { setAdjModal({ catId: cat.id, brandId: brand.id, itemId: item.id, mode: "add" }); setAdjVal(""); }}>+ 増やす</button>
+                            <button className="adjbtn inc" onClick={() => { setAdjModal({ catId: cat.id, brandId: brand.id, itemId: item.id, mode: "add" }); setAdjVal(""); }}>+</button>
                           </div>
                         </div>
                       );
@@ -496,7 +496,7 @@ export default function App() {
                           <div style={{ display: "flex", gap: 4 }}>
                             <button className="sico" onClick={() => moveItem(stCatId, stBrandId, item.id, -1)} disabled={idx === 0}><Ico.Up /></button>
                             <button className="sico" onClick={() => moveItem(stCatId, stBrandId, item.id, 1)} disabled={idx === sortedStItems.length - 1}><Ico.Down /></button>
-                            <button className="sico sedit" onClick={() => { setRnItem(rk); setRnItemV(item.name); }}><Ico.Edit /></button>
+                            <button className="sico sedit" onClick={() => { setStOpen(false); openEditItem(stCatId, stBrandId, item); }}><Ico.Edit /></button>
                             <button className="sico sdel" onClick={() => delItem(stCatId, stBrandId, item.id)}><Ico.Trash /></button>
                           </div>
                         </div>
@@ -663,7 +663,9 @@ const CSS = `
   .ibtn:hover { background: #c2dfc7; }
   .dbtn { background: #f0d9d6; color: #c0392b; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-weight: 500; transition: background .12s; }
   .dbtn:hover { background: #e8c8c4; }
-  .edit-inline-btn { background: none; border: none; cursor: pointer; font-size: 11px; color: #9a8f82; padding: 0; font-family: 'Noto Sans JP', sans-serif; transition: color .12s; }
+  .adjbtn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .12s; }
+  .adjbtn.dec { background: #f0d9d6; color: #c0392b; } .adjbtn.dec:hover { background: #e8c8c4; }
+  .adjbtn.inc { background: #d6ead9; color: #2d7a44; } .adjbtn.inc:hover { background: #c2dfc7; }
   .edit-inline-btn:hover { color: #2563a8; }
   .tbtn { background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; padding: 10px 20px; border-radius: 8px; transition: all .18s; letter-spacing: .03em; display: flex; align-items: center; gap: 7px; }
   .ton { background: #2a2018; color: #f5f0e8; } .toff { color: #9a8f82; } .toff:hover { color: #2a2018; background: #e8e2d8; } .tred { background: #c0392b; color: #fff; }
