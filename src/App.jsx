@@ -93,8 +93,8 @@ export default function App() {
   const handleLogin = () => {
     sessionStorage.setItem("bike_auth", "1");
     setLoggedIn(true);
-    setLoading(true);
   };
+
   if (!loggedIn) return <LoginScreen onLogin={handleLogin} />;
 
   const loadData = async () => {
@@ -120,7 +120,7 @@ export default function App() {
     setLoading(false);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (loggedIn) loadData(); }, [loggedIn]);
 
   const sortedCats = [...cats].sort((a, b) => a.order - b.order);
   const needOrder = useMemo(() => {
