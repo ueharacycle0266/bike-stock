@@ -9,11 +9,25 @@ const HOURS = Array.from({length:22}, (_,i) => { const h=Math.floor(i/2)+9, m=i%
 const api = async (path, method="GET", body=null) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
-    headers: { "apikey":SUPABASE_KEY, "Authorization":`Bearer ${SUPABASE_KEY}`, "Content-Type":"application/json", "Prefer":method==="POST"?"return=representation":"return=minimal" },
+    headers: {
+      "apikey":SUPABASE_KEY,
+      "Authorization":`Bearer ${SUPABASE_KEY}`,
+      "Content-Type":"application/json",
+      "Prefer":method==="POST"?"return=representation":"return=minimal"
+    },
     body: body ? JSON.stringify(body) : null,
   });
-  if (method==="GET"||method==="POST") return res.json();
-  return res;
+
+  const text = await res.text();
+  const data = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : null;
+
+  if (!res.ok) {
+    console.error("Supabase error", { path, method, status: res.status, data });
+    throw new Error(typeof data === "string" ? data : (data?.message || `Request failed: ${res.status}`));
+  }
+
+  if (method==="GET"||method==="POST") return data ?? [];
+  return data ?? res;
 };
 
 const uid = () => "x"+Math.random().toString(36).slice(2,9);
@@ -34,6 +48,21 @@ const exportCSV = (cats) => {
   const blob = new Blob(["\uFEFF"+rows.map(r=>r.map(v=>`"${v}"`).join(",")).join("\n")],{type:"text/csv;charset=utf-8;"});
   const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`在庫_${fmt(new Date(),"date")}.csv`; a.click();
 };
+
+const safeArray = (value) => Array.isArray(value) ? value : [];
+const normalizeBikes = (bikes) => {
+  if (Array.isArray(bikes)) return bikes;
+  if (typeof bikes === "string" && bikes.trim()) {
+    try {
+      const parsed = JSON.parse(bikes);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+const normalizeCustomer = (c) => ({...c, bikes: normalizeBikes(c.bikes)});
 
 const Ico = {
   Settings:()=>(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>),
@@ -133,12 +162,26 @@ export default function App() {
     setCustLoading(true);
     try {
       const data = await api("customers?select=*&order=created_at.desc");
-      if (Array.isArray(data)) {
-        setCustomers(data.map(c=>({...c,bikes:c.bikes||[]})));
-        setCustLoaded(true);
-      }
-    } catch(e){console.error(e);}
-    setCustLoading(false);
+      if (!Array.isArray(data)) throw new Error("customersの取得結果が配列ではありません");
+
+      const normalized = data.map(normalizeCustomer);
+
+      // リロード時に一時的な空レスポンスで、画面上の顧客を消さない保護。
+      // 本当にDBが空の場合は、初回読み込み時だけ空として扱う。
+      setCustomers(prev => {
+        if (normalized.length === 0 && prev.length > 0) {
+          console.warn("顧客リロードで0件が返ったため、既存表示を保持しました");
+          return prev;
+        }
+        return normalized;
+      });
+      setCustLoaded(true);
+    } catch(e){
+      console.error(e);
+      // 取得失敗時は既存の顧客一覧を残す。
+    } finally {
+      setCustLoading(false);
+    }
   };
 
   const loadMasters = async () => {
