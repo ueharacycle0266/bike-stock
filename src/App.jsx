@@ -13,9 +13,11 @@ const api = async (path, method="GET", body=null) => {
       "apikey":SUPABASE_KEY,
       "Authorization":`Bearer ${SUPABASE_KEY}`,
       "Content-Type":"application/json",
-      "Prefer":method==="POST"?"return=representation":"return=minimal"
+      "Prefer":method==="POST"?"return=representation":"return=minimal",
+      "Cache-Control":"no-cache"
     },
     body: body ? JSON.stringify(body) : null,
+    cache: "no-store",
   });
 
   const text = await res.text();
@@ -158,17 +160,18 @@ export default function App() {
     setScreen("main");
   };
 
-  const loadCustomers = async () => {
-    setCustLoading(true);
+  const loadCustomers = async ({ silent=false } = {}) => {
+    // 初回だけローディング表示。手動リロードでは一覧を消さずに裏で更新する。
+    if (!silent && !custLoaded && customers.length === 0) setCustLoading(true);
     try {
       const data = await api("customers?select=*&order=created_at.desc");
       if (!Array.isArray(data)) throw new Error("customersの取得結果が配列ではありません");
 
       const normalized = data.map(normalizeCustomer);
 
-      // リロード時に一時的な空レスポンスで、画面上の顧客を消さない保護。
-      // 本当にDBが空の場合は、初回読み込み時だけ空として扱う。
       setCustomers(prev => {
+        // 取得失敗・一時的な空返却で顧客一覧が消えるのを防ぐ。
+        // ただしDB側に1件以上ある時は必ず最新データで上書きするので、他端末の追加も反映される。
         if (normalized.length === 0 && prev.length > 0) {
           console.warn("顧客リロードで0件が返ったため、既存表示を保持しました");
           return prev;
@@ -176,9 +179,11 @@ export default function App() {
         return normalized;
       });
       setCustLoaded(true);
+      return normalized;
     } catch(e){
       console.error(e);
       // 取得失敗時は既存の顧客一覧を残す。
+      return customers;
     } finally {
       setCustLoading(false);
     }
@@ -322,7 +327,7 @@ export default function App() {
       <style>{CSS}</style>
       <div style={{background:"#faf7f2",border:"1px solid #e0d9ce",borderRadius:20,padding:"40px 36px",width:320,maxWidth:"90vw",boxShadow:"0 8px 32px rgba(42,32,24,.1)",textAlign:"center"}}>
         <div style={{fontSize:32,marginBottom:8}}>🔒</div>
-        <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:22,color:"#2a2018",marginBottom:6}}>🚲 上原サイクル</div>
+        <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:22,color:"#2a2018",marginBottom:6}}>🚲 ウエハラサイクル</div>
         <div style={{fontFamily:"Syne,sans-serif",fontSize:10,color:"#b0a898",letterSpacing:".1em",textTransform:"uppercase",marginBottom:28}}>Management System</div>
         <input type="password" value={pwVal} onChange={e=>{setPwVal(e.target.value);setPwErr(false);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="パスワードを入力"
           style={{width:"100%",background:pwErr?"#fdf0ee":"#f5f0e8",border:`1.5px solid ${pwErr?"#c0392b":"#ccc5ba"}`,borderRadius:10,padding:"12px 14px",color:"#2a2018",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,outline:"none",textAlign:"center",letterSpacing:"0.2em",marginBottom:8}} autoFocus />
@@ -657,7 +662,7 @@ export default function App() {
       return <div style={S.root}>
         <style>{CSS}</style>
         <Header>
-          <button className="icobtn" onClick={()=>{ loadCustomers(); setCustDetail(null); }}><Ico.Refresh/></button>
+          <button className="icobtn" onClick={async()=>{ await loadCustomers({silent:true}); setCustDetail(null); }}><Ico.Refresh/></button>
         </Header>
         <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",alignItems:"center",gap:8}}>
           <button className="icobtn" onClick={()=>setCustDetail(null)}><Ico.Back/></button>
@@ -716,7 +721,7 @@ export default function App() {
     return <div style={S.root}>
       <style>{CSS}</style>
       <Header>
-        <button className="icobtn" onClick={()=>{loadCustomers();loadEstimates();}}><Ico.Refresh/></button>
+        <button className="icobtn" onClick={()=>{loadCustomers({silent:true});loadEstimates();}}><Ico.Refresh/></button>
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
         <button className="icobtn" onClick={()=>setStCustOpen(true)}><Ico.Settings/></button>
       </Header>
