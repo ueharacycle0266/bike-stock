@@ -148,6 +148,7 @@ export default function App() {
   const [makerMaster, setMakerMaster] = useState([]);
   const [newBikeF, setNewBikeF] = useState({maker:"",color:"",nextMaintenanceDate:""});
   const [addBikeModal, setAddBikeModal] = useState(false);
+  const [showMakerAddInBike, setShowMakerAddInBike] = useState(false);
   const [stCustOpen, setStCustOpen] = useState(false);
   const [newMakerF, setNewMakerF] = useState("");
   const [rnMaker, setRnMaker] = useState(null); const [rnMakerV, setRnMakerV] = useState("");
@@ -156,6 +157,7 @@ export default function App() {
   const [repairMenus, setRepairMenus] = useState([]);
   const [editMenuOpen, setEditMenuOpen] = useState(false);
   const [newMenuF, setNewMenuF] = useState({name:"",price:""});
+  const [showRepairMenuAdd, setShowRepairMenuAdd] = useState(false);
 
   // ── 見積もり ──
   const [estimates, setEstimates] = useState([]); // 全見積もり
@@ -330,7 +332,7 @@ export default function App() {
     catch(e){ console.error(e); alert("自転車情報の保存に失敗しました。"); }
     finally { setSaving(false); }
   };
-  const delBike=async(idx)=>{
+  const delBike=async(idx)=>{ if(!window.confirm("この登録自転車を削除しますか？")) return;
     if(!custDetail) return;
     const bikes=(custDetail.bikes||[]).filter((_,i)=>i!==idx);
     setSaving(true);
@@ -486,6 +488,20 @@ export default function App() {
   const estTotal = useMemo(() => (estItems||[]).reduce((sum,it)=>sum + (getEstItemPrice(it) * (Number(it.qty)||0)),0), [estItems, repairMenus]);
   const resRepairTotal = useMemo(() => (resForm.repairItems||[]).reduce((sum,it)=>sum + (getEstItemPrice(it) * (Number(it.qty)||0)),0), [resForm.repairItems, repairMenus]);
 
+  const estMemoLines = useMemo(() => String(estMemo || "").split("\n").length ? String(estMemo || "").split("\n") : [""], [estMemo]);
+  const updateEstMemoLine = (idx, value) => {
+    const lines = String(estMemo || "").split("\n");
+    while (lines.length <= idx) lines.push("");
+    lines[idx] = value;
+    setEstMemo(lines.join("\n"));
+  };
+  const addEstMemoLine = () => setEstMemo(prev => (prev ? prev + "\n" : "\n"));
+  const removeEstMemoLine = (idx) => {
+    const lines = String(estMemo || "").split("\n");
+    const next = lines.filter((_, i) => i !== idx);
+    setEstMemo(next.join("\n"));
+  };
+
   const doAddRes=async()=>{
     if(!addResModal||!resForm.checkinDate) return;
     const id=uid();
@@ -514,38 +530,74 @@ export default function App() {
 
   const filteredCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,custSearch)),[customers,custSearch]);
 
+  const RepairMenuQuickAdd=()=> <div className="quick-add-box">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+      <span style={{fontWeight:800,fontSize:12,color:"#2a2018"}}>修理メニュー追加</span>
+      <button className="sico" onClick={()=>setShowRepairMenuAdd(false)}>×</button>
+    </div>
+    <div className="quick-add-row">
+      <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" />
+      <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" inputMode="numeric" />
+      <button className="pbtn" onClick={doAddMenu}>追加</button>
+    </div>
+  </div>;
+
   const EstimateLinesEditor=()=> <div style={{marginBottom:14}}>
-    {(estItems||[]).map((it,i)=><div key={i} className="estimate-line">
-      {(repairMenus||[]).length>0 ? <select value={it.menuId || ""} onChange={e=>{
-        const menu=(repairMenus||[]).find(m=>m.id===e.target.value);
-        updateEstimateLine(i, menu ? {menuId:menu.id,name:menu.name,price:menu.price} : {menuId:"",name:"",price:""});
-      }}>
-        <option value="">修理メニュー</option>
-        {(repairMenus||[]).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-      </select> : <input value={getEstItemName(it)} onChange={e=>updateEstimateLine(i,{name:e.target.value})} placeholder="修理内容" />}
-      <input type="number" min="1" value={it.qty ?? 1} onChange={e=>updateEstimateLine(i,{qty:e.target.value})} placeholder="数量" />
-      <input type="number" min="0" value={it.price ?? ""} onChange={e=>updateEstimateLine(i,{price:e.target.value})} placeholder="金額" />
-      <button className="sico sdel" onClick={()=>deleteEstimateLine(i)}><Ico.Trash/></button>
-    </div>)}
+    {(estItems||[]).map((it,i)=>{
+      const unit=getEstItemPrice(it);
+      const qty=Number(it.qty||0) || 0;
+      const lineTotal=unit*qty;
+      return <div key={i} className="estimate-line">
+        {(repairMenus||[]).length>0 ? <select value={it.menuId || ""} onChange={e=>{
+          const menu=(repairMenus||[]).find(m=>m.id===e.target.value);
+          updateEstimateLine(i, menu ? {menuId:menu.id,name:menu.name,price:menu.price,qty:it.qty||1} : {menuId:"",name:"",price:"",qty:it.qty||1});
+        }}>
+          <option value="">修理メニュー</option>
+          {(repairMenus||[]).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+        </select> : <input value={getEstItemName(it)} onChange={e=>updateEstimateLine(i,{name:e.target.value})} placeholder="修理内容" />}
+        <input type="number" inputMode="numeric" min="1" value={it.qty ?? 1} onChange={e=>updateEstimateLine(i,{qty:e.target.value})} placeholder="数量" />
+        {it.menuId ? <div className="line-total">¥{lineTotal.toLocaleString()}</div> : <input type="number" inputMode="numeric" min="0" value={it.price ?? ""} onChange={e=>updateEstimateLine(i,{price:e.target.value})} placeholder="金額" />}
+        <button className="sico sdel" onClick={()=>deleteEstimateLine(i)}><Ico.Trash/></button>
+      </div>})}
     {(estItems||[]).length===0&&<p style={{color:"#b0a898",fontSize:13,marginBottom:8}}>行を追加して修理メニューを選んでください</p>}
-    <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addEstimateLine}>＋ 行を追加</button>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addEstimateLine}>＋ 行を追加</button>
+      <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>setShowRepairMenuAdd(v=>!v)}>＋ 修理メニュー追加</button>
+    </div>
+    {showRepairMenuAdd&&<RepairMenuQuickAdd/>}
   </div>;
 
   const ResRepairLinesEditor=()=> <div>
-    {(resForm.repairItems||[]).map((it,i)=><div key={i} className="estimate-line">
-      {(repairMenus||[]).length>0 ? <select value={it.menuId || ""} onChange={e=>{
-        const menu=(repairMenus||[]).find(m=>m.id===e.target.value);
-        updateResRepairLine(i, menu ? {menuId:menu.id,name:menu.name,price:menu.price} : {menuId:"",name:"",price:""});
-      }}>
-        <option value="">修理メニュー</option>
-        {(repairMenus||[]).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-      </select> : <input value={getEstItemName(it)} onChange={e=>updateResRepairLine(i,{name:e.target.value})} placeholder="修理内容" />}
-      <input type="number" min="1" value={it.qty ?? 1} onChange={e=>updateResRepairLine(i,{qty:e.target.value})} placeholder="数量" />
-      <input type="number" min="0" value={it.price ?? ""} onChange={e=>updateResRepairLine(i,{price:e.target.value})} placeholder="金額" />
-      <button className="sico sdel" onClick={()=>deleteResRepairLine(i)}><Ico.Trash/></button>
-    </div>)}
+    {(resForm.repairItems||[]).map((it,i)=>{
+      const unit=getEstItemPrice(it);
+      const qty=Number(it.qty||0) || 0;
+      const lineTotal=unit*qty;
+      return <div key={i} className="estimate-line">
+        {(repairMenus||[]).length>0 ? <select value={it.menuId || ""} onChange={e=>{
+          const menu=(repairMenus||[]).find(m=>m.id===e.target.value);
+          updateResRepairLine(i, menu ? {menuId:menu.id,name:menu.name,price:menu.price,qty:it.qty||1} : {menuId:"",name:"",price:"",qty:it.qty||1});
+        }}>
+          <option value="">修理メニュー</option>
+          {(repairMenus||[]).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+        </select> : <input value={getEstItemName(it)} onChange={e=>updateResRepairLine(i,{name:e.target.value})} placeholder="修理内容" />}
+        <input type="number" inputMode="numeric" min="1" value={it.qty ?? 1} onChange={e=>updateResRepairLine(i,{qty:e.target.value})} placeholder="数量" />
+        {it.menuId ? <div className="line-total">¥{lineTotal.toLocaleString()}</div> : <input type="number" inputMode="numeric" min="0" value={it.price ?? ""} onChange={e=>updateResRepairLine(i,{price:e.target.value})} placeholder="金額" />}
+        <button className="sico sdel" onClick={()=>deleteResRepairLine(i)}><Ico.Trash/></button>
+      </div>})}
     {(resForm.repairItems||[]).length===0&&<div style={{fontSize:12,color:"#b0a898",padding:"6px 0"}}>行を追加して修理メニューを選んでください</div>}
-    <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addResRepairLine}>＋ 修理内容を追加</button>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addResRepairLine}>＋ 修理内容を追加</button>
+      <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>setShowRepairMenuAdd(v=>!v)}>＋ 修理メニュー追加</button>
+    </div>
+    {showRepairMenuAdd&&<RepairMenuQuickAdd/>}
+  </div>;
+
+  const EstimateMemoEditor=()=> <div className="fg"><label>メモ</label>
+    {estMemoLines.map((line,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6}}>
+      <input value={line} onChange={e=>updateEstMemoLine(i,e.target.value)} placeholder={`メモ${i+1}`} />
+      {estMemoLines.length>1&&<button className="gbtn" style={{padding:"8px 10px"}} onClick={()=>removeEstMemoLine(i)}>削除</button>}
+    </div>)}
+    <button className="gbtn" style={{fontSize:12,padding:"7px 12px"}} onClick={addEstMemoLine}>＋ メモ行を追加</button>
   </div>;
 
   // ── ログイン ──
@@ -737,7 +789,7 @@ export default function App() {
 
               {selectedResCust&&(
                 <div className="fg"><label>修理内容・見積もり</label>
-                  <div style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:8,padding:"8px"}}><ResRepairLinesEditor/></div>
+                  <div style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:8,padding:"8px"}}>{ResRepairLinesEditor()}</div>
                   {resRepairTotal>0&&<div style={{display:"flex",justifyContent:"space-between",background:"#f5f0e8",borderRadius:8,padding:"8px 10px",marginTop:6,fontWeight:800}}><span>見積合計</span><span style={{color:"#2a7a5a"}}>¥{resRepairTotal.toLocaleString()}</span></div>}
                 </div>
               )}
@@ -835,12 +887,12 @@ export default function App() {
           <div className="mover" onClick={()=>setAddEstModal(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
               <h3>📋 見積もり作成</h3>
-              <EstimateLinesEditor/>
+              {EstimateLinesEditor()}
               {estTotal>0&&<div style={{background:"#f5f0e8",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",marginBottom:12}}>
                 <span style={{fontWeight:700,fontSize:14}}>合計</span>
                 <span style={{fontWeight:800,fontSize:16,color:"#2a7a5a"}}>¥{estTotal.toLocaleString()}</span>
               </div>}
-              <div className="fg"><label>メモ</label><input value={estMemo} onChange={e=>setEstMemo(e.target.value)} placeholder="備考など"/></div>
+              {EstimateMemoEditor()}
               <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
                 <button className="gbtn" onClick={()=>setAddEstModal(null)}>キャンセル</button>
                 <button className="pbtn" onClick={doSaveEst}>保存</button>
@@ -853,11 +905,11 @@ export default function App() {
           <div className="mover" onClick={()=>setEditEstModal(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
               <h3>📋 見積もり編集</h3>
-              <EstimateLinesEditor/>
+              {EstimateLinesEditor()}
               {estTotal>0&&<div style={{background:"#f5f0e8",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",marginBottom:12}}>
                 <span style={{fontWeight:700,fontSize:14}}>合計</span><span style={{fontWeight:800,fontSize:16,color:"#2a7a5a"}}>¥{estTotal.toLocaleString()}</span>
               </div>}
-              <div className="fg"><label>メモ</label><input value={estMemo} onChange={e=>setEstMemo(e.target.value)}/></div>
+              {EstimateMemoEditor()}
               <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
                 <button className="gbtn" onClick={()=>setEditEstModal(null)}>キャンセル</button>
                 <button className="pbtn" onClick={doUpdateEst}>保存</button>
@@ -883,7 +935,6 @@ export default function App() {
             {custDetail.furigana&&<div style={{fontSize:11,color:"#b0a898"}}>{custDetail.furigana}</div>}
           </div>
           <button className="icobtn" onClick={()=>setAddBikeModal(true)}><Ico.Plus/></button>
-          <button className="icobtn" onClick={()=>{ setStCustOpen(true); loadMasters(); }}><Ico.Settings/></button>
           <button className="smbtn" onClick={()=>setEditCustModal({...custDetail})}>編集</button>
           <button className="smbtn" style={{color:"#c0392b"}} onClick={()=>delCust(custDetail.id)}>削除</button>
         </div>
@@ -925,6 +976,8 @@ export default function App() {
                   <option value="">メーカー選択</option>
                   {makerMaster.map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
                 </select>
+                <button className="gbtn" style={{fontSize:12,padding:"7px 12px",marginTop:8}} onClick={()=>setShowMakerAddInBike(v=>!v)}>＋ メーカー追加</button>
+                {showMakerAddInBike&&<div className="quick-add-box"><div className="quick-add-row"><input value={newMakerF} onChange={e=>setNewMakerF(e.target.value)} placeholder="例: GIANT"/><button className="pbtn" onClick={async()=>{await doAddMaker();}}>追加</button></div></div>}
               </div>
               <div className="fg"><label>色（任意）</label><input value={newBikeF.color} onChange={e=>setNewBikeF(n=>({...n,color:e.target.value}))} placeholder="例: 赤"/></div>
               <div className="fg"><label>次回メンテナンス日</label><input type="date" value={newBikeF.nextMaintenanceDate||""} onChange={e=>setNewBikeF(n=>({...n,nextMaintenanceDate:e.target.value}))}/></div>
@@ -972,16 +1025,15 @@ export default function App() {
       <Header>
         <button className="icobtn" onClick={()=>{loadCustomers({silent:true});loadEstimates();}}><Ico.Refresh/></button>
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
-        <button className="icobtn" onClick={()=>{ setStCustOpen(true); loadMasters(); }}><Ico.Settings/></button>
       </Header>
       <div style={{padding:"16px 20px"}}>
+        {maintenanceDueBikes.length>0&&<div className="maint-alert"><span>🛠</span><span>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
         <div className="customer-tabs">
           <button className={`cust-tab ${custTab==="search"?"cust-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
           <button className={`cust-tab ${custTab==="maintenance"?"cust-tab-on":""}`} onClick={()=>setCustTab("maintenance")}>メンテ期限 {maintenanceDueBikes.length>0&&<span>({maintenanceDueBikes.length})</span>}</button>
           <button className={`cust-tab ${custTab==="reservation"?"cust-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
         </div>
         {custTab==="search"&&(<>
-          {maintenanceDueBikes.length>0&&<div style={{background:"#fff7df",border:"1px solid #ead49b",borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:8,marginBottom:12}}><span>🛠</span><span style={{fontSize:12,fontWeight:800,color:"#8a6410"}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
             <Ico.Search/>
             <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="名前・電話番号で検索... 例: 山田 090" style={{flex:1,background:"none",border:"none",outline:"none",fontSize:14,color:"#2a2018",fontFamily:"Noto Sans JP,sans-serif"}}/>
@@ -1149,7 +1201,7 @@ export default function App() {
 
               {selectedResCust&&(
                 <div className="fg"><label>修理内容・見積もり</label>
-                  <div style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:8,padding:"8px"}}><ResRepairLinesEditor/></div>
+                  <div style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:8,padding:"8px"}}>{ResRepairLinesEditor()}</div>
                   {resRepairTotal>0&&<div style={{display:"flex",justifyContent:"space-between",background:"#f5f0e8",borderRadius:8,padding:"8px 10px",marginTop:6,fontWeight:800}}><span>見積合計</span><span style={{color:"#2a7a5a"}}>¥{resRepairTotal.toLocaleString()}</span></div>}
                 </div>
               )}
@@ -1202,7 +1254,7 @@ export default function App() {
       {/* 顧客追加 */}
       {addCustModal&&(
         <div className="mover" onClick={()=>setAddCustModal(false)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
+          <div className="modal compact-modal" onClick={e=>e.stopPropagation()}>
             <h3>👤 顧客を追加</h3>
             <div className="fg"><label>名前 *</label><input value={newCust.name} onChange={e=>setNewCust(n=>({...n,name:e.target.value}))} placeholder="山田 太郎" autoFocus/></div>
             <div className="fg"><label>フリガナ</label><input value={newCust.furigana} onChange={e=>setNewCust(n=>({...n,furigana:e.target.value}))} placeholder="ヤマダ タロウ（ひらがなも可）"/></div>
@@ -1210,7 +1262,6 @@ export default function App() {
             <div className="fg"><label>住所（任意）</label><input value={newCust.address} onChange={e=>setNewCust(n=>({...n,address:e.target.value}))}/></div>
             <div className="fg"><label>民度ランク</label><select value={newCust.customer_rank} onChange={e=>setNewCust(n=>({...n,customer_rank:e.target.value}))}><option>優良</option><option>通常</option><option>注意</option><option>要注意</option></select></div>
             <div className="fg"><label>メモ（任意）</label><textarea value={newCust.memo} onChange={e=>setNewCust(n=>({...n,memo:e.target.value}))} style={{...S.textarea,fontSize:16}}/></div>
-            <div className="fg"><label>追加メモ</label>{(newCust.notes||[""]).map((note,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6}}><input value={note} onChange={e=>setNewCust(n=>{const notes=[...(n.notes||[""])]; notes[i]=e.target.value; return {...n,notes};})} placeholder={`メモ${i+1}`}/>{(newCust.notes||[]).length>1&&<button className="gbtn" style={{padding:"8px 10px"}} onClick={()=>setNewCust(n=>({...n,notes:n.notes.filter((_,idx)=>idx!==i)}))}>削除</button>}</div>)}<button className="gbtn" style={{fontSize:12}} onClick={()=>setNewCust(n=>({...n,notes:[...(n.notes||[]),""]}))}>＋メモ追加</button></div>
             <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button className="gbtn" onClick={()=>setAddCustModal(false)}>キャンセル</button><button className="pbtn" onClick={doAddCust}>追加</button></div>
           </div>
         </div>
@@ -1449,12 +1500,19 @@ const CSS = `
   .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; }
   .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
   .repair-menu-row { display:flex; align-items:center; gap:6px; padding:5px 8px; background:#f5f0e8; border-radius:7px; margin-bottom:4px; min-height:34px; }
-  .customer-tabs { display:flex; gap:4px; background:#faf7f2; border-bottom:1px solid #e0d9ce; padding:10px 20px; margin: -16px -20px 14px; overflow-x:auto; white-space:nowrap; }
-  .cust-tab { flex:0 0 auto; border:none; border-radius:20px; padding:6px 14px; background:transparent; color:#c8bfb0; font-family:'Noto Sans JP', sans-serif; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+  .customer-tabs { display:flex; gap:4px; background:#faf7f2; border:1px solid #e0d9ce; border-radius:14px; padding:8px; margin: 0 0 14px; overflow-x:auto; white-space:nowrap; }
+  .cust-tab { flex:1 0 auto; border:none; border-radius:10px; padding:8px 12px; background:transparent; color:#c8bfb0; font-family:'Noto Sans JP', sans-serif; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:4px; }
   .cust-tab:hover { color:#7a6f63; background:#f0ece4; }
   .cust-tab-on { background:#2a2018; color:#f5f0e8 !important; box-shadow:none; }
-  .estimate-line { display:grid; grid-template-columns: 1fr 58px 86px 32px; gap:6px; align-items:center; margin-bottom:7px; }
+  .estimate-line { display:grid; grid-template-columns: 1fr 54px 82px 32px; gap:6px; align-items:center; margin-bottom:7px; }
   .estimate-line input, .estimate-line select { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 9px; color:#2a2018; font-family:'Noto Sans JP', sans-serif; outline:none; }
+  .line-total { min-width:0; background:#f5f0e8; border:1px solid #e0d9ce; border-radius:8px; padding:8px 7px; color:#2a7a5a; font-size:12px; font-weight:800; text-align:right; white-space:nowrap; }
+  .maint-alert { background:#fff7df; border:1px solid #ead49b; border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:12px; font-weight:800; color:#8a6410; }
+  .quick-add-box { background:#fff; border:1px dashed #ccc5ba; border-radius:10px; padding:10px; margin-top:8px; }
+  .quick-add-row { display:grid; grid-template-columns: minmax(0,1fr) 86px auto; gap:6px; align-items:center; }
+  .quick-add-row input { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 9px; color:#2a2018; font-family:'Noto Sans JP', sans-serif; outline:none; }
+  .compact-modal { padding:20px; }
+  .compact-modal .fg { margin-bottom:10px; }
   .compact-form { display:grid; grid-template-columns: minmax(0,1fr) auto; gap:6px; margin-top:8px; }
   .compact-form input { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 10px; font-family:'Noto Sans JP', sans-serif; color:#2a2018; outline:none; }
   .compact-form input[type="number"] { max-width:86px; }
@@ -1468,13 +1526,15 @@ const CSS = `
     .stpanel { width: calc(100vw - 18px); max-width: calc(100vw - 18px); padding: 24px 16px; }
     .fg input, .fg select, .fg textarea { min-width: 0; }
     .pbtn, .gbtn { white-space: nowrap; }
-    .estimate-line { grid-template-columns: minmax(0,1fr) 46px 70px 30px; gap:5px; }
-    .customer-tabs { padding:10px 14px; margin: -16px -20px 14px; }
+    .estimate-line { grid-template-columns: minmax(0,1fr) 44px 68px 30px; gap:5px; }
+    .customer-tabs { padding:6px; margin: 0 0 12px; }
     .cust-tab { font-size:12px; padding:6px 12px; }
-    .cust-settings-panel { width: calc(100vw - 20px); max-width: calc(100vw - 20px); padding:22px 12px; }
+    .cust-settings-panel { width: calc(100vw - 34px); max-width: calc(100vw - 34px); padding:18px 10px; }
     .cust-settings-panel .compact-form { grid-template-columns: 1fr; }
     .cust-settings-panel .compact-form input[type="number"] { max-width: none; }
     .repair-menu-row { padding:5px 7px; }
+    .quick-add-row { grid-template-columns: 1fr; }
+    .compact-modal { padding:18px 16px; }
   }
 `;
 
