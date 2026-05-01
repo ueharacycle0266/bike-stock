@@ -515,36 +515,36 @@ export default function App() {
   const filteredCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,custSearch)),[customers,custSearch]);
 
   const EstimateLinesEditor=()=> <div style={{marginBottom:14}}>
-    <datalist id="repair-menu-options">
-      {(repairMenus||[]).map(m=><option key={m.id} value={m.name}>{m.price?`¥${m.price.toLocaleString()}`:""}</option>)}
-    </datalist>
     {(estItems||[]).map((it,i)=><div key={i} className="estimate-line">
-      <input list="repair-menu-options" value={getEstItemName(it)} onChange={e=>{
-        const menu=(repairMenus||[]).find(m=>m.name===e.target.value);
-        updateEstimateLine(i,{name:e.target.value,price:menu?menu.price:(it.price||"")});
-      }} placeholder="修理内容" />
-      <input type="number" min="0" value={it.price ?? ""} onChange={e=>updateEstimateLine(i,{price:e.target.value})} placeholder="金額" />
+      {(repairMenus||[]).length>0 ? <select value={it.menuId || ""} onChange={e=>{
+        const menu=(repairMenus||[]).find(m=>m.id===e.target.value);
+        updateEstimateLine(i, menu ? {menuId:menu.id,name:menu.name,price:menu.price} : {menuId:"",name:"",price:""});
+      }}>
+        <option value="">修理メニュー</option>
+        {(repairMenus||[]).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+      </select> : <input value={getEstItemName(it)} onChange={e=>updateEstimateLine(i,{name:e.target.value})} placeholder="修理内容" />}
       <input type="number" min="1" value={it.qty ?? 1} onChange={e=>updateEstimateLine(i,{qty:e.target.value})} placeholder="数量" />
+      <input type="number" min="0" value={it.price ?? ""} onChange={e=>updateEstimateLine(i,{price:e.target.value})} placeholder="金額" />
       <button className="sico sdel" onClick={()=>deleteEstimateLine(i)}><Ico.Trash/></button>
     </div>)}
-    {(estItems||[]).length===0&&<p style={{color:"#b0a898",fontSize:13,marginBottom:8}}>行を追加して修理内容を入力してください</p>}
+    {(estItems||[]).length===0&&<p style={{color:"#b0a898",fontSize:13,marginBottom:8}}>行を追加して修理メニューを選んでください</p>}
     <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addEstimateLine}>＋ 行を追加</button>
   </div>;
 
   const ResRepairLinesEditor=()=> <div>
-    <datalist id="res-repair-menu-options">
-      {(repairMenus||[]).map(m=><option key={m.id} value={m.name}>{m.price?`¥${m.price.toLocaleString()}`:""}</option>)}
-    </datalist>
     {(resForm.repairItems||[]).map((it,i)=><div key={i} className="estimate-line">
-      <input list="res-repair-menu-options" value={getEstItemName(it)} onChange={e=>{
-        const menu=(repairMenus||[]).find(m=>m.name===e.target.value);
-        updateResRepairLine(i,{name:e.target.value,price:menu?menu.price:(it.price||"")});
-      }} placeholder="修理内容" />
-      <input type="number" min="0" value={it.price ?? ""} onChange={e=>updateResRepairLine(i,{price:e.target.value})} placeholder="金額" />
+      {(repairMenus||[]).length>0 ? <select value={it.menuId || ""} onChange={e=>{
+        const menu=(repairMenus||[]).find(m=>m.id===e.target.value);
+        updateResRepairLine(i, menu ? {menuId:menu.id,name:menu.name,price:menu.price} : {menuId:"",name:"",price:""});
+      }}>
+        <option value="">修理メニュー</option>
+        {(repairMenus||[]).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+      </select> : <input value={getEstItemName(it)} onChange={e=>updateResRepairLine(i,{name:e.target.value})} placeholder="修理内容" />}
       <input type="number" min="1" value={it.qty ?? 1} onChange={e=>updateResRepairLine(i,{qty:e.target.value})} placeholder="数量" />
+      <input type="number" min="0" value={it.price ?? ""} onChange={e=>updateResRepairLine(i,{price:e.target.value})} placeholder="金額" />
       <button className="sico sdel" onClick={()=>deleteResRepairLine(i)}><Ico.Trash/></button>
     </div>)}
-    {(resForm.repairItems||[]).length===0&&<div style={{fontSize:12,color:"#b0a898",padding:"6px 0"}}>行を追加して修理内容を入力してください</div>}
+    {(resForm.repairItems||[]).length===0&&<div style={{fontSize:12,color:"#b0a898",padding:"6px 0"}}>行を追加して修理メニューを選んでください</div>}
     <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addResRepairLine}>＋ 修理内容を追加</button>
   </div>;
 
@@ -588,6 +588,9 @@ export default function App() {
       <div style={{display:"flex",gap:8,alignItems:"center"}}>{saving&&<span style={{fontSize:10,color:"#b0a898"}}>保存中...</span>}{children}</div>
     </header>
   );
+
+  const inShop = reservations.filter(r=>r.status==="in").sort((a,b)=>new Date(a.due_date||"9999")-new Date(b.due_date||"9999"));
+  const upcoming = reservations.filter(r=>r.status==="reserved").sort((a,b)=>new Date(a.checkin_date)-new Date(b.checkin_date));
 
   // ════════════════════════════════════════
   // 予約管理画面
@@ -975,9 +978,10 @@ export default function App() {
         <div className="customer-tabs">
           <button className={`cust-tab ${custTab==="search"?"cust-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
           <button className={`cust-tab ${custTab==="maintenance"?"cust-tab-on":""}`} onClick={()=>setCustTab("maintenance")}>メンテ期限 {maintenanceDueBikes.length>0&&<span>({maintenanceDueBikes.length})</span>}</button>
-          <button className="cust-tab" onClick={()=>switchMode("reservation")}>予約管理</button>
+          <button className={`cust-tab ${custTab==="reservation"?"cust-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
         </div>
         {custTab==="search"&&(<>
+          {maintenanceDueBikes.length>0&&<div style={{background:"#fff7df",border:"1px solid #ead49b",borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:8,marginBottom:12}}><span>🛠</span><span style={{fontSize:12,fontWeight:800,color:"#8a6410"}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
             <Ico.Search/>
             <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="名前・電話番号で検索... 例: 山田 090" style={{flex:1,background:"none",border:"none",outline:"none",fontSize:14,color:"#2a2018",fontFamily:"Noto Sans JP,sans-serif"}}/>
@@ -1005,6 +1009,193 @@ export default function App() {
             </div>
             <span style={{background:"#fdf0ee",color:"#c0392b",fontSize:12,fontWeight:800,padding:"4px 8px",borderRadius:7}}>{fmt(r.date,"mmdd")}</span>
           </div>)}
+        </div>)}
+        {custTab==="reservation"&&(<div className="customer-reservation-panel">
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:6}}>
+              <button className="icobtn" onClick={()=>loadReservations()}><Ico.Refresh/></button>
+              <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
+              <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
+            </div>
+            <button className="pbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>{const d=new Date();setAddResModal({date:d,time:"12:00"});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));}}>＋ 予約追加</button>
+          </div>
+        {calView==="week" && (
+          <>
+            <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calDate.getFullYear()}年{calDate.getMonth()+1}月</span>
+              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
+            </div>
+            <div style={{overflowX:"auto"}} className="hide-scroll">
+              <table style={{borderCollapse:"collapse",width:"100%",minWidth:500}}>
+                <thead>
+                  <tr style={{background:"#faf7f2"}}>
+                    <th style={{width:48,padding:"6px 4px",fontSize:11,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
+                    {weekDates.map(d=>{
+                      const isToday=fmt(d,"date")===fmt(new Date(),"date");
+                      const isSun=d.getDay()===0; const isSat=d.getDay()===6;
+                      return <th key={d.toISOString()} style={{padding:"6px 2px",fontSize:11,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",minWidth:46}}>
+                        <div style={{fontSize:13,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
+                        <div style={{fontSize:10}}>{getDayLabel(d)}</div>
+                      </th>;
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {HOURS.map(time=>(
+                    <tr key={time}>
+                      <td style={{fontSize:10,color:"#b0a898",padding:"0 4px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"top",paddingTop:2,whiteSpace:"nowrap"}}>{time}</td>
+                      {weekDates.map(d=>{
+                        const key=`${fmt(d,"date")}_${time}`;
+                        const cellRes=resByCell[key]||[];
+                        const isToday=fmt(d,"date")===fmt(new Date(),"date");
+                        return <td key={key} style={{border:"1px solid #f0ece4",height:36,verticalAlign:"top",background:isToday?"#faf7f4":"#fff",cursor:"pointer",position:"relative"}}
+                          onClick={()=>{setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));}}>
+                          {cellRes.map(r=>{
+                            const c=custMap[r.customer_id];
+                            const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
+                            return <div key={r.id} style={{background:color+"20",border:`1px solid ${color}50`,borderRadius:3,padding:"1px 3px",fontSize:9,color:color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",margin:1}}
+                              onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                          })}
+                        </td>;
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {calView==="list" && (
+          <div style={{padding:"16px 20px"}}>
+            {inShop.length>0&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>🏪 入庫中 ({inShop.length}台)</div>
+                {inShop.map(r=>{
+                  const c=custMap[r.customer_id];
+                  const bike=c?.bikes?.[r.bike_index];
+                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c?.name||"?"} {bike&&<span style={{fontSize:11,color:"#2563a8"}}>🚲{bike.maker}</span>}</div>
+                        <div style={{fontSize:12,color:"#9a8f82",marginTop:2}}>入庫: {fmt(r.checkin_date,"mmdd")} ・ {r.staff}</div>
+                        {r.memo&&<div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{r.memo}</div>}
+                      </div>
+                      {r.due_date?<span style={{background:"#fdf0ee",color:"#c0392b",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,flexShrink:0}}>{fmt(r.due_date,"mmdd")}出庫</span>:<span style={{background:"#f5f0e8",color:"#b0a898",fontSize:11,padding:"2px 7px",borderRadius:6}}>出庫日未定</span>}
+                    </div>
+                  </div>;
+                })}
+              </div>
+            )}
+            {upcoming.length>0&&(
+              <div>
+                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📅 予約一覧</div>
+                {upcoming.map(r=>{
+                  const c=custMap[r.customer_id];
+                  const bike=c?.bikes?.[r.bike_index];
+                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c?.name||"?"} {bike&&<span style={{fontSize:11,color:"#2563a8"}}>🚲{bike.maker}</span>}</div>
+                        <div style={{fontSize:12,color:"#9a8f82",marginTop:2}}>{fmt(r.checkin_date,"mmdd")} {r.checkin_time} ・ {r.staff}</div>
+                        {r.memo&&<div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{r.memo}</div>}
+                      </div>
+                      {r.due_date?<span style={{background:"#e8f0d6",color:"#2d7a44",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,flexShrink:0}}>{fmt(r.due_date,"mmdd")}出庫予定</span>:<span style={{background:"#f5f0e8",color:"#b0a898",fontSize:11,padding:"2px 7px",borderRadius:6}}>出庫日未定</span>}
+                    </div>
+                  </div>;
+                })}
+              </div>
+            )}
+            {inShop.length===0&&upcoming.length===0&&<div style={S.empty}><div style={{fontSize:38}}>📅</div><p style={{color:"#9a8f82",marginTop:12}}>予約・入庫はありません</p></div>}
+          </div>
+        )}
+
+        {/* 予約追加モーダル */}
+        {addResModal&&(
+          <div className="mover" onClick={()=>setAddResModal(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <h3>📅 予約を追加</h3>
+              <div style={{background:"#f5f0e8",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:13,color:"#2a2018",fontWeight:700}}>
+                {addResModal.date.getMonth()+1}/{addResModal.date.getDate()}（{getDayLabel(addResModal.date)}） {addResModal.time}
+              </div>
+              <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
+              <div className="fg"><label>出庫予定日</label>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{flex:1,opacity:resForm.dueDateUnknown?0.4:1}}/>
+                  <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,color:"#7a6f63",whiteSpace:"nowrap"}}>
+                    <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))}/>未定
+                  </label>
+                </div>
+              </div>
+              <div className="fg"><label>顧客</label>
+                <input value={resCustSearch} onChange={e=>setResCustSearch(e.target.value)} placeholder="名前・フリガナ・下4桁で検索" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",marginBottom:6}}/>
+                {selectedResCust&&<div style={{background:"#e8e2d8",borderRadius:8,padding:"8px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,fontSize:13}}>{selectedResCust.name}</span><button className="sico" onClick={()=>{setResForm(f=>({...f,custId:"",bikeIdx:0,repairItems:[]}));setResCustSearch("");}}>×</button></div>}
+                <div style={{maxHeight:150,overflowY:"auto",border:selectedResCust?"none":"1px solid #e8e2d8",borderRadius:8,background:"#fff"}}>
+                  {!selectedResCust&&resCusts.map(c=>(
+                    <div key={c.id} onClick={()=>{setResForm(f=>({...f,custId:c.id,bikeIdx:0}));setResCustSearch(c.name);}} style={{padding:"8px 10px",cursor:"pointer",borderBottom:"1px solid #f5f0e8",fontSize:13,fontWeight:600,color:"#2a2018"}}>
+                      {c.name} {c.furigana&&<span style={{fontSize:11,opacity:0.7}}>{c.furigana}</span>} {c.phone&&<span style={{fontSize:11,color:"#9a8f82"}}> / {c.phone}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {selectedResCust?.bikes?.length>0&&(
+                <div className="fg"><label>自転車</label>
+                  <select value={resForm.bikeIdx} onChange={e=>setResForm(f=>({...f,bikeIdx:+e.target.value}))}>
+                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {selectedResCust&&(
+                <div className="fg"><label>修理内容・見積もり</label>
+                  <div style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:8,padding:"8px"}}><ResRepairLinesEditor/></div>
+                  {resRepairTotal>0&&<div style={{display:"flex",justifyContent:"space-between",background:"#f5f0e8",borderRadius:8,padding:"8px 10px",marginTop:6,fontWeight:800}}><span>見積合計</span><span style={{color:"#2a7a5a"}}>¥{resRepairTotal.toLocaleString()}</span></div>}
+                </div>
+              )}
+              <div className="fg"><label>担当者</label>
+                <select value={resForm.staff} onChange={e=>setResForm(f=>({...f,staff:e.target.value}))}>
+                  {STAFF.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="fg"><label>メモ</label><input value={resForm.memo} onChange={e=>setResForm(f=>({...f,memo:e.target.value}))}/></div>
+              <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+                <button className="gbtn" onClick={()=>setAddResModal(null)}>キャンセル</button>
+                <button className="pbtn" onClick={doAddRes}>予約する</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 予約詳細モーダル */}
+        {selectedRes&&(()=>{
+          const c=custMap[selectedRes.customer_id];
+          const bike=c?.bikes?.[selectedRes.bike_index];
+          const statusLabel=selectedRes.status==="reserved"?"予約中":selectedRes.status==="in"?"入庫中":"出庫済";
+          const statusColor=selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898";
+          return <div className="mover" onClick={()=>setSelectedRes(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
+                <h3 style={{marginBottom:0}}>{c?.name||"顧客不明"}</h3>
+                <button className="icobtn" onClick={()=>setSelectedRes(null)}><Ico.X/></button>
+              </div>
+              <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+                <span style={{background:statusColor+"20",color:statusColor,fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{statusLabel}</span>
+                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</span>}
+              </div>
+              <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
+              {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
+              <div style={S.infoRow}><span style={S.infoLabel}>出庫予定</span><span>{selectedRes.due_date?fmt(selectedRes.due_date,"mmdd"):"未定"}</span></div>
+              <div style={S.infoRow}><span style={S.infoLabel}>担当</span><span>{selectedRes.staff}</span></div>
+              {selectedRes.memo&&<div style={S.infoRow}><span style={S.infoLabel}>メモ</span><span>{selectedRes.memo}</span></div>}
+              <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
+                {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
+                {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
+                <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
+              </div>
+            </div>
+          </div>;
+        })()}
         </div>)}
       </div>
 
@@ -1091,7 +1282,6 @@ export default function App() {
       </div>
     )}
     {needOrder.length>0&&(<div style={{background:"#fdf0ee",borderBottom:"1px solid #f0c8c4",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot"/><span style={{fontSize:12,color:"#c0392b",fontWeight:700}}>注文が必要な商品が{needOrder.length}点あります</span></div>)}
-    {maintenanceDueBikes.length>0&&(<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14}}>🛠</span><span style={{fontSize:12,fontWeight:800,color:"#8a6410"}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>)}
     <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",overflowX:"auto",whiteSpace:"nowrap",display:"flex",gap:4}} className="hide-scroll">
       <button className={`cat-tab ${selectedCatId==="all"&&mainTab==="stock"?"cat-tab-on":""}`} onClick={()=>{setSelectedCatId("all");setMainTab("stock");}}>すべて</button>
       {sortedCats.map(cat=><button key={cat.id} className={`cat-tab ${selectedCatId===cat.id&&mainTab==="stock"?"cat-tab-on":""}`} onClick={()=>{setSelectedCatId(cat.id);setMainTab("stock");}}>{cat.name}</button>)}
@@ -1259,11 +1449,12 @@ const CSS = `
   .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; }
   .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
   .repair-menu-row { display:flex; align-items:center; gap:6px; padding:5px 8px; background:#f5f0e8; border-radius:7px; margin-bottom:4px; min-height:34px; }
-  .customer-tabs { display:flex; gap:6px; background:#ede8df; border-radius:10px; padding:4px; margin-bottom:14px; }
-  .cust-tab { flex:1; border:none; border-radius:8px; padding:9px 6px; background:transparent; color:#7a6f63; font-family:'Noto Sans JP', sans-serif; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
-  .cust-tab-on { background:#faf7f2; color:#2a2018; box-shadow:0 1px 5px rgba(42,32,24,.08); }
-  .estimate-line { display:grid; grid-template-columns: 1fr 86px 58px 32px; gap:6px; align-items:center; margin-bottom:7px; }
-  .estimate-line input { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 9px; color:#2a2018; font-family:'Noto Sans JP', sans-serif; outline:none; }
+  .customer-tabs { display:flex; gap:4px; background:#faf7f2; border-bottom:1px solid #e0d9ce; padding:10px 20px; margin: -16px -20px 14px; overflow-x:auto; white-space:nowrap; }
+  .cust-tab { flex:0 0 auto; border:none; border-radius:20px; padding:6px 14px; background:transparent; color:#c8bfb0; font-family:'Noto Sans JP', sans-serif; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+  .cust-tab:hover { color:#7a6f63; background:#f0ece4; }
+  .cust-tab-on { background:#2a2018; color:#f5f0e8 !important; box-shadow:none; }
+  .estimate-line { display:grid; grid-template-columns: 1fr 58px 86px 32px; gap:6px; align-items:center; margin-bottom:7px; }
+  .estimate-line input, .estimate-line select { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 9px; color:#2a2018; font-family:'Noto Sans JP', sans-serif; outline:none; }
   .compact-form { display:grid; grid-template-columns: minmax(0,1fr) auto; gap:6px; margin-top:8px; }
   .compact-form input { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 10px; font-family:'Noto Sans JP', sans-serif; color:#2a2018; outline:none; }
   .compact-form input[type="number"] { max-width:86px; }
@@ -1277,11 +1468,13 @@ const CSS = `
     .stpanel { width: calc(100vw - 18px); max-width: calc(100vw - 18px); padding: 24px 16px; }
     .fg input, .fg select, .fg textarea { min-width: 0; }
     .pbtn, .gbtn { white-space: nowrap; }
-    .estimate-line { grid-template-columns: 1fr 72px 50px 30px; gap:5px; }
-    .customer-tabs { gap:4px; }
-    .cust-tab { font-size:11px; padding:8px 4px; }
-    .cust-settings-panel { width: calc(100vw - 12px); max-width: calc(100vw - 12px); padding:22px 14px; }
-    .compact-form { grid-template-columns: minmax(0,1fr) auto; }
+    .estimate-line { grid-template-columns: minmax(0,1fr) 46px 70px 30px; gap:5px; }
+    .customer-tabs { padding:10px 14px; margin: -16px -20px 14px; }
+    .cust-tab { font-size:12px; padding:6px 12px; }
+    .cust-settings-panel { width: calc(100vw - 20px); max-width: calc(100vw - 20px); padding:22px 12px; }
+    .cust-settings-panel .compact-form { grid-template-columns: 1fr; }
+    .cust-settings-panel .compact-form input[type="number"] { max-width: none; }
+    .repair-menu-row { padding:5px 7px; }
   }
 `;
 
