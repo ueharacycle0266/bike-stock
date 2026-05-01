@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 const SUPABASE_URL = "https://autpzeeprcyosyqegtai.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dHB6ZWVwcmN5b3N5cWVndGFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTEwMDUsImV4cCI6MjA5MjgyNzAwNX0.YWH6PvFYu2n2BN5aWQZ8KaPKv4Ns4K_ObfyK28Gdq18";
 const PASSWORD = "0266";
+const STAFF = ["あさと", "たけし"];
 
 const api = async (path, method = "GET", body = null) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -20,6 +21,7 @@ const api = async (path, method = "GET", body = null) => {
 };
 
 const uid = () => "x" + Math.random().toString(36).slice(2, 9);
+const fmtDate = (dt) => dt ? new Date(dt).toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
 
 const Ico = {
   Settings: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>),
@@ -31,40 +33,73 @@ const Ico = {
   Down: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>),
   Edit: () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>),
   Trash: () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>),
+  ChevDown: () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>),
+  Download: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>),
+  Chart: () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>),
+  Back: () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>),
 };
 
+// ── CSV出力 ───────────────────────────────────────────
+const exportCSV = (cats) => {
+  const rows = [["カテゴリ", "ブランド", "商品名", "在庫数", "注文ライン", "定価", "仕入れ価格", "在庫定価合計", "在庫仕入合計"]];
+  cats.forEach(c => c.brands?.forEach(b => b.items?.forEach(i => {
+    rows.push([c.name, b.name, i.name, i.stock, i.minStock, i.retailPrice || 0, i.costPrice || 0, (i.retailPrice || 0) * i.stock, (i.costPrice || 0) * i.stock]);
+  })));
+  const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+  const bom = "\uFEFF";
+  const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = `在庫データ_${new Date().toLocaleDateString("ja-JP").replace(/\//g, "-")}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+};
+
+// ── メインApp ─────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState("login");
-  const [pwVal, setPwVal] = useState("");
-  const [pwErr, setPwErr] = useState(false);
+  const [pwVal, setPwVal] = useState(""); const [pwErr, setPwErr] = useState(false);
+  const [appMode, setAppMode] = useState("stock"); // stock | customer
+  const [modeMenu, setModeMenu] = useState(false);
+
+  // 在庫
   const [cats, setCats] = useState([]);
   const [saving, setSaving] = useState(false);
-
   const [selectedCatId, setSelectedCatId] = useState("all");
-  const [mainTab, setMainTab] = useState("stock"); // stock | order
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQ, setSearchQ] = useState("");
+  const [mainTab, setMainTab] = useState("stock");
+  const [searchOpen, setSearchOpen] = useState(false); const [searchQ, setSearchQ] = useState("");
   const [addMenu, setAddMenu] = useState(false);
-  const [stOpen, setStOpen] = useState(false);
-  const [stTab, setStTab] = useState("cats");
-  const [stCatId, setStCatId] = useState(null);
-  const [stBrandId, setStBrandId] = useState(null);
-
-  const [itemDetail, setItemDetail] = useState(null);
-  const [detailStock, setDetailStock] = useState(0);
+  const [stOpen, setStOpen] = useState(false); const [stTab, setStTab] = useState("cats");
+  const [stCatId, setStCatId] = useState(null); const [stBrandId, setStBrandId] = useState(null);
+  const [itemDetail, setItemDetail] = useState(null); const [detailStock, setDetailStock] = useState(0);
   const [addModal, setAddModal] = useState(null);
   const [editItemModal, setEditItemModal] = useState(null);
   const [editItemF, setEditItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "" });
-
   const [newCatF, setNewCatF] = useState("");
   const [newBrandF, setNewBrandF] = useState({ name: "", catId: "" });
   const [newItemF, setNewItemF] = useState({ name: "", stock: "", minStock: "", retailPrice: "", costPrice: "", catId: "", brandId: "" });
-
   const [rnCat, setRnCat] = useState(null); const [rnCatV, setRnCatV] = useState("");
   const [rnBrand, setRnBrand] = useState(null); const [rnBrandV, setRnBrandV] = useState("");
   const [rnItem, setRnItem] = useState(null); const [rnItemV, setRnItemV] = useState("");
+  const [showSummary, setShowSummary] = useState(false);
 
-  const loadData = async () => {
+  // 顧客
+  const [customers, setCustomers] = useState([]);
+  const [custLoaded, setCustLoaded] = useState(false);
+  const [custSearch, setCustSearch] = useState("");
+  const [selectedCust, setSelectedCust] = useState(null);
+  const [custDetail, setCustDetail] = useState(null); // customer obj
+  const [custTab, setCustTab] = useState("info"); // info | appt | repair
+  const [appointments, setAppointments] = useState([]);
+  const [repairs, setRepairs] = useState([]);
+  const [addCustModal, setAddCustModal] = useState(false);
+  const [editCustModal, setEditCustModal] = useState(null);
+  const [addApptModal, setAddApptModal] = useState(false);
+  const [addRepairModal, setAddRepairModal] = useState(false);
+  const [newCust, setNewCust] = useState({ name: "", phone: "", address: "", memo: "" });
+  const [newAppt, setNewAppt] = useState({ datetime: "", content: "", staff: "あさと", amount: "", memo: "" });
+  const [newRepair, setNewRepair] = useState({ datetime: "", content: "", staff: "あさと", amount: "", memo: "" });
+
+  // ── データ取得 ────────────────────────────────────────
+  const loadStockData = async () => {
     try {
       const [catsData, brandsData, itemsData] = await Promise.all([
         api("categories?select=*&order=order.asc"),
@@ -76,9 +111,8 @@ export default function App() {
         brands: brandsData.filter(b => b.category_id === c.id).map(b => ({
           ...b,
           items: itemsData.filter(i => i.brand_id === b.id).map(i => ({
-            id: i.id, name: i.name, stock: i.stock,
-            minStock: i.min_stock, retailPrice: i.retail_price,
-            costPrice: i.cost_price, order: i.order,
+            id: i.id, name: i.name, stock: i.stock, minStock: i.min_stock,
+            retailPrice: i.retail_price, costPrice: i.cost_price, order: i.order,
           })).sort((a, b) => a.order - b.order),
         })).sort((a, b) => a.order - b.order),
       })));
@@ -86,20 +120,45 @@ export default function App() {
     setScreen("main");
   };
 
+  const loadCustomers = async () => {
+    if (custLoaded) return;
+    try {
+      const data = await api("customers?select=*&order=created_at.desc");
+      setCustomers(data);
+      setCustLoaded(true);
+    } catch (e) { console.error(e); }
+  };
+
+  const loadCustDetail = async (cust) => {
+    setCustDetail(cust);
+    setCustTab("info");
+    try {
+      const [aData, rData] = await Promise.all([
+        api(`appointments?customer_id=eq.${cust.id}&order=datetime.desc`),
+        api(`repairs?customer_id=eq.${cust.id}&order=datetime.desc`),
+      ]);
+      setAppointments(aData);
+      setRepairs(rData);
+    } catch (e) { console.error(e); }
+  };
+
   const handleLogin = () => {
-    if (pwVal === PASSWORD) { setScreen("loading"); loadData(); }
+    if (pwVal === PASSWORD) { setScreen("loading"); loadStockData(); }
     else { setPwErr(true); setPwVal(""); setTimeout(() => setPwErr(false), 2000); }
   };
 
+  const switchMode = (mode) => {
+    setAppMode(mode); setModeMenu(false);
+    if (mode === "customer") loadCustomers();
+  };
+
+  // ── 在庫 派生 ────────────────────────────────────────
   const sortedCats = [...cats].sort((a, b) => a.order - b.order);
 
-  // 表示するブランド一覧（「すべて」か特定カテゴリ）
   const displayBrands = useMemo(() => {
-    if (selectedCatId === "all") {
-      return sortedCats.flatMap(c => (c.brands || []).map(b => ({ ...b, catName: c.name })));
-    }
+    if (selectedCatId === "all") return sortedCats.flatMap(c => (c.brands || []).map(b => ({ ...b, catName: c.name, catId: c.id })));
     const cat = cats.find(c => c.id === selectedCatId);
-    return (cat?.brands || []).map(b => ({ ...b, catName: cat.name }));
+    return (cat?.brands || []).map(b => ({ ...b, catName: cat.name, catId: cat.id }));
   }, [cats, selectedCatId]);
 
   const needOrder = useMemo(() => {
@@ -120,6 +179,23 @@ export default function App() {
     return r.slice(0, 8);
   }, [searchQ, cats]);
 
+  // 合計金額
+  const summary = useMemo(() => {
+    const total = { retail: 0, cost: 0 };
+    const byCat = {};
+    cats.forEach(c => {
+      let catRetail = 0, catCost = 0;
+      c.brands?.forEach(b => b.items?.forEach(i => {
+        const r = (i.retailPrice || 0) * i.stock;
+        const co = (i.costPrice || 0) * i.stock;
+        total.retail += r; total.cost += co;
+        catRetail += r; catCost += co;
+      }));
+      byCat[c.id] = { name: c.name, retail: catRetail, cost: catCost };
+    });
+    return { total, byCat };
+  }, [cats]);
+
   const stCat = cats.find(c => c.id === stCatId);
   const sortedStBrands = stCat ? [...(stCat.brands || [])].sort((a, b) => a.order - b.order) : [];
   const stBrand = stCat?.brands?.find(b => b.id === stBrandId);
@@ -132,19 +208,15 @@ export default function App() {
       })
     }));
 
-  const openDetail = (catId, brandId, item) => {
-    setItemDetail({ catId, brandId, item });
-    setDetailStock(item.stock);
-  };
+  // ── 在庫ハンドラ ─────────────────────────────────────
+  const openDetail = (catId, brandId, item) => { setItemDetail({ catId, brandId, item }); setDetailStock(item.stock); };
 
   const confirmStock = async () => {
     if (!itemDetail) return;
     const { catId, brandId, item } = itemDetail;
     updItemLocal(catId, brandId, item.id, { stock: detailStock });
     setItemDetail(null);
-    setSaving(true);
-    await api(`items?id=eq.${item.id}`, "PATCH", { stock: detailStock });
-    setSaving(false);
+    setSaving(true); await api(`items?id=eq.${item.id}`, "PATCH", { stock: detailStock }); setSaving(false);
   };
 
   const openEditItem = (catId, brandId, item) => {
@@ -157,9 +229,7 @@ export default function App() {
     const patch = { name: editItemF.name, stock: +editItemF.stock || 0, minStock: +editItemF.minStock || 0, retailPrice: +editItemF.retailPrice || 0, costPrice: +editItemF.costPrice || 0 };
     updItemLocal(editItemModal.catId, editItemModal.brandId, editItemModal.itemId, patch);
     const sid = editItemModal.itemId; setEditItemModal(null);
-    setSaving(true);
-    await api(`items?id=eq.${sid}`, "PATCH", { name: patch.name, stock: patch.stock, min_stock: patch.minStock, retail_price: patch.retailPrice, cost_price: patch.costPrice });
-    setSaving(false);
+    setSaving(true); await api(`items?id=eq.${sid}`, "PATCH", { name: patch.name, stock: patch.stock, min_stock: patch.minStock, retail_price: patch.retailPrice, cost_price: patch.costPrice }); setSaving(false);
   };
 
   const doAddCat = async () => {
@@ -227,21 +297,21 @@ export default function App() {
   };
 
   const delCat = async (catId) => {
-    if (!window.confirm("このカテゴリとブランド・商品を全て削除しますか？")) return;
+    if (!window.confirm("削除しますか？")) return;
     setCats(p => p.filter(c => c.id !== catId));
     if (stCatId === catId) { setStCatId(null); setStBrandId(null); }
     setSaving(true); await api(`categories?id=eq.${catId}`, "DELETE"); setSaving(false);
   };
 
   const delBrand = async (catId, brandId) => {
-    if (!window.confirm("このブランドと商品を全て削除しますか？")) return;
+    if (!window.confirm("削除しますか？")) return;
     setCats(p => p.map(c => c.id !== catId ? c : { ...c, brands: c.brands.filter(b => b.id !== brandId) }));
     if (stBrandId === brandId) setStBrandId(null);
     setSaving(true); await api(`brands?id=eq.${brandId}`, "DELETE"); setSaving(false);
   };
 
   const delItem = async (catId, brandId, itemId) => {
-    if (!window.confirm("この商品を削除しますか？")) return;
+    if (!window.confirm("削除しますか？")) return;
     setCats(p => p.map(c => c.id !== catId ? c : { ...c, brands: c.brands.map(b => b.id !== brandId ? b : { ...b, items: b.items.filter(i => i.id !== itemId) }) }));
     setSaving(true); await api(`items?id=eq.${itemId}`, "DELETE"); setSaving(false);
   };
@@ -264,7 +334,66 @@ export default function App() {
     setRnItem(null); setSaving(true); await api(`items?id=eq.${itemId}`, "PATCH", { name: rnItemV.trim() }); setSaving(false);
   };
 
-  // ── ログイン画面 ──────────────────
+  // ── 顧客ハンドラ ─────────────────────────────────────
+  const doAddCust = async () => {
+    if (!newCust.name.trim()) return;
+    const newId = uid();
+    const obj = { id: newId, ...newCust, created_at: new Date().toISOString() };
+    setCustomers(p => [obj, ...p]);
+    setNewCust({ name: "", phone: "", address: "", memo: "" }); setAddCustModal(false);
+    await api("customers", "POST", { id: newId, name: newCust.name.trim(), phone: newCust.phone || null, address: newCust.address || null, memo: newCust.memo || null });
+  };
+
+  const doEditCust = async () => {
+    if (!editCustModal || !editCustModal.name.trim()) return;
+    setCustomers(p => p.map(c => c.id === editCustModal.id ? { ...c, ...editCustModal } : c));
+    if (custDetail?.id === editCustModal.id) setCustDetail(prev => ({ ...prev, ...editCustModal }));
+    const id = editCustModal.id; setEditCustModal(null);
+    await api(`customers?id=eq.${id}`, "PATCH", { name: editCustModal.name, phone: editCustModal.phone || null, address: editCustModal.address || null, memo: editCustModal.memo || null });
+  };
+
+  const delCust = async (id) => {
+    if (!window.confirm("この顧客を削除しますか？")) return;
+    setCustomers(p => p.filter(c => c.id !== id));
+    setCustDetail(null);
+    await api(`customers?id=eq.${id}`, "DELETE");
+  };
+
+  const doAddAppt = async () => {
+    if (!newAppt.datetime || !custDetail) return;
+    const newId = uid();
+    const obj = { id: newId, customer_id: custDetail.id, ...newAppt, amount: +newAppt.amount || 0, created_at: new Date().toISOString() };
+    setAppointments(p => [obj, ...p]);
+    setNewAppt({ datetime: "", content: "", staff: "あさと", amount: "", memo: "" }); setAddApptModal(false);
+    await api("appointments", "POST", { id: newId, customer_id: custDetail.id, datetime: newAppt.datetime, content: newAppt.content || null, staff: newAppt.staff, amount: +newAppt.amount || 0, memo: newAppt.memo || null });
+  };
+
+  const doAddRepair = async () => {
+    if (!newRepair.datetime || !custDetail) return;
+    const newId = uid();
+    const obj = { id: newId, customer_id: custDetail.id, ...newRepair, amount: +newRepair.amount || 0, created_at: new Date().toISOString() };
+    setRepairs(p => [obj, ...p]);
+    setNewRepair({ datetime: "", content: "", staff: "あさと", amount: "", memo: "" }); setAddRepairModal(false);
+    await api("repairs", "POST", { id: newId, customer_id: custDetail.id, datetime: newRepair.datetime, content: newRepair.content || null, staff: newRepair.staff, amount: +newRepair.amount || 0, memo: newRepair.memo || null });
+  };
+
+  const delAppt = async (id) => {
+    if (!window.confirm("削除しますか？")) return;
+    setAppointments(p => p.filter(a => a.id !== id));
+    await api(`appointments?id=eq.${id}`, "DELETE");
+  };
+
+  const delRepair = async (id) => {
+    if (!window.confirm("削除しますか？")) return;
+    setRepairs(p => p.filter(r => r.id !== id));
+    await api(`repairs?id=eq.${id}`, "DELETE");
+  };
+
+  const filteredCusts = customers.filter(c =>
+    c.name?.includes(custSearch) || c.phone?.includes(custSearch)
+  );
+
+  // ── ログイン・ローディング ────────────────────────────
   if (screen === "login") return (
     <div style={{ background: "#f5f0e8", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{CSS}</style>
@@ -288,27 +417,231 @@ export default function App() {
     </div>
   );
 
-  // ── メイン画面 ────────────────────
+  // ── 共通ヘッダー ─────────────────────────────────────
+  const Header = () => (
+    <header style={S.hdr}>
+      <div style={{ position: "relative" }}>
+        <button onClick={() => setModeMenu(!modeMenu)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={S.logo}>{appMode === "stock" ? "🚲 在庫管理" : "👤 顧客管理"}</div>
+          <span style={{ color: "#b0a898", marginTop: 2 }}><Ico.ChevDown /></span>
+        </button>
+        <div style={S.sub}>{appMode === "stock" ? "Bike Parts Inventory" : "Customer Management"}</div>
+        {modeMenu && (
+          <div style={{ position: "absolute", top: "100%", left: 0, background: "#faf7f2", border: "1px solid #e0d9ce", borderRadius: 10, padding: "6px", zIndex: 200, minWidth: 160, boxShadow: "0 4px 16px rgba(42,32,24,.12)" }}>
+            <button className="mode-btn" onClick={() => switchMode("stock")}>🚲 在庫管理</button>
+            <button className="mode-btn" onClick={() => switchMode("customer")}>👤 顧客管理</button>
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {saving && <span style={{ fontSize: 10, color: "#b0a898" }}>保存中...</span>}
+        {appMode === "stock" && <>
+          <button className="icobtn" onClick={() => { setScreen("loading"); loadStockData(); }}><Ico.Refresh /></button>
+          <button className="icobtn" onClick={() => { setSearchOpen(true); setSearchQ(""); }}><Ico.Search /></button>
+          <button className="icobtn" onClick={() => setShowSummary(true)} title="合計金額"><Ico.Chart /></button>
+          <button className="icobtn" onClick={() => exportCSV(cats)} title="CSV出力"><Ico.Download /></button>
+          <button className="icobtn" onClick={() => setAddMenu(!addMenu)} style={addMenu ? { background: "#2a2018", color: "#f5f0e8" } : {}}><Ico.Plus /></button>
+          <button className="icobtn" onClick={() => setStOpen(true)}><Ico.Settings /></button>
+        </>}
+        {appMode === "customer" && <>
+          <button className="icobtn" onClick={() => { setCustLoaded(false); loadCustomers(); }}><Ico.Refresh /></button>
+          <button className="icobtn" onClick={() => setAddCustModal(true)}><Ico.Plus /></button>
+        </>}
+      </div>
+    </header>
+  );
+
+  // ── 顧客管理画面 ─────────────────────────────────────
+  if (appMode === "customer") return (
+    <div style={S.root}>
+      <style>{CSS}</style>
+      <Header />
+
+      {/* 顧客詳細 */}
+      {custDetail ? (
+        <div>
+          <div style={{ background: "#faf7f2", borderBottom: "1px solid #e0d9ce", padding: "10px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+            <button className="icobtn" onClick={() => setCustDetail(null)}><Ico.Back /></button>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 16, color: "#2a2018" }}>{custDetail.name}</div>
+              {custDetail.phone && <div style={{ fontSize: 12, color: "#9a8f82" }}>{custDetail.phone}</div>}
+            </div>
+            <button className="smbtn" onClick={() => setEditCustModal({ ...custDetail })}>編集</button>
+            <button className="smbtn" style={{ color: "#c0392b" }} onClick={() => delCust(custDetail.id)}>削除</button>
+          </div>
+
+          {/* タブ */}
+          <div style={{ display: "flex", background: "#faf7f2", borderBottom: "1px solid #e0d9ce" }}>
+            {[["info", "基本情報"], ["appt", "予約"], ["repair", "修理・整備"]].map(([key, label]) => (
+              <button key={key} onClick={() => setCustTab(key)}
+                style={{ flex: 1, padding: "10px 0", border: "none", background: "none", cursor: "pointer", fontFamily: "Noto Sans JP,sans-serif", fontWeight: 600, fontSize: 13, color: custTab === key ? "#2a2018" : "#b0a898", borderBottom: custTab === key ? "2px solid #2a2018" : "2px solid transparent" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding: "16px 20px" }}>
+            {custTab === "info" && (
+              <div>
+                {custDetail.phone && <div style={S.infoRow}><span style={S.infoLabel}>電話番号</span><span>{custDetail.phone}</span></div>}
+                {custDetail.address && <div style={S.infoRow}><span style={S.infoLabel}>住所</span><span>{custDetail.address}</span></div>}
+                {custDetail.memo && <div style={S.infoRow}><span style={S.infoLabel}>メモ</span><span style={{ whiteSpace: "pre-wrap" }}>{custDetail.memo}</span></div>}
+                <div style={S.infoRow}><span style={S.infoLabel}>登録日</span><span>{fmtDate(custDetail.created_at)}</span></div>
+              </div>
+            )}
+
+            {custTab === "appt" && (
+              <div>
+                <button className="pbtn" style={{ width: "100%", marginBottom: 14 }} onClick={() => setAddApptModal(true)}>+ 予約を追加</button>
+                {appointments.length === 0 && <p style={{ color: "#b0a898", fontSize: 13, textAlign: "center", padding: "20px 0" }}>予約がありません</p>}
+                {appointments.map(a => (
+                  <div key={a.id} style={S.histCard}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#2a2018", marginBottom: 4 }}>{a.content || "（内容なし）"}</div>
+                        <div style={{ fontSize: 12, color: "#9a8f82" }}>{fmtDate(a.datetime)} ・ {a.staff}</div>
+                        {a.amount > 0 && <div style={{ fontSize: 12, color: "#2a7a5a", fontWeight: 600, marginTop: 2 }}>¥{a.amount.toLocaleString()}</div>}
+                        {a.memo && <div style={{ fontSize: 12, color: "#b0a898", marginTop: 4 }}>{a.memo}</div>}
+                      </div>
+                      <button className="sico sdel" style={{ flexShrink: 0 }} onClick={() => delAppt(a.id)}><Ico.Trash /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {custTab === "repair" && (
+              <div>
+                <button className="pbtn" style={{ width: "100%", marginBottom: 14 }} onClick={() => setAddRepairModal(true)}>+ 修理・整備を追加</button>
+                {repairs.length === 0 && <p style={{ color: "#b0a898", fontSize: 13, textAlign: "center", padding: "20px 0" }}>修理・整備履歴がありません</p>}
+                {repairs.map(r => (
+                  <div key={r.id} style={S.histCard}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#2a2018", marginBottom: 4 }}>{r.content || "（内容なし）"}</div>
+                        <div style={{ fontSize: 12, color: "#9a8f82" }}>{fmtDate(r.datetime)} ・ {r.staff}</div>
+                        {r.amount > 0 && <div style={{ fontSize: 12, color: "#2a7a5a", fontWeight: 600, marginTop: 2 }}>¥{r.amount.toLocaleString()}</div>}
+                        {r.memo && <div style={{ fontSize: 12, color: "#b0a898", marginTop: 4 }}>{r.memo}</div>}
+                      </div>
+                      <button className="sico sdel" style={{ flexShrink: 0 }} onClick={() => delRepair(r.id)}><Ico.Trash /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        // 顧客一覧
+        <div style={{ padding: "16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f5f0e8", border: "1.5px solid #ccc5ba", borderRadius: 10, padding: "8px 12px", marginBottom: 14 }}>
+            <Ico.Search />
+            <input value={custSearch} onChange={e => setCustSearch(e.target.value)} placeholder="名前・電話番号で検索..."
+              style={{ flex: 1, background: "none", border: "none", outline: "none", fontSize: 14, color: "#2a2018", fontFamily: "Noto Sans JP,sans-serif" }} />
+          </div>
+          {filteredCusts.length === 0 && <p style={{ color: "#b0a898", fontSize: 13, textAlign: "center", padding: "40px 0" }}>顧客がいません。＋から追加してください</p>}
+          {filteredCusts.map(c => (
+            <div key={c.id} className="irow" onClick={() => loadCustDetail(c)}>
+              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e8e2d8", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 16, color: "#7a6f63", flexShrink: 0 }}>
+                {c.name[0]}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: "#2a2018", fontSize: 15 }}>{c.name}</div>
+                {c.phone && <div style={{ color: "#9a8f82", fontSize: 12 }}>{c.phone}</div>}
+                {c.memo && <div style={{ color: "#b0a898", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.memo}</div>}
+              </div>
+              <span style={{ color: "#c8bfb0", fontSize: 18 }}>›</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 顧客追加モーダル */}
+      {addCustModal && (
+        <div className="mover" onClick={() => setAddCustModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>👤 顧客を追加</h3>
+            <div className="fg"><label>名前 *</label><input value={newCust.name} onChange={e => setNewCust(n => ({ ...n, name: e.target.value }))} placeholder="山田 太郎" autoFocus /></div>
+            <div className="fg"><label>電話番号</label><input value={newCust.phone} onChange={e => setNewCust(n => ({ ...n, phone: e.target.value }))} placeholder="090-0000-0000" type="tel" /></div>
+            <div className="fg"><label>住所</label><input value={newCust.address} onChange={e => setNewCust(n => ({ ...n, address: e.target.value }))} placeholder="（任意）" /></div>
+            <div className="fg"><label>メモ</label><textarea value={newCust.memo} onChange={e => setNewCust(n => ({ ...n, memo: e.target.value }))} placeholder="（任意）" style={{ width: "100%", background: "#f5f0e8", border: "1px solid #ccc5ba", borderRadius: 8, padding: "9px 11px", color: "#2a2018", fontFamily: "Noto Sans JP,sans-serif", fontSize: 14, outline: "none", resize: "vertical", minHeight: 60 }} /></div>
+            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
+              <button className="gbtn" onClick={() => setAddCustModal(false)}>キャンセル</button>
+              <button className="pbtn" onClick={doAddCust}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 顧客編集モーダル */}
+      {editCustModal && (
+        <div className="mover" onClick={() => setEditCustModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>✏️ 顧客を編集</h3>
+            <div className="fg"><label>名前 *</label><input value={editCustModal.name} onChange={e => setEditCustModal(n => ({ ...n, name: e.target.value }))} /></div>
+            <div className="fg"><label>電話番号</label><input value={editCustModal.phone || ""} onChange={e => setEditCustModal(n => ({ ...n, phone: e.target.value }))} type="tel" /></div>
+            <div className="fg"><label>住所</label><input value={editCustModal.address || ""} onChange={e => setEditCustModal(n => ({ ...n, address: e.target.value }))} /></div>
+            <div className="fg"><label>メモ</label><textarea value={editCustModal.memo || ""} onChange={e => setEditCustModal(n => ({ ...n, memo: e.target.value }))} style={{ width: "100%", background: "#f5f0e8", border: "1px solid #ccc5ba", borderRadius: 8, padding: "9px 11px", color: "#2a2018", fontFamily: "Noto Sans JP,sans-serif", fontSize: 14, outline: "none", resize: "vertical", minHeight: 60 }} /></div>
+            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
+              <button className="gbtn" onClick={() => setEditCustModal(null)}>キャンセル</button>
+              <button className="pbtn" onClick={doEditCust}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 予約追加モーダル */}
+      {addApptModal && (
+        <div className="mover" onClick={() => setAddApptModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>📅 予約を追加</h3>
+            <div className="fg"><label>日時 *</label><input type="datetime-local" value={newAppt.datetime} onChange={e => setNewAppt(n => ({ ...n, datetime: e.target.value }))} /></div>
+            <div className="fg"><label>内容</label><input value={newAppt.content} onChange={e => setNewAppt(n => ({ ...n, content: e.target.value }))} placeholder="例: タイヤ交換" /></div>
+            <div className="fg"><label>担当者</label>
+              <select value={newAppt.staff} onChange={e => setNewAppt(n => ({ ...n, staff: e.target.value }))}>
+                {STAFF.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="fg"><label>金額（円）</label><input type="number" min="0" value={newAppt.amount} onChange={e => setNewAppt(n => ({ ...n, amount: e.target.value }))} placeholder="0" /></div>
+            <div className="fg"><label>メモ</label><input value={newAppt.memo} onChange={e => setNewAppt(n => ({ ...n, memo: e.target.value }))} /></div>
+            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
+              <button className="gbtn" onClick={() => setAddApptModal(false)}>キャンセル</button>
+              <button className="pbtn" onClick={doAddAppt}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 修理追加モーダル */}
+      {addRepairModal && (
+        <div className="mover" onClick={() => setAddRepairModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>🔧 修理・整備を追加</h3>
+            <div className="fg"><label>日時 *</label><input type="datetime-local" value={newRepair.datetime} onChange={e => setNewRepair(n => ({ ...n, datetime: e.target.value }))} /></div>
+            <div className="fg"><label>内容</label><input value={newRepair.content} onChange={e => setNewRepair(n => ({ ...n, content: e.target.value }))} placeholder="例: ブレーキ調整" /></div>
+            <div className="fg"><label>担当者</label>
+              <select value={newRepair.staff} onChange={e => setNewRepair(n => ({ ...n, staff: e.target.value }))}>
+                {STAFF.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="fg"><label>金額（円）</label><input type="number" min="0" value={newRepair.amount} onChange={e => setNewRepair(n => ({ ...n, amount: e.target.value }))} placeholder="0" /></div>
+            <div className="fg"><label>メモ</label><input value={newRepair.memo} onChange={e => setNewRepair(n => ({ ...n, memo: e.target.value }))} /></div>
+            <div style={{ display: "flex", gap: 9, justifyContent: "flex-end" }}>
+              <button className="gbtn" onClick={() => setAddRepairModal(false)}>キャンセル</button>
+              <button className="pbtn" onClick={doAddRepair}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // ── 在庫管理画面 ─────────────────────────────────────
   return (
     <div style={S.root}>
       <style>{CSS}</style>
+      <Header />
 
-      {/* ヘッダー */}
-      <header style={S.hdr}>
-        <div>
-          <div style={S.logo}>🚲 在庫管理</div>
-          <div style={S.sub}>Bike Parts Inventory</div>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {saving && <span style={{ fontSize: 10, color: "#b0a898" }}>保存中...</span>}
-          <button className="icobtn" onClick={() => { setScreen("loading"); loadData(); }}><Ico.Refresh /></button>
-          <button className="icobtn" onClick={() => { setSearchOpen(true); setSearchQ(""); }}><Ico.Search /></button>
-          <button className="icobtn" onClick={() => setAddMenu(!addMenu)} style={addMenu ? { background: "#2a2018", color: "#f5f0e8" } : {}}><Ico.Plus /></button>
-          <button className="icobtn" onClick={() => setStOpen(true)}><Ico.Settings /></button>
-        </div>
-      </header>
-
-      {/* ＋メニュー */}
       {addMenu && (
         <div style={{ background: "#faf7f2", borderBottom: "1px solid #e0d9ce", padding: "10px 20px", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="add-chip" onClick={() => { setAddModal("cat"); setAddMenu(false); }}>📁 カテゴリ追加</button>
@@ -317,7 +650,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 注文が必要バナー */}
       {needOrder.length > 0 && (
         <div style={{ background: "#fdf0ee", borderBottom: "1px solid #f0c8c4", padding: "8px 20px", display: "flex", alignItems: "center", gap: 8 }}>
           <span className="dot" />
@@ -325,29 +657,19 @@ export default function App() {
         </div>
       )}
 
-      {/* カテゴリ横スクロール */}
       <div style={{ background: "#faf7f2", borderBottom: "1px solid #e0d9ce", padding: "10px 20px", overflowX: "auto", whiteSpace: "nowrap", display: "flex", gap: 4 }} className="hide-scroll">
-        {/* すべてタブ */}
-        <button className={`cat-tab ${selectedCatId === "all" && mainTab === "stock" ? "cat-tab-on" : ""}`} onClick={() => { setSelectedCatId("all"); setMainTab("stock"); }}>
-          すべて
-        </button>
+        <button className={`cat-tab ${selectedCatId === "all" && mainTab === "stock" ? "cat-tab-on" : ""}`} onClick={() => { setSelectedCatId("all"); setMainTab("stock"); }}>すべて</button>
         {sortedCats.map(cat => (
-          <button key={cat.id} className={`cat-tab ${selectedCatId === cat.id && mainTab === "stock" ? "cat-tab-on" : ""}`} onClick={() => { setSelectedCatId(cat.id); setMainTab("stock"); }}>
-            {cat.name}
-          </button>
+          <button key={cat.id} className={`cat-tab ${selectedCatId === cat.id && mainTab === "stock" ? "cat-tab-on" : ""}`} onClick={() => { setSelectedCatId(cat.id); setMainTab("stock"); }}>{cat.name}</button>
         ))}
-        {/* 注文が必要タブ */}
-        <button className={`cat-tab ${mainTab === "order" ? "cat-tab-order" : ""}`} onClick={() => setMainTab("order")} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <button className={`cat-tab ${mainTab === "order" ? "cat-tab-order" : ""}`} onClick={() => setMainTab("order")} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
           {needOrder.length > 0 && <span className="dot" style={{ width: 6, height: 6 }} />}
           要注文
           {needOrder.length > 0 && <span style={{ background: "#c0392b", color: "#fff", borderRadius: 99, padding: "0px 5px", fontSize: 10, fontWeight: 700 }}>{needOrder.length}</span>}
         </button>
       </div>
 
-      {/* コンテンツ */}
       <main style={S.main}>
-
-        {/* 注文が必要タブ */}
         {mainTab === "order" && (
           needOrder.length === 0
             ? <div style={S.empty}><div style={{ fontSize: 38 }}>✅</div><p style={{ color: "#9a8f82", marginTop: 12 }}>注文が必要な商品はありません</p></div>
@@ -368,21 +690,20 @@ export default function App() {
             ))
         )}
 
-        {/* 在庫タブ */}
         {mainTab === "stock" && displayBrands.map(brand => (
           <div key={brand.id} style={S.brandBlk}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              {selectedCatId === "all" && <span style={{ color: "#b0a898", fontSize: 11, fontFamily: "Noto Sans JP,sans-serif" }}>{brand.catName} ›</span>}
+              {selectedCatId === "all" && <span style={{ color: "#b0a898", fontSize: 11 }}>{brand.catName} ›</span>}
               <span style={S.brandNm}>🏷 {brand.name}</span>
               <span style={{ color: "#b0a898", fontSize: 11 }}>{brand.items.length}種類</span>
             </div>
             {brand.items.length === 0 && <p style={{ color: "#c8bfb0", fontSize: 12, padding: "4px 0" }}>商品がまだありません</p>}
             {[...brand.items].sort((a, b) => a.order - b.order).map(item => {
-              const low = item.stock <= item.minStock;
-              const crit = item.stock === 0;
+              const catId = brand.category_id || cats.find(c => c.brands?.some(b => b.id === brand.id))?.id;
+              const low = item.stock <= item.minStock; const crit = item.stock === 0;
               const sc = crit ? "scrit" : low ? "slow" : "sok";
               return (
-                <div key={item.id} className="irow" onClick={() => openDetail(brand.category_id || brand.catId || cats.find(c => c.brands?.some(b => b.id === brand.id))?.id, brand.id, item)}>
+                <div key={item.id} className="irow" onClick={() => openDetail(catId, brand.id, item)}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontWeight: 700, color: "#2a2018", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
@@ -404,6 +725,43 @@ export default function App() {
         ))}
       </main>
 
+      {/* 合計金額モーダル */}
+      {showSummary && (
+        <div className="mover" onClick={() => setShowSummary(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: "95vw" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <h3 style={{ marginBottom: 0 }}>📊 在庫合計金額</h3>
+              <button className="icobtn" onClick={() => setShowSummary(false)}><Ico.X /></button>
+            </div>
+            <div style={{ background: "#f5f0e8", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "#9a8f82", marginBottom: 6 }}>全体合計</div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 13, color: "#2a2018" }}>定価合計</span>
+                <span style={{ fontFamily: "Noto Sans JP,sans-serif", fontWeight: 700, fontSize: 16, color: "#2a7a5a" }}>¥{summary.total.retail.toLocaleString()}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, color: "#2a2018" }}>仕入合計</span>
+                <span style={{ fontFamily: "Noto Sans JP,sans-serif", fontWeight: 700, fontSize: 16, color: "#9a8f82" }}>¥{summary.total.cost.toLocaleString()}</span>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: "#9a8f82", marginBottom: 8 }}>カテゴリ別</div>
+            {sortedCats.map(cat => (
+              <div key={cat.id} style={{ borderBottom: "1px solid #e8e2d8", paddingBottom: 10, marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#2a2018", marginBottom: 6 }}>{cat.name}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: "#7a6f63" }}>定価合計</span>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: "#2a7a5a" }}>¥{(summary.byCat[cat.id]?.retail || 0).toLocaleString()}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 12, color: "#7a6f63" }}>仕入合計</span>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: "#9a8f82" }}>¥{(summary.byCat[cat.id]?.cost || 0).toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 検索パネル */}
       {searchOpen && (
         <div className="search-overlay" onClick={() => setSearchOpen(false)}>
@@ -416,10 +774,9 @@ export default function App() {
               </div>
               <button className="icobtn" onClick={() => setSearchOpen(false)}><Ico.X /></button>
             </div>
-            {searchQ && searchResults.length === 0 && <p style={{ color: "#b0a898", fontSize: 13, padding: "8px 0" }}>見つかりませんでした</p>}
+            {searchQ && searchResults.length === 0 && <p style={{ color: "#b0a898", fontSize: 13 }}>見つかりませんでした</p>}
             {searchResults.map(item => {
-              const low = item.stock <= item.minStock;
-              const crit = item.stock === 0;
+              const low = item.stock <= item.minStock; const crit = item.stock === 0;
               const sc = crit ? "scrit" : low ? "slow" : "sok";
               return (
                 <div key={item.id} className="irow" style={{ marginBottom: 6 }} onClick={() => { setSelectedCatId(item.catId); setMainTab("stock"); setSearchOpen(false); openDetail(item.catId, item.brandId, item); }}>
@@ -437,7 +794,7 @@ export default function App() {
                 </div>
               );
             })}
-            {!searchQ && <p style={{ color: "#c8bfb0", fontSize: 13, padding: "8px 0" }}>商品名を入力してください</p>}
+            {!searchQ && <p style={{ color: "#c8bfb0", fontSize: 13 }}>商品名を入力してください</p>}
           </div>
         </div>
       )}
@@ -504,7 +861,7 @@ export default function App() {
         </div>
       )}
 
-      {/* カテゴリ追加モーダル */}
+      {/* 追加モーダル */}
       {addModal === "cat" && (
         <div className="mover" onClick={() => setAddModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -517,8 +874,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* ブランド追加モーダル */}
       {addModal === "brand" && (
         <div className="mover" onClick={() => setAddModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -537,8 +892,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* 商品追加モーダル */}
       {addModal === "item" && (
         <div className="mover" onClick={() => setAddModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -697,15 +1050,19 @@ const CSS = `
   @keyframes rot { to { transform: rotate(360deg); } }
   .pbtn { background: #2a2018; color: #f5f0e8; font-weight: 700; padding: 9px 22px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Syne', sans-serif; transition: background .15s; }
   .pbtn:hover { background: #3d3020; }
-  .gbtn { background: #e8e2d8; color: #7a6f63; font-weight: 600; padding: 9px 18px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Syne', sans-serif; transition: background .15s; }
+  .gbtn { background: #e8e2d8; color: #7a6f63; font-weight: 600; padding: 9px 18px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Syne', sans-serif; }
   .gbtn:hover { background: #ddd6ca; color: #2a2018; }
   .icobtn { background: #e8e2d8; border: none; cursor: pointer; border-radius: 9px; padding: 8px; display: flex; align-items: center; justify-content: center; color: #7a6f63; transition: background .15s, color .15s; }
   .icobtn:hover { background: #2a2018; color: #f5f0e8; }
+  .smbtn { background: #e8e2d8; color: #7a6f63; font-size: 12px; padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-weight: 500; }
+  .smbtn:hover { background: #ddd6ca; }
+  .mode-btn { display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 8px 12px; font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 600; color: #2a2018; border-radius: 7px; }
+  .mode-btn:hover { background: #f0ece4; }
   .cat-tab { background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 20px; color: #c8bfb0; transition: all .15s; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
   .cat-tab:hover { color: #7a6f63; background: #f0ece4; }
   .cat-tab-on { background: #2a2018; color: #f5f0e8 !important; }
   .cat-tab-order { background: #fdf0ee; color: #c0392b !important; border: 1px solid #f0c8c4; }
-  .add-chip { background: #f5f0e8; border: 1.5px solid #e0d9ce; border-radius: 20px; padding: 7px 16px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; font-weight: 600; color: #2a2018; cursor: pointer; transition: all .12s; }
+  .add-chip { background: #f5f0e8; border: 1.5px solid #e0d9ce; border-radius: 20px; padding: 7px 16px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; font-weight: 600; color: #2a2018; cursor: pointer; }
   .add-chip:hover { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
   .irow { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid #e8e2d8; margin-bottom: 6px; cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .12s; }
   .irow:hover { border-color: #c8bfb0; box-shadow: 0 2px 10px rgba(42,32,24,.09); transform: translateY(-1px); }
@@ -716,37 +1073,41 @@ const CSS = `
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; display: inline-block; animation: pulse 1.5s infinite; flex-shrink: 0; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
   .big-adj { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all .12s; font-family: 'Noto Sans JP', sans-serif; }
-  .big-adj.dec { background: #f0d9d6; color: #c0392b; } .big-adj.dec:hover { background: #e8c8c4; transform: scale(1.05); }
-  .big-adj.inc { background: #d6ead9; color: #2d7a44; } .big-adj.inc:hover { background: #c2dfc7; transform: scale(1.05); }
+  .big-adj.dec { background: #f0d9d6; color: #c0392b; } .big-adj.dec:hover { background: #e8c8c4; }
+  .big-adj.inc { background: #d6ead9; color: #2d7a44; } .big-adj.inc:hover { background: #c2dfc7; }
   .search-overlay { position: fixed; inset: 0; background: rgba(42,32,24,.4); z-index: 950; display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; backdrop-filter: blur(4px); }
   .search-panel { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 16px; width: 420px; max-width: 93vw; max-height: 70vh; overflow-y: auto; box-shadow: 0 10px 36px rgba(42,32,24,.15); }
   .mover { position: fixed; inset: 0; background: rgba(42,32,24,.42); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
   .modal { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 26px; width: 370px; max-width: 92vw; box-shadow: 0 10px 36px rgba(42,32,24,.13); max-height: 90vh; overflow-y: auto; }
   .modal h3 { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: #2a2018; margin-bottom: 18px; }
   .fg { margin-bottom: 13px; } .fg label { display: block; font-size: 11px; color: #9a8f82; margin-bottom: 5px; }
-  .fg input, .fg select { width: 100%; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; font-size: 14px; outline: none; transition: border-color .15s; }
+  .fg input, .fg select { width: 100%; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; font-size: 14px; outline: none; }
   .fg input:focus, .fg select:focus { border-color: #2a2018; } .fg select option { background: #faf7f2; }
   .stover { position: fixed; inset: 0; background: rgba(42,32,24,.28); z-index: 900; display: flex; justify-content: flex-end; }
   .stpanel { background: #faf7f2; width: 350px; max-width: 93vw; height: 100%; overflow-y: auto; padding: 26px 20px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
   @keyframes sin { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-  .sttab { flex: 1; background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 0; border-radius: 7px; color: #9a8f82; transition: all .13s; }
+  .sttab { flex: 1; background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 0; border-radius: 7px; color: #9a8f82; }
   .sttabon { background: #faf7f2; color: #2a2018; box-shadow: 0 1px 4px rgba(42,32,24,.09); }
   .strow { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border-radius: 9px; background: #f5f0e8; border: 1px solid #e8e2d8; margin-bottom: 6px; min-height: 48px; } .strow:hover { border-color: #c8bfb0; }
-  .sico { background: #f0ece4; border: 1px solid #e0d9ce; cursor: pointer; border-radius: 6px; padding: 5px; display: flex; align-items: center; justify-content: center; color: #9a8f82; transition: all .12s; font-size: 13px; }
+  .sico { background: #f0ece4; border: 1px solid #e0d9ce; cursor: pointer; border-radius: 6px; padding: 5px; display: flex; align-items: center; justify-content: center; color: #9a8f82; font-size: 13px; }
   .sico:hover { background: #e8e2d8; color: #2a2018; } .sico:disabled { opacity: .22; cursor: not-allowed; }
   .sedit:hover { background: #d6e4f0; color: #2563a8; } .sdel:hover { background: #f0d9d6; color: #c0392b; }
   .rninput { flex: 1; background: #fff; border: 1.5px solid #2a2018; border-radius: 6px; padding: 5px 9px; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; color: #2a2018; outline: none; }
-  .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; transition: all .12s; }
+  .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; }
   .chip:hover { background: #ddd6ca; color: #2a2018; } .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
+  .histCard { background: #fff; border: 1px solid #e8e2d8; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
 `;
 
 const S = {
   root: { background: "#f5f0e8", minHeight: "100vh" },
-  hdr: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #e0d9ce", background: "#faf7f2" },
+  hdr: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #e0d9ce", background: "#faf7f2", position: "relative", zIndex: 100 },
   logo: { fontFamily: "Syne,sans-serif", fontWeight: 800, fontSize: 20, color: "#2a2018", letterSpacing: "-.02em" },
   sub: { fontFamily: "Syne,sans-serif", fontSize: 10, color: "#b0a898", letterSpacing: ".1em", marginTop: 2, textTransform: "uppercase" },
   main: { padding: "16px 20px", maxWidth: 860 },
   brandBlk: { background: "#faf7f2", border: "1px solid #e8e2d8", borderRadius: 12, padding: "12px 14px", marginBottom: 12 },
   brandNm: { fontFamily: "Syne,sans-serif", fontWeight: 700, fontSize: 13, color: "#2563a8" },
   empty: { textAlign: "center", padding: "64px 0" },
+  infoRow: { display: "flex", gap: 12, padding: "10px 0", borderBottom: "1px solid #f0ece4", alignItems: "flex-start" },
+  infoLabel: { fontSize: 11, color: "#b0a898", minWidth: 70, paddingTop: 2 },
+  histCard: { background: "#fff", border: "1px solid #e8e2d8", borderRadius: 10, padding: "12px 14px", marginBottom: 8 },
 };
