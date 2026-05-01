@@ -66,6 +66,19 @@ const normalizeBikes = (bikes) => {
   return [];
 };
 const normalizeCustomer = (c) => ({...c, bikes: normalizeBikes(c.bikes)});
+const normalizeJsonArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+const normalizeEstimate = (e) => ({...e, items: normalizeJsonArray(e.items)});
 
 const Ico = {
   Settings:()=>(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>),
@@ -185,20 +198,29 @@ export default function App() {
   };
 
   const loadMasters = async () => {
+    // 顧客設定は maker_master / repair_menus が未作成・権限不足でも画面を落とさない
     try {
-      const [menus, makers] = await Promise.all([
-        api("repair_menus?select=*&order=order.asc"),
-        api("maker_master?select=*&order=order.asc").catch(()=>[]),
-      ]);
-      setRepairMenus(menus||[]);
-      setMakerMaster(makers||[]);
-    } catch(e){console.error(e);}
+      const menus = await api("repair_menus?select=*&order=order.asc").catch(e => {
+        console.error("repair_menus load failed", e);
+        return [];
+      });
+      const makers = await api("maker_master?select=*&order=order.asc").catch(e => {
+        console.error("maker_master load failed", e);
+        return [];
+      });
+      setRepairMenus(Array.isArray(menus) ? menus : []);
+      setMakerMaster(Array.isArray(makers) ? makers : []);
+    } catch(e){
+      console.error(e);
+      setRepairMenus([]);
+      setMakerMaster([]);
+    }
   };
 
   const loadEstimates = async () => {
     try {
       const data = await api("estimates?select=*&order=created_at.desc").catch(()=>[]);
-      setEstimates(data||[]);
+      setEstimates((data||[]).map(normalizeEstimate));
     } catch(e){console.error(e);}
   };
 
@@ -306,6 +328,66 @@ export default function App() {
     setSaving(true);
     try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); }
     catch(e){ console.error(e); alert("自転車情報の削除に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+
+  // ── 顧客設定：メーカーマスター・修理メニュー ──
+  const doAddMaker=async()=>{
+    const name=newMakerF.trim();
+    if(!name) return;
+    const o=(makerMaster||[]).reduce((m,x)=>Math.max(m,x.order ?? 0),-1)+1;
+    const id=uid();
+    setSaving(true);
+    try {
+      const saved=await api("maker_master","POST",{id,name,order:o});
+      const row=Array.isArray(saved) ? (saved[0] || {id,name,order:o}) : {id,name,order:o};
+      setMakerMaster(p=>[...p,row].sort((a,b)=>(a.order??0)-(b.order??0)));
+      setNewMakerF("");
+    } catch(e) { console.error(e); alert("メーカーの追加に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const commitRnMaker=async(id)=>{
+    const name=rnMakerV.trim();
+    if(!name){ setRnMaker(null); return; }
+    setSaving(true);
+    try {
+      await api(`maker_master?id=eq.${id}`,"PATCH",{name});
+      setMakerMaster(p=>p.map(m=>m.id===id?{...m,name}:m));
+      setRnMaker(null);
+    } catch(e) { console.error(e); alert("メーカー名の変更に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const delMaker=async(id)=>{
+    if(!window.confirm("削除しますか？")) return;
+    setSaving(true);
+    try {
+      await api(`maker_master?id=eq.${id}`,"DELETE");
+      setMakerMaster(p=>p.filter(m=>m.id!==id));
+    } catch(e) { console.error(e); alert("メーカーの削除に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const doAddMenu=async()=>{
+    const name=newMenuF.name.trim();
+    if(!name) return;
+    const price=+newMenuF.price||0;
+    const o=(repairMenus||[]).reduce((m,x)=>Math.max(m,x.order ?? 0),-1)+1;
+    const id=uid();
+    setSaving(true);
+    try {
+      const saved=await api("repair_menus","POST",{id,name,price,order:o});
+      const row=Array.isArray(saved) ? (saved[0] || {id,name,price,order:o}) : {id,name,price,order:o};
+      setRepairMenus(p=>[...p,row].sort((a,b)=>(a.order??0)-(b.order??0)));
+      setNewMenuF({name:"",price:""});
+    } catch(e) { console.error(e); alert("修理メニューの追加に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const delMenu=async(id)=>{
+    if(!window.confirm("削除しますか？")) return;
+    setSaving(true);
+    try {
+      await api(`repair_menus?id=eq.${id}`,"DELETE");
+      setRepairMenus(p=>p.filter(m=>m.id!==id));
+    } catch(e) { console.error(e); alert("修理メニューの削除に失敗しました。"); }
     finally { setSaving(false); }
   };
 
@@ -758,7 +840,7 @@ export default function App() {
       <Header>
         <button className="icobtn" onClick={()=>{loadCustomers({silent:true});loadEstimates();}}><Ico.Refresh/></button>
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
-        <button className="icobtn" onClick={()=>setStCustOpen(true)}><Ico.Settings/></button>
+        <button className="icobtn" onClick={()=>{ setStCustOpen(true); loadMasters(); }}><Ico.Settings/></button>
       </Header>
       <div style={{padding:"16px 20px"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
@@ -804,6 +886,7 @@ export default function App() {
               <button className="icobtn" onClick={()=>setStCustOpen(false)}><Ico.X/></button>
             </div>
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>🚲 メーカーマスター</div>
+            {(makerMaster||[]).length===0&&<p style={{color:"#b0a898",fontSize:12,marginBottom:8}}>メーカー未登録です</p>}
             {(makerMaster||[]).map(m=>(
               <div key={m.id} className="strow">
                 {rnMaker===m.id
@@ -819,7 +902,8 @@ export default function App() {
               <button className="pbtn" style={{padding:"8px 14px",fontSize:12}} onClick={doAddMaker}>追加</button>
             </div>
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10,marginTop:24}}>🔧 修理メニュー</div>
-            {repairMenus.map(m=>(
+            {(repairMenus||[]).length===0&&<p style={{color:"#b0a898",fontSize:12,marginBottom:8}}>修理メニュー未登録です</p>}
+            {(repairMenus||[]).map(m=>(
               <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#f5f0e8",borderRadius:8,marginBottom:6}}>
                 <span style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{m.name}</span>
                 {m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}
