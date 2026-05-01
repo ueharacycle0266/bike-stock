@@ -131,8 +131,10 @@ export default function App() {
   const loadCustomers = async () => {
     try {
       const data = await api("customers?select=*&order=created_at.desc");
-      setCustomers(data.map(c=>({...c,bikes:c.bikes||[]})));
-      setCustLoaded(true);
+      if (Array.isArray(data)) {
+        setCustomers(data.map(c=>({...c,bikes:c.bikes||[]})));
+        setCustLoaded(true);
+      }
     } catch(e){console.error(e);}
   };
 
