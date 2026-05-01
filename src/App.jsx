@@ -139,13 +139,15 @@ export default function App() {
   const [custLoading, setCustLoading] = useState(false);
   const customerRequestNo = useRef(0);
   const [custSearch, setCustSearch] = useState("");
+  const [custTab, setCustTab] = useState("search");
   const [custDetail, setCustDetail] = useState(null);
   const [bikeDetail, setBikeDetail] = useState(null); // {cust, bikeIdx}
   const [addCustModal, setAddCustModal] = useState(false);
   const [editCustModal, setEditCustModal] = useState(null);
   const [newCust, setNewCust] = useState({name:"",furigana:"",phone:"",address:"",memo:"",notes:[""],customer_rank:"通常"});
   const [makerMaster, setMakerMaster] = useState([]);
-  const [newBikeF, setNewBikeF] = useState({maker:"",color:""});
+  const [newBikeF, setNewBikeF] = useState({maker:"",color:"",nextMaintenanceDate:""});
+  const [addBikeModal, setAddBikeModal] = useState(false);
   const [stCustOpen, setStCustOpen] = useState(false);
   const [newMakerF, setNewMakerF] = useState("");
   const [rnMaker, setRnMaker] = useState(null); const [rnMakerV, setRnMakerV] = useState("");
@@ -176,6 +178,7 @@ export default function App() {
     try {
       const [cD,bD,iD] = await Promise.all([api("categories?select=*&order=order.asc"),api("brands?select=*&order=order.asc"),api("items?select=*&order=order.asc")]);
       setCats(cD.map(c=>({...c,brands:bD.filter(b=>b.category_id===c.id).map(b=>({...b,items:iD.filter(i=>i.brand_id===b.id).map(i=>({id:i.id,name:i.name,stock:i.stock,minStock:i.min_stock,retailPrice:i.retail_price,costPrice:i.cost_price,order:i.order})).sort((a,b)=>a.order-b.order)})).sort((a,b)=>a.order-b.order)})));
+      loadCustomers({silent:true}).catch(()=>{});
     } catch(e){console.error(e);}
     setScreen("main");
   };
@@ -244,7 +247,7 @@ export default function App() {
   const switchMode = async (mode) => {
     setAppMode(mode); setModeMenu(false);
     if (mode==="customer" && !custLoaded) { await Promise.all([loadCustomers(),loadMasters(),loadEstimates()]); }
-    if (mode==="reservation") { await Promise.all([loadReservations(), !custLoaded&&loadCustomers()]); }
+    if (mode==="reservation") { await Promise.all([loadReservations(), !custLoaded&&loadCustomers(), loadMasters()]); }
   };
 
   // ── 在庫 派生 ──
@@ -321,9 +324,9 @@ export default function App() {
   };
   const addBike=async()=>{
     if(!newBikeF.maker.trim()||!custDetail) return;
-    const bikes=[...(custDetail.bikes||[]),{maker:newBikeF.maker,color:newBikeF.color}];
+    const bikes=[...(custDetail.bikes||[]),{maker:newBikeF.maker,color:newBikeF.color,nextMaintenanceDate:newBikeF.nextMaintenanceDate||null}];
     setSaving(true);
-    try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); setNewBikeF({maker:"",color:""}); }
+    try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); setNewBikeF({maker:"",color:"",nextMaintenanceDate:""}); }
     catch(e){ console.error(e); alert("自転車情報の保存に失敗しました。"); }
     finally { setSaving(false); }
   };
@@ -333,6 +336,16 @@ export default function App() {
     setSaving(true);
     try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); }
     catch(e){ console.error(e); alert("自転車情報の削除に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const updateBikeMaintenance=async(idx,date)=>{
+    if(!custDetail) return;
+    const bikes=(custDetail.bikes||[]).map((b,i)=>i===idx?{...b,nextMaintenanceDate:date||null}:b);
+    setCustDetail(p=>({...p,bikes}));
+    setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c));
+    setSaving(true);
+    try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); }
+    catch(e){ console.error(e); alert("次回メンテナンス日の保存に失敗しました。"); }
     finally { setSaving(false); }
   };
 
@@ -400,10 +413,10 @@ export default function App() {
   const openEditEst=(est)=>{ setEditEstModal(est); setEstItems(est.items||[]); setEstMemo(est.memo||""); };
   const doSaveEst=async()=>{
     if(!addEstModal) return;
-    const id=uid(); const obj={id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items:estItems,memo:estMemo,total:estTotal,created_at:new Date().toISOString()};
+    const items=cleanEstimateItems(estItems); const total=items.reduce((sum,it)=>sum+(Number(it.price||0)*Number(it.qty||0)),0); const id=uid(); const obj={id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total,created_at:new Date().toISOString()};
     setSaving(true);
     try {
-      const saved = await api("estimates","POST",{id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items:estItems,memo:estMemo,total:estTotal});
+      const saved = await api("estimates","POST",{id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total});
       const row = normalizeEstimate(Array.isArray(saved) ? (saved[0] || obj) : obj);
       setEstimates(p=>[row,...p]);
       setAddEstModal(null);
@@ -412,10 +425,10 @@ export default function App() {
   };
   const doUpdateEst=async()=>{
     if(!editEstModal) return;
-    const upd={...editEstModal,items:estItems,memo:estMemo,total:estTotal};
+    const items=cleanEstimateItems(estItems); const total=items.reduce((sum,it)=>sum+(Number(it.price||0)*Number(it.qty||0)),0); const upd={...editEstModal,items,memo:estMemo,total};
     setSaving(true);
     try {
-      await api(`estimates?id=eq.${upd.id}`,"PATCH",{items:estItems,memo:estMemo,total:estTotal});
+      await api(`estimates?id=eq.${upd.id}`,"PATCH",{items,memo:estMemo,total});
       setEstimates(p=>p.map(e=>e.id===upd.id?upd:e)); setEditEstModal(null);
     } catch(e) { console.error(e); alert("見積書・修理履歴の更新に失敗しました。"); }
     finally { setSaving(false); }
@@ -436,6 +449,28 @@ export default function App() {
     return m;
   },[reservations]);
   const custMap = useMemo(()=>{ const m={}; customers.forEach(c=>m[c.id]=c); return m; },[customers]);
+  const getEstItemName = (it) => it?.name || repairMenus.find(m=>m.id===it?.menuId)?.name || "";
+  const getEstItemPrice = (it) => Number(it?.price ?? repairMenus.find(m=>m.id===it?.menuId)?.price ?? 0);
+  const cleanEstimateItems = (items) => (items||[])
+    .filter(it => String(getEstItemName(it)||"").trim() || Number(it.price||0)>0)
+    .map(it=>({name:String(getEstItemName(it)||"").trim(), price:Number(getEstItemPrice(it)||0), qty:Number(it.qty||1)}));
+  const addEstimateLine = () => setEstItems(p=>[...(p||[]),{name:"",price:"",qty:1}]);
+  const updateEstimateLine = (idx, patch) => setEstItems(p=>(p||[]).map((it,i)=>i===idx?{...it,...patch}:it));
+  const deleteEstimateLine = (idx) => setEstItems(p=>(p||[]).filter((_,i)=>i!==idx));
+  const updateResRepairLine = (idx, patch) => setResForm(f=>({...f,repairItems:(f.repairItems||[]).map((it,i)=>i===idx?{...it,...patch}:it)}));
+  const addResRepairLine = () => setResForm(f=>({...f,repairItems:[...(f.repairItems||[]),{name:"",price:"",qty:1}]}));
+  const deleteResRepairLine = (idx) => setResForm(f=>({...f,repairItems:(f.repairItems||[]).filter((_,i)=>i!==idx)}));
+  const maintenanceDueBikes = useMemo(()=>{
+    const today=new Date(); today.setHours(0,0,0,0);
+    const limit=new Date(today); limit.setDate(limit.getDate()+30);
+    const rows=[];
+    customers.forEach(c=>(c.bikes||[]).forEach((b,idx)=>{
+      if(!b.nextMaintenanceDate) return;
+      const d=new Date(b.nextMaintenanceDate); d.setHours(0,0,0,0);
+      if(d>=today && d<=limit) rows.push({customer:c,bike:b,bikeIdx:idx,date:d});
+    }));
+    return rows.sort((a,b)=>a.date-b.date);
+  },[customers]);
   const searchCustomerMatch = (c, raw) => {
     const terms = raw.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (!terms.length) return true;
@@ -448,8 +483,8 @@ export default function App() {
   };
   const resCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,resCustSearch)).slice(0,8),[resCustSearch,customers]);
   const selectedResCust = customers.find(c=>c.id===resForm.custId);
-  const estTotal = useMemo(() => estItems.reduce((sum,it)=>{ const m=repairMenus.find(x=>x.id===it.menuId); return sum + ((m?.price||0) * (it.qty||0)); },0), [estItems, repairMenus]);
-  const resRepairTotal = useMemo(() => (resForm.repairItems||[]).reduce((sum,it)=>{ const m=repairMenus.find(x=>x.id===it.menuId); return sum + ((m?.price||0) * (it.qty||0)); },0), [resForm.repairItems, repairMenus]);
+  const estTotal = useMemo(() => (estItems||[]).reduce((sum,it)=>sum + (getEstItemPrice(it) * (Number(it.qty)||0)),0), [estItems, repairMenus]);
+  const resRepairTotal = useMemo(() => (resForm.repairItems||[]).reduce((sum,it)=>sum + (getEstItemPrice(it) * (Number(it.qty)||0)),0), [resForm.repairItems, repairMenus]);
 
   const doAddRes=async()=>{
     if(!addResModal||!resForm.checkinDate) return;
@@ -459,10 +494,12 @@ export default function App() {
     try {
       await api("reservations","POST",{id,customer_id:resForm.custId||null,bike_index:resForm.bikeIdx,checkin_date:resForm.checkinDate,checkin_time:addResModal.time,due_date:resForm.dueDateUnknown?null:resForm.dueDate||null,staff:resForm.staff,memo:resForm.memo||null,status:"reserved"});
       setReservations(p=>[...p,obj]);
-      if (resForm.custId && (resForm.repairItems||[]).length > 0) {
+      const repairItems=cleanEstimateItems(resForm.repairItems);
+      const repairTotal=repairItems.reduce((sum,it)=>sum+(Number(it.price||0)*Number(it.qty||0)),0);
+      if (resForm.custId && repairItems.length > 0) {
         const eid=uid();
-        const estObj={id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:resForm.repairItems,memo:resForm.memo||"予約時作成",total:resRepairTotal,created_at:new Date().toISOString()};
-        await api("estimates","POST",{id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:resForm.repairItems,memo:resForm.memo||"予約時作成",total:resRepairTotal}).catch(e=>console.error("estimate from reservation failed", e));
+        const estObj={id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:repairItems,memo:resForm.memo||"予約時作成",total:repairTotal,created_at:new Date().toISOString()};
+        await api("estimates","POST",{id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:repairItems,memo:resForm.memo||"予約時作成",total:repairTotal}).catch(e=>console.error("estimate from reservation failed", e));
         setEstimates(p=>[estObj,...p]);
       }
       setAddResModal(null);
@@ -476,6 +513,40 @@ export default function App() {
   const delRes=async(id)=>{ if(!window.confirm("削除しますか？")) return; setReservations(p=>p.filter(r=>r.id!==id)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"DELETE").catch(()=>{}); };
 
   const filteredCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,custSearch)),[customers,custSearch]);
+
+  const EstimateLinesEditor=()=> <div style={{marginBottom:14}}>
+    <datalist id="repair-menu-options">
+      {(repairMenus||[]).map(m=><option key={m.id} value={m.name}>{m.price?`¥${m.price.toLocaleString()}`:""}</option>)}
+    </datalist>
+    {(estItems||[]).map((it,i)=><div key={i} className="estimate-line">
+      <input list="repair-menu-options" value={getEstItemName(it)} onChange={e=>{
+        const menu=(repairMenus||[]).find(m=>m.name===e.target.value);
+        updateEstimateLine(i,{name:e.target.value,price:menu?menu.price:(it.price||"")});
+      }} placeholder="修理内容" />
+      <input type="number" min="0" value={it.price ?? ""} onChange={e=>updateEstimateLine(i,{price:e.target.value})} placeholder="金額" />
+      <input type="number" min="1" value={it.qty ?? 1} onChange={e=>updateEstimateLine(i,{qty:e.target.value})} placeholder="数量" />
+      <button className="sico sdel" onClick={()=>deleteEstimateLine(i)}><Ico.Trash/></button>
+    </div>)}
+    {(estItems||[]).length===0&&<p style={{color:"#b0a898",fontSize:13,marginBottom:8}}>行を追加して修理内容を入力してください</p>}
+    <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addEstimateLine}>＋ 行を追加</button>
+  </div>;
+
+  const ResRepairLinesEditor=()=> <div>
+    <datalist id="res-repair-menu-options">
+      {(repairMenus||[]).map(m=><option key={m.id} value={m.name}>{m.price?`¥${m.price.toLocaleString()}`:""}</option>)}
+    </datalist>
+    {(resForm.repairItems||[]).map((it,i)=><div key={i} className="estimate-line">
+      <input list="res-repair-menu-options" value={getEstItemName(it)} onChange={e=>{
+        const menu=(repairMenus||[]).find(m=>m.name===e.target.value);
+        updateResRepairLine(i,{name:e.target.value,price:menu?menu.price:(it.price||"")});
+      }} placeholder="修理内容" />
+      <input type="number" min="0" value={it.price ?? ""} onChange={e=>updateResRepairLine(i,{price:e.target.value})} placeholder="金額" />
+      <input type="number" min="1" value={it.qty ?? 1} onChange={e=>updateResRepairLine(i,{qty:e.target.value})} placeholder="数量" />
+      <button className="sico sdel" onClick={()=>deleteResRepairLine(i)}><Ico.Trash/></button>
+    </div>)}
+    {(resForm.repairItems||[]).length===0&&<div style={{fontSize:12,color:"#b0a898",padding:"6px 0"}}>行を追加して修理内容を入力してください</div>}
+    <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addResRepairLine}>＋ 修理内容を追加</button>
+  </div>;
 
   // ── ログイン ──
   if (screen==="login") return (
@@ -511,7 +582,6 @@ export default function App() {
           <div style={{position:"absolute",top:"100%",left:0,background:"#faf7f2",border:"1px solid #e0d9ce",borderRadius:10,padding:"6px",zIndex:200,minWidth:160,boxShadow:"0 4px 16px rgba(42,32,24,.12)"}}>
             <button className="mode-btn" onClick={()=>switchMode("stock")}>🚲 在庫管理</button>
             <button className="mode-btn" onClick={()=>switchMode("customer")}>👤 顧客管理</button>
-            <button className="mode-btn" onClick={()=>switchMode("reservation")}>📅 予約管理</button>
           </div>
         )}
       </div>
@@ -664,16 +734,7 @@ export default function App() {
 
               {selectedResCust&&(
                 <div className="fg"><label>修理内容・見積もり</label>
-                  <div style={{maxHeight:170,overflowY:"auto",background:"#fff",border:"1px solid #e8e2d8",borderRadius:8,padding:"4px 8px"}}>
-                    {(repairMenus||[]).map(m=>{ const it=(resForm.repairItems||[]).find(i=>i.menuId===m.id); return <div key={m.id} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 0",borderBottom:"1px solid #f5f0e8"}}>
-                      <span style={{flex:1,fontSize:12,fontWeight:600,color:"#2a2018"}}>{m.name}</span>
-                      <span style={{fontSize:11,color:"#2a7a5a",minWidth:54,textAlign:"right"}}>¥{(m.price||0).toLocaleString()}</span>
-                      <button className="sico" onClick={()=>setResForm(f=>{ const arr=[...(f.repairItems||[])]; const idx=arr.findIndex(i=>i.menuId===m.id); if(idx<0) return f; if(arr[idx].qty<=1) return {...f,repairItems:arr.filter(i=>i.menuId!==m.id)}; arr[idx]={...arr[idx],qty:arr[idx].qty-1}; return {...f,repairItems:arr};})}>−</button>
-                      <span style={{minWidth:18,textAlign:"center",fontWeight:700,fontSize:12}}>{it?.qty||0}</span>
-                      <button className="sico" onClick={()=>setResForm(f=>{ const arr=[...(f.repairItems||[])]; const idx=arr.findIndex(i=>i.menuId===m.id); if(idx<0) arr.push({menuId:m.id,qty:1}); else arr[idx]={...arr[idx],qty:arr[idx].qty+1}; return {...f,repairItems:arr};})}>＋</button>
-                    </div>; })}
-                    {(repairMenus||[]).length===0&&<div style={{fontSize:12,color:"#b0a898",padding:8}}>設定から修理メニューを追加してください</div>}
-                  </div>
+                  <div style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:8,padding:"8px"}}><ResRepairLinesEditor/></div>
                   {resRepairTotal>0&&<div style={{display:"flex",justifyContent:"space-between",background:"#f5f0e8",borderRadius:8,padding:"8px 10px",marginTop:6,fontWeight:800}}><span>見積合計</span><span style={{color:"#2a7a5a"}}>¥{resRepairTotal.toLocaleString()}</span></div>}
                 </div>
               )}
@@ -757,7 +818,7 @@ export default function App() {
                   <button className="sico sdel" onClick={()=>delEst(e.id)}><Ico.Trash/></button>
                 </div>
               </div>
-              {(e.items||[]).map((it,i)=>{ const m=repairMenus.find(m=>m.id===it.menuId); return m&&<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #f5f0e8"}}><span>{m.name} × {it.qty}</span><span style={{color:"#2a7a5a",fontWeight:600}}>¥{((m.price||0)*it.qty).toLocaleString()}</span></div>; })}
+              {(e.items||[]).map((it,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #f5f0e8"}}><span>{getEstItemName(it)} × {it.qty||1}</span><span style={{color:"#2a7a5a",fontWeight:600}}>¥{(getEstItemPrice(it)*(it.qty||1)).toLocaleString()}</span></div>)}
               <div style={{display:"flex",justifyContent:"space-between",marginTop:8,fontWeight:800,fontSize:15,color:"#2a2018"}}>
                 <span>合計</span><span style={{color:"#2a7a5a"}}>¥{(e.total||0).toLocaleString()}</span>
               </div>
@@ -771,21 +832,7 @@ export default function App() {
           <div className="mover" onClick={()=>setAddEstModal(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
               <h3>📋 見積もり作成</h3>
-              <div style={{marginBottom:14}}>
-                {repairMenus.map(m=>{
-                  const it=estItems.find(i=>i.menuId===m.id);
-                  return <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #f5f0e8"}}>
-                    <span style={{flex:1,fontSize:13,color:"#2a2018"}}>{m.name}</span>
-                    <span style={{fontSize:12,color:"#2a7a5a",minWidth:60,textAlign:"right"}}>¥{(m.price||0).toLocaleString()}</span>
-                    <div style={{display:"flex",alignItems:"center",gap:4}}>
-                      <button style={{width:28,height:28,borderRadius:6,border:"1px solid #e0d9ce",background:"#f5f0e8",cursor:"pointer",fontSize:16,color:"#c0392b"}} onClick={()=>setEstItems(p=>{ const idx=p.findIndex(i=>i.menuId===m.id); if(idx<0) return p; const n=[...p]; if(n[idx].qty<=1) return p.filter(i=>i.menuId!==m.id); n[idx]={...n[idx],qty:n[idx].qty-1}; return n; })}>−</button>
-                      <span style={{minWidth:24,textAlign:"center",fontWeight:700,fontSize:14}}>{it?.qty||0}</span>
-                      <button style={{width:28,height:28,borderRadius:6,border:"1px solid #e0d9ce",background:"#f5f0e8",cursor:"pointer",fontSize:16,color:"#2d7a44"}} onClick={()=>setEstItems(p=>{ const idx=p.findIndex(i=>i.menuId===m.id); if(idx<0) return [...p,{menuId:m.id,qty:1}]; const n=[...p]; n[idx]={...n[idx],qty:n[idx].qty+1}; return n; })}>+</button>
-                    </div>
-                  </div>;
-                })}
-                {repairMenus.length===0&&<p style={{color:"#b0a898",fontSize:13}}>メニューが未設定です</p>}
-              </div>
+              <EstimateLinesEditor/>
               {estTotal>0&&<div style={{background:"#f5f0e8",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",marginBottom:12}}>
                 <span style={{fontWeight:700,fontSize:14}}>合計</span>
                 <span style={{fontWeight:800,fontSize:16,color:"#2a7a5a"}}>¥{estTotal.toLocaleString()}</span>
@@ -803,20 +850,7 @@ export default function App() {
           <div className="mover" onClick={()=>setEditEstModal(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
               <h3>📋 見積もり編集</h3>
-              <div style={{marginBottom:14}}>
-                {repairMenus.map(m=>{
-                  const it=estItems.find(i=>i.menuId===m.id);
-                  return <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #f5f0e8"}}>
-                    <span style={{flex:1,fontSize:13,color:"#2a2018"}}>{m.name}</span>
-                    <span style={{fontSize:12,color:"#2a7a5a",minWidth:60,textAlign:"right"}}>¥{(m.price||0).toLocaleString()}</span>
-                    <div style={{display:"flex",alignItems:"center",gap:4}}>
-                      <button style={{width:28,height:28,borderRadius:6,border:"1px solid #e0d9ce",background:"#f5f0e8",cursor:"pointer",fontSize:16,color:"#c0392b"}} onClick={()=>setEstItems(p=>{ const idx=p.findIndex(i=>i.menuId===m.id); if(idx<0) return p; const n=[...p]; if(n[idx].qty<=1) return p.filter(i=>i.menuId!==m.id); n[idx]={...n[idx],qty:n[idx].qty-1}; return n; })}>−</button>
-                      <span style={{minWidth:24,textAlign:"center",fontWeight:700,fontSize:14}}>{it?.qty||0}</span>
-                      <button style={{width:28,height:28,borderRadius:6,border:"1px solid #e0d9ce",background:"#f5f0e8",cursor:"pointer",fontSize:16,color:"#2d7a44"}} onClick={()=>setEstItems(p=>{ const idx=p.findIndex(i=>i.menuId===m.id); if(idx<0) return [...p,{menuId:m.id,qty:1}]; const n=[...p]; n[idx]={...n[idx],qty:n[idx].qty+1}; return n; })}>+</button>
-                    </div>
-                  </div>;
-                })}
-              </div>
+              <EstimateLinesEditor/>
               {estTotal>0&&<div style={{background:"#f5f0e8",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",marginBottom:12}}>
                 <span style={{fontWeight:700,fontSize:14}}>合計</span><span style={{fontWeight:800,fontSize:16,color:"#2a7a5a"}}>¥{estTotal.toLocaleString()}</span>
               </div>}
@@ -845,6 +879,8 @@ export default function App() {
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16,color:"#2a2018"}}>{custDetail.name}</div>
             {custDetail.furigana&&<div style={{fontSize:11,color:"#b0a898"}}>{custDetail.furigana}</div>}
           </div>
+          <button className="icobtn" onClick={()=>setAddBikeModal(true)}><Ico.Plus/></button>
+          <button className="icobtn" onClick={()=>{ setStCustOpen(true); loadMasters(); }}><Ico.Settings/></button>
           <button className="smbtn" onClick={()=>setEditCustModal({...custDetail})}>編集</button>
           <button className="smbtn" style={{color:"#c0392b"}} onClick={()=>delCust(custDetail.id)}>削除</button>
         </div>
@@ -854,29 +890,48 @@ export default function App() {
           {custDetail.customer_rank&&<div style={S.infoRow}><span style={S.infoLabel}>民度ランク</span><span style={{fontWeight:700,color:custDetail.customer_rank==="注意"?"#c87a00":custDetail.customer_rank==="要注意"?"#c0392b":"#2d7a44"}}>{custDetail.customer_rank}</span></div>}
           {custDetail.memo&&<div style={S.infoRow}><span style={S.infoLabel}>メモ</span><span style={{whiteSpace:"pre-wrap"}}>{custDetail.memo}</span></div>}
           {(custDetail.notes||[]).filter(Boolean).map((note,i)=><div key={i} style={S.infoRow}><span style={S.infoLabel}>メモ{i+1}</span><span style={{whiteSpace:"pre-wrap"}}>{note}</span></div>)}
-          <div style={{marginTop:20}}>
-            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:12}}>🚲 登録自転車</div>
+          <div style={{marginTop:10}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>🚲 登録自転車</div>
+              <button className="pbtn" style={{padding:"7px 12px",fontSize:12}} onClick={()=>setAddBikeModal(true)}>＋ 自転車追加</button>
+            </div>
             {bikes.map((bike,i)=>(
               <div key={i} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setBikeDetail({cust:custDetail,bikeIdx:i})}>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,color:"#2563a8",fontSize:14}}>🚲 {bike.maker}</div>
                   {bike.color&&<div style={{fontSize:12,color:"#9a8f82"}}>{bike.color}</div>}
                   <div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{custEstimates(custDetail.id,i).length}件の履歴</div>
+                  <div onClick={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:"#9a8f82"}}>次回メンテ</span>
+                    <input type="date" value={bike.nextMaintenanceDate||""} onChange={e=>updateBikeMaintenance(i,e.target.value)} style={{background:"#f5f0e8",border:"1px solid #e0d9ce",borderRadius:6,padding:"4px 6px",fontSize:12,color:"#2a2018"}} />
+                  </div>
                 </div>
                 <span style={{color:"#c8bfb0",fontSize:18}}>›</span>
                 <button className="sico sdel" style={{flexShrink:0}} onClick={e=>{e.stopPropagation();delBike(i);}}><Ico.Trash/></button>
               </div>
             ))}
-            <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
-              <select value={newBikeF.maker} onChange={e=>setNewBikeF(n=>({...n,maker:e.target.value}))} style={{flex:2,minWidth:100,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}}>
-                <option value="">メーカー選択</option>
-                {makerMaster.map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
-              </select>
-              <input value={newBikeF.color} onChange={e=>setNewBikeF(n=>({...n,color:e.target.value}))} placeholder="色（任意）" style={{flex:1,minWidth:60,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}}/>
-              <button className="pbtn" style={{padding:"8px 14px",fontSize:12,flexShrink:0}} onClick={addBike}>追加</button>
-            </div>
+
           </div>
         </div>
+        {addBikeModal&&(
+          <div className="mover" onClick={()=>setAddBikeModal(false)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <h3>🚲 自転車を追加</h3>
+              <div className="fg"><label>メーカー</label>
+                <select value={newBikeF.maker} onChange={e=>setNewBikeF(n=>({...n,maker:e.target.value}))}>
+                  <option value="">メーカー選択</option>
+                  {makerMaster.map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
+                </select>
+              </div>
+              <div className="fg"><label>色（任意）</label><input value={newBikeF.color} onChange={e=>setNewBikeF(n=>({...n,color:e.target.value}))} placeholder="例: 赤"/></div>
+              <div className="fg"><label>次回メンテナンス日</label><input type="date" value={newBikeF.nextMaintenanceDate||""} onChange={e=>setNewBikeF(n=>({...n,nextMaintenanceDate:e.target.value}))}/></div>
+              <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+                <button className="gbtn" onClick={()=>setAddBikeModal(false)}>キャンセル</button>
+                <button className="pbtn" onClick={async()=>{ await addBike(); setAddBikeModal(false); }}>追加</button>
+              </div>
+            </div>
+          </div>
+        )}
         {editCustModal&&(
           <div className="mover" onClick={()=>setEditCustModal(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
@@ -892,6 +947,19 @@ export default function App() {
             </div>
           </div>
         )}
+        {stCustOpen&&(
+          <div className="stover" onClick={()=>setStCustOpen(false)}>
+            <aside className="stpanel cust-settings-panel" onClick={e=>e.stopPropagation()}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:17,color:"#2a2018"}}>⚙️ 設定</span><button className="icobtn" onClick={()=>setStCustOpen(false)}><Ico.X/></button></div>
+              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:8}}>🚲 メーカー</div>
+              {(makerMaster||[]).map(m=><div key={m.id} className="strow compact-row"><span style={{flex:1,fontWeight:600,fontSize:13}}>{m.name}</span><button className="sico sedit" onClick={()=>{setRnMaker(m.id);setRnMakerV(m.name);}}><Ico.Edit/></button><button className="sico sdel" onClick={()=>delMaker(m.id)}><Ico.Trash/></button></div>)}
+              <div className="compact-form"><input value={newMakerF} onChange={e=>setNewMakerF(e.target.value)} placeholder="例: GIANT" onKeyDown={e=>e.key==="Enter"&&doAddMaker()}/><button className="pbtn" onClick={doAddMaker}>追加</button></div>
+              <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:8,marginTop:18}}>🔧 修理メニュー</div>
+              {(repairMenus||[]).map(m=><div key={m.id} className="repair-menu-row"><span style={{flex:1,fontSize:13,fontWeight:600}}>{m.name}</span>{m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}<button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button></div>)}
+              <div className="compact-form"><input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容"/><input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number"/><button className="pbtn" onClick={doAddMenu}>追加</button></div>
+            </aside>
+          </div>
+        )}
       </div>;
     }
 
@@ -904,23 +972,40 @@ export default function App() {
         <button className="icobtn" onClick={()=>{ setStCustOpen(true); loadMasters(); }}><Ico.Settings/></button>
       </Header>
       <div style={{padding:"16px 20px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
-          <Ico.Search/>
-          <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="名前・フリガナ・下4桁で検索..." style={{flex:1,background:"none",border:"none",outline:"none",fontSize:14,color:"#2a2018",fontFamily:"Noto Sans JP,sans-serif"}}/>
+        <div className="customer-tabs">
+          <button className={`cust-tab ${custTab==="search"?"cust-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
+          <button className={`cust-tab ${custTab==="maintenance"?"cust-tab-on":""}`} onClick={()=>setCustTab("maintenance")}>メンテ期限 {maintenanceDueBikes.length>0&&<span>({maintenanceDueBikes.length})</span>}</button>
+          <button className="cust-tab" onClick={()=>switchMode("reservation")}>予約管理</button>
         </div>
-        {filteredCusts.length===0&&!custLoading&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"40px 0"}}>{custLoaded?"顧客がいません。＋から追加してください":"読み込み中..."}</p>}
-        {filteredCusts.map(c=>(
-          <div key={c.id} className="irow" onClick={()=>setCustDetail(c)}>
-            <div style={{width:40,height:40,borderRadius:"50%",background:"#e8e2d8",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16,color:"#7a6f63",flexShrink:0}}>{c.name[0]}</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:700,color:"#2a2018",fontSize:15}}>{c.name}</div>
-              {c.furigana&&<div style={{color:"#b0a898",fontSize:11}}>{c.furigana}</div>}
-              {c.phone&&<div style={{color:"#9a8f82",fontSize:12}}>{c.phone}</div>}
-              {(c.bikes||[]).length>0&&<div style={{fontSize:11,color:"#2563a8"}}>🚲 {(c.bikes||[]).map(b=>b.maker).join("・")}</div>}
-            </div>
-            <span style={{color:"#c8bfb0",fontSize:18}}>›</span>
+        {custTab==="search"&&(<>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
+            <Ico.Search/>
+            <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="名前・電話番号で検索... 例: 山田 090" style={{flex:1,background:"none",border:"none",outline:"none",fontSize:14,color:"#2a2018",fontFamily:"Noto Sans JP,sans-serif"}}/>
           </div>
-        ))}
+          {filteredCusts.length===0&&!custLoading&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"40px 0"}}>{custLoaded?"顧客がいません。＋から追加してください":"読み込み中..."}</p>}
+          {filteredCusts.map(c=>(
+            <div key={c.id} className="irow" onClick={()=>setCustDetail(c)}>
+              <div style={{width:40,height:40,borderRadius:"50%",background:"#e8e2d8",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16,color:"#7a6f63",flexShrink:0}}>{c.name[0]}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,color:"#2a2018",fontSize:15}}>{c.name}</div>
+                {c.furigana&&<div style={{color:"#b0a898",fontSize:11}}>{c.furigana}</div>}
+                {c.phone&&<div style={{color:"#9a8f82",fontSize:12}}>{c.phone}</div>}
+                {(c.bikes||[]).length>0&&<div style={{fontSize:11,color:"#2563a8"}}>🚲 {(c.bikes||[]).map(b=>b.maker).join("・")}</div>}
+              </div>
+              <span style={{color:"#c8bfb0",fontSize:18}}>›</span>
+            </div>
+          ))}
+        </>)}
+        {custTab==="maintenance"&&(<div>
+          {maintenanceDueBikes.length===0&&<div style={S.empty}><div style={{fontSize:34}}>🛠</div><p style={{color:"#9a8f82",marginTop:10}}>1ヶ月以内のメンテナンス予定はありません</p></div>}
+          {maintenanceDueBikes.map((r,i)=><div key={`${r.customer.id}-${r.bikeIdx}-${i}`} className="irow" onClick={()=>{setCustDetail(r.customer);setBikeDetail({cust:r.customer,bikeIdx:r.bikeIdx});}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:800,color:"#2a2018",fontSize:14}}>{r.customer.name} <span style={{fontSize:12,color:"#2563a8"}}>🚲 {r.bike.maker}{r.bike.color?` (${r.bike.color})`:""}</span></div>
+              {r.customer.phone&&<div style={{color:"#9a8f82",fontSize:12}}>{r.customer.phone}</div>}
+            </div>
+            <span style={{background:"#fdf0ee",color:"#c0392b",fontSize:12,fontWeight:800,padding:"4px 8px",borderRadius:7}}>{fmt(r.date,"mmdd")}</span>
+          </div>)}
+        </div>)}
       </div>
 
       {/* 顧客追加 */}
@@ -943,8 +1028,8 @@ export default function App() {
       {/* 顧客設定パネル */}
       {stCustOpen&&(
         <div className="stover" onClick={()=>setStCustOpen(false)}>
-          <aside className="stpanel" onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+          <aside className="stpanel cust-settings-panel" onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:17,color:"#2a2018"}}>⚙️ 設定</span>
               <button className="icobtn" onClick={()=>setStCustOpen(false)}><Ico.X/></button>
             </div>
@@ -1006,6 +1091,7 @@ export default function App() {
       </div>
     )}
     {needOrder.length>0&&(<div style={{background:"#fdf0ee",borderBottom:"1px solid #f0c8c4",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot"/><span style={{fontSize:12,color:"#c0392b",fontWeight:700}}>注文が必要な商品が{needOrder.length}点あります</span></div>)}
+    {maintenanceDueBikes.length>0&&(<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14}}>🛠</span><span style={{fontSize:12,fontWeight:800,color:"#8a6410"}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>)}
     <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",overflowX:"auto",whiteSpace:"nowrap",display:"flex",gap:4}} className="hide-scroll">
       <button className={`cat-tab ${selectedCatId==="all"&&mainTab==="stock"?"cat-tab-on":""}`} onClick={()=>{setSelectedCatId("all");setMainTab("stock");}}>すべて</button>
       {sortedCats.map(cat=><button key={cat.id} className={`cat-tab ${selectedCatId===cat.id&&mainTab==="stock"?"cat-tab-on":""}`} onClick={()=>{setSelectedCatId(cat.id);setMainTab("stock");}}>{cat.name}</button>)}
@@ -1173,6 +1259,17 @@ const CSS = `
   .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; }
   .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
   .repair-menu-row { display:flex; align-items:center; gap:6px; padding:5px 8px; background:#f5f0e8; border-radius:7px; margin-bottom:4px; min-height:34px; }
+  .customer-tabs { display:flex; gap:6px; background:#ede8df; border-radius:10px; padding:4px; margin-bottom:14px; }
+  .cust-tab { flex:1; border:none; border-radius:8px; padding:9px 6px; background:transparent; color:#7a6f63; font-family:'Noto Sans JP', sans-serif; font-size:12px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .cust-tab-on { background:#faf7f2; color:#2a2018; box-shadow:0 1px 5px rgba(42,32,24,.08); }
+  .estimate-line { display:grid; grid-template-columns: 1fr 86px 58px 32px; gap:6px; align-items:center; margin-bottom:7px; }
+  .estimate-line input { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 9px; color:#2a2018; font-family:'Noto Sans JP', sans-serif; outline:none; }
+  .compact-form { display:grid; grid-template-columns: minmax(0,1fr) auto; gap:6px; margin-top:8px; }
+  .compact-form input { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 10px; font-family:'Noto Sans JP', sans-serif; color:#2a2018; outline:none; }
+  .compact-form input[type="number"] { max-width:86px; }
+  .compact-row { min-height:36px; padding:6px 8px; }
+  .cust-settings-panel { width:min(390px, 100vw); overflow-x:hidden; }
+
   @media (max-width: 520px) {
     .mover { padding: 10px; align-items: center; justify-content: center; }
     .modal { width: calc(100vw - 20px); max-width: calc(100vw - 20px); padding: 22px 18px; border-radius: 14px; }
@@ -1180,6 +1277,11 @@ const CSS = `
     .stpanel { width: calc(100vw - 18px); max-width: calc(100vw - 18px); padding: 24px 16px; }
     .fg input, .fg select, .fg textarea { min-width: 0; }
     .pbtn, .gbtn { white-space: nowrap; }
+    .estimate-line { grid-template-columns: 1fr 72px 50px 30px; gap:5px; }
+    .customer-tabs { gap:4px; }
+    .cust-tab { font-size:11px; padding:8px 4px; }
+    .cust-settings-panel { width: calc(100vw - 12px); max-width: calc(100vw - 12px); padding:22px 14px; }
+    .compact-form { grid-template-columns: minmax(0,1fr) auto; }
   }
 `;
 
