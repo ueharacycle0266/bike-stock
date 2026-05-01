@@ -86,6 +86,7 @@ export default function App() {
   // ── 顧客 ──
   const [customers, setCustomers] = useState([]);
   const [custLoaded, setCustLoaded] = useState(false);
+  const [custLoading, setCustLoading] = useState(false);
   const [custSearch, setCustSearch] = useState("");
   const [custDetail, setCustDetail] = useState(null);
   const [bikeDetail, setBikeDetail] = useState(null); // {cust, bikeIdx}
@@ -129,6 +130,7 @@ export default function App() {
   };
 
   const loadCustomers = async () => {
+    setCustLoading(true);
     try {
       const data = await api("customers?select=*&order=created_at.desc");
       if (Array.isArray(data)) {
@@ -136,6 +138,7 @@ export default function App() {
         setCustLoaded(true);
       }
     } catch(e){console.error(e);}
+    setCustLoading(false);
   };
 
   const loadMasters = async () => {
@@ -679,7 +682,7 @@ export default function App() {
           <Ico.Search/>
           <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="名前・フリガナ・下4桁で検索..." style={{flex:1,background:"none",border:"none",outline:"none",fontSize:14,color:"#2a2018",fontFamily:"Noto Sans JP,sans-serif"}}/>
         </div>
-        {filteredCusts.length===0&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"40px 0"}}>顧客がいません。＋から追加してください</p>}
+        {filteredCusts.length===0&&!custLoading&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"40px 0"}}>{custLoaded?"顧客がいません。＋から追加してください":"読み込み中..."}</p>}
         {filteredCusts.map(c=>(
           <div key={c.id} className="irow" onClick={()=>setCustDetail(c)}>
             <div style={{width:40,height:40,borderRadius:"50%",background:"#e8e2d8",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16,color:"#7a6f63",flexShrink:0}}>{c.name[0]}</div>
