@@ -167,7 +167,7 @@ export default function App() {
     const reqNo = ++customerRequestNo.current;
     if (!silent && !custLoaded && customers.length === 0) setCustLoading(true);
     try {
-      const data = await api(`customers?select=*&order=created_at.desc&_ts=${Date.now()}`);
+      const data = await api("customers?select=*&order=created_at.desc");
       if (!Array.isArray(data)) throw new Error("customersの取得結果が配列ではありません");
       const normalized = data.map(normalizeCustomer);
       if (reqNo === customerRequestNo.current) {
@@ -177,7 +177,7 @@ export default function App() {
       return normalized;
     } catch(e){
       console.error(e);
-      alert("顧客データの読み込みに失敗しました。通信状態かSupabaseのcustomersテーブルを確認してください。");
+      alert(`顧客データの読み込みに失敗しました。詳細: ${e.message || e}`);
       return customers;
     } finally {
       if (reqNo === customerRequestNo.current) setCustLoading(false);
