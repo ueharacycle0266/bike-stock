@@ -668,7 +668,7 @@ export default function App() {
     return <div style={S.root}>
       <style>{CSS}</style>
       <Header>
-        <button className="icobtn" onClick={()=>{setCustLoaded(false);loadCustomers();loadEstimates();}}><Ico.Refresh/></button>
+        <button className="icobtn" onClick={()=>{loadCustomers();loadEstimates();}}><Ico.Refresh/></button>
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
         <button className="icobtn" onClick={()=>setStCustOpen(true)}><Ico.Settings/></button>
       </Header>
