@@ -65,7 +65,12 @@ const normalizeBikes = (bikes) => {
   }
   return [];
 };
-const normalizeCustomer = (c) => ({...c, bikes: normalizeBikes(c.bikes)});
+const normalizeCustomer = (c) => ({
+  ...c,
+  bikes: normalizeBikes(c.bikes),
+  notes: normalizeJsonArray(c.notes),
+  customer_rank: c.customer_rank || "通常",
+});
 const normalizeJsonArray = (value) => {
   if (Array.isArray(value)) return value;
   if (typeof value === "string" && value.trim()) {
@@ -138,7 +143,7 @@ export default function App() {
   const [bikeDetail, setBikeDetail] = useState(null); // {cust, bikeIdx}
   const [addCustModal, setAddCustModal] = useState(false);
   const [editCustModal, setEditCustModal] = useState(null);
-  const [newCust, setNewCust] = useState({name:"",furigana:"",phone:"",address:"",memo:""});
+  const [newCust, setNewCust] = useState({name:"",furigana:"",phone:"",address:"",memo:"",notes:[""],customer_rank:"通常"});
   const [makerMaster, setMakerMaster] = useState([]);
   const [newBikeF, setNewBikeF] = useState({maker:"",color:""});
   const [stCustOpen, setStCustOpen] = useState(false);
@@ -162,7 +167,7 @@ export default function App() {
   const [calDate, setCalDate] = useState(() => { const d=new Date(); d.setHours(0,0,0,0); return d; });
   const [calView, setCalView] = useState("week"); // week | list
   const [addResModal, setAddResModal] = useState(null); // {date, time} or null
-  const [resForm, setResForm] = useState({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:""});
+  const [resForm, setResForm] = useState({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:"",repairItems:[]});
   const [resCustSearch, setResCustSearch] = useState("");
   const [selectedRes, setSelectedRes] = useState(null);
 
@@ -278,13 +283,13 @@ export default function App() {
     const name = newCust.name.trim();
     if(!name) return;
     const furi=toKatakana(newCust.furigana||"");
-    const payload={id:uuid(),name,furigana:furi||null,phone:newCust.phone||null,address:newCust.address||null,memo:newCust.memo||null,bikes:[]};
+    const payload={id:uuid(),name,furigana:furi||null,phone:newCust.phone||null,address:newCust.address||null,memo:newCust.memo||null,notes:(newCust.notes||[]).filter(x=>x.trim()),customer_rank:newCust.customer_rank||"通常",bikes:[]};
     setSaving(true);
     try {
       const saved = await api("customers","POST",payload);
       const row = normalizeCustomer(Array.isArray(saved) ? (saved[0] || {...payload,created_at:new Date().toISOString()}) : {...payload,created_at:new Date().toISOString()});
       setCustomers(p=>[row,...p.filter(c=>c.id!==row.id)]);
-      setNewCust({name:"",furigana:"",phone:"",address:"",memo:""});
+      setNewCust({name:"",furigana:"",phone:"",address:"",memo:"",notes:[""],customer_rank:"通常"});
       setAddCustModal(false);
       await loadCustomers({silent:true});
     } catch(e) {
@@ -299,7 +304,7 @@ export default function App() {
     const id=upd.id;
     setSaving(true);
     try {
-      await api(`customers?id=eq.${id}`,"PATCH",{name:upd.name,furigana:furi||null,phone:upd.phone||null,address:upd.address||null,memo:upd.memo||null,bikes:upd.bikes||[]});
+      await api(`customers?id=eq.${id}`,"PATCH",{name:upd.name,furigana:furi||null,phone:upd.phone||null,address:upd.address||null,memo:upd.memo||null,notes:(upd.notes||[]).filter(x=>String(x).trim()),customer_rank:upd.customer_rank||"通常",bikes:upd.bikes||[]});
       setCustomers(p=>p.map(c=>c.id===upd.id?{...c,...upd}:c));
       if(custDetail?.id===upd.id) setCustDetail(prev=>({...prev,...upd}));
       setEditCustModal(null);
@@ -396,14 +401,24 @@ export default function App() {
   const doSaveEst=async()=>{
     if(!addEstModal) return;
     const id=uid(); const obj={id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items:estItems,memo:estMemo,total:estTotal,created_at:new Date().toISOString()};
-    setEstimates(p=>[obj,...p]); setAddEstModal(null);
-    await api("estimates","POST",{id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items:JSON.stringify(estItems),memo:estMemo,total:estTotal}).catch(()=>{});
+    setSaving(true);
+    try {
+      const saved = await api("estimates","POST",{id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items:estItems,memo:estMemo,total:estTotal});
+      const row = normalizeEstimate(Array.isArray(saved) ? (saved[0] || obj) : obj);
+      setEstimates(p=>[row,...p]);
+      setAddEstModal(null);
+    } catch(e) { console.error(e); alert("見積書・修理履歴の保存に失敗しました。Supabaseのestimatesテーブルを確認してください。"); }
+    finally { setSaving(false); }
   };
   const doUpdateEst=async()=>{
     if(!editEstModal) return;
     const upd={...editEstModal,items:estItems,memo:estMemo,total:estTotal};
-    setEstimates(p=>p.map(e=>e.id===upd.id?upd:e)); setEditEstModal(null);
-    await api(`estimates?id=eq.${upd.id}`,"PATCH",{items:JSON.stringify(estItems),memo:estMemo,total:estTotal}).catch(()=>{});
+    setSaving(true);
+    try {
+      await api(`estimates?id=eq.${upd.id}`,"PATCH",{items:estItems,memo:estMemo,total:estTotal});
+      setEstimates(p=>p.map(e=>e.id===upd.id?upd:e)); setEditEstModal(null);
+    } catch(e) { console.error(e); alert("見積書・修理履歴の更新に失敗しました。"); }
+    finally { setSaving(false); }
   };
   const delEst=async(id)=>{ if(!window.confirm("削除しますか？")) return; setEstimates(p=>p.filter(e=>e.id!==id)); await api(`estimates?id=eq.${id}`,"DELETE").catch(()=>{}); };
   const custEstimates=(custId,bikeIdx)=>estimates.filter(e=>e.customer_id===custId&&e.bike_index===bikeIdx);
@@ -421,22 +436,46 @@ export default function App() {
     return m;
   },[reservations]);
   const custMap = useMemo(()=>{ const m={}; customers.forEach(c=>m[c.id]=c); return m; },[customers]);
-  const resCusts = useMemo(()=>{ if(!resCustSearch.trim()) return customers.slice(0,8); const q=resCustSearch.toLowerCase(); return customers.filter(c=>c.name?.includes(resCustSearch)||c.furigana?.includes(resCustSearch)||(c.phone||"").replace(/[-\s]/g,"").endsWith(resCustSearch.replace(/[-\s]/g,""))).slice(0,8); },[resCustSearch,customers]);
+  const searchCustomerMatch = (c, raw) => {
+    const terms = raw.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!terms.length) return true;
+    const phone = (c.phone||"").replace(/[-\s]/g,"");
+    const hay = [c.name||"", c.furigana||"", phone, (c.bikes||[]).map(b=>`${b.maker||""} ${b.color||""}`).join(" ")].join(" ").toLowerCase();
+    return terms.every(t => {
+      const nt = t.replace(/[-\s]/g,"");
+      return hay.includes(t) || (nt && phone.includes(nt));
+    });
+  };
+  const resCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,resCustSearch)).slice(0,8),[resCustSearch,customers]);
   const selectedResCust = customers.find(c=>c.id===resForm.custId);
+  const estTotal = useMemo(() => estItems.reduce((sum,it)=>{ const m=repairMenus.find(x=>x.id===it.menuId); return sum + ((m?.price||0) * (it.qty||0)); },0), [estItems, repairMenus]);
+  const resRepairTotal = useMemo(() => (resForm.repairItems||[]).reduce((sum,it)=>{ const m=repairMenus.find(x=>x.id===it.menuId); return sum + ((m?.price||0) * (it.qty||0)); },0), [resForm.repairItems, repairMenus]);
 
   const doAddRes=async()=>{
     if(!addResModal||!resForm.checkinDate) return;
     const id=uid();
-    const obj={id,...resForm,checkin_date:resForm.checkinDate,checkin_time:addResModal.time,status:"reserved",created_at:new Date().toISOString()};
-    setReservations(p=>[...p,obj]); setAddResModal(null);
-    setResForm({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:""});
-    await api("reservations","POST",{id,customer_id:resForm.custId||null,bike_index:resForm.bikeIdx,checkin_date:resForm.checkinDate,checkin_time:addResModal.time,due_date:resForm.dueDateUnknown?null:resForm.dueDate||null,staff:resForm.staff,memo:resForm.memo||null,status:"reserved"}).catch(()=>{});
+    const obj={id,...resForm,customer_id:resForm.custId||null,bike_index:resForm.bikeIdx,checkin_date:resForm.checkinDate,checkin_time:addResModal.time,due_date:resForm.dueDateUnknown?null:resForm.dueDate||null,status:"reserved",created_at:new Date().toISOString()};
+    setSaving(true);
+    try {
+      await api("reservations","POST",{id,customer_id:resForm.custId||null,bike_index:resForm.bikeIdx,checkin_date:resForm.checkinDate,checkin_time:addResModal.time,due_date:resForm.dueDateUnknown?null:resForm.dueDate||null,staff:resForm.staff,memo:resForm.memo||null,status:"reserved"});
+      setReservations(p=>[...p,obj]);
+      if (resForm.custId && (resForm.repairItems||[]).length > 0) {
+        const eid=uid();
+        const estObj={id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:resForm.repairItems,memo:resForm.memo||"予約時作成",total:resRepairTotal,created_at:new Date().toISOString()};
+        await api("estimates","POST",{id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:resForm.repairItems,memo:resForm.memo||"予約時作成",total:resRepairTotal}).catch(e=>console.error("estimate from reservation failed", e));
+        setEstimates(p=>[estObj,...p]);
+      }
+      setAddResModal(null);
+      setResForm({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:"",repairItems:[]});
+      setResCustSearch("");
+    } catch(e) { console.error(e); alert("予約の保存に失敗しました。"); }
+    finally { setSaving(false); }
   };
   const doCheckin=async(id)=>{ setReservations(p=>p.map(r=>r.id===id?{...r,status:"in"}:r)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"PATCH",{status:"in"}).catch(()=>{}); };
   const doCheckout=async(id)=>{ setReservations(p=>p.map(r=>r.id===id?{...r,status:"done"}:r)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"PATCH",{status:"done"}).catch(()=>{}); };
   const delRes=async(id)=>{ if(!window.confirm("削除しますか？")) return; setReservations(p=>p.filter(r=>r.id!==id)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"DELETE").catch(()=>{}); };
 
-  const filteredCusts = useMemo(()=>customers.filter(c=>{ const q=custSearch.trim(); if(!q) return true; if(c.name?.includes(q)||c.furigana?.includes(q)) return true; const phone=(c.phone||"").replace(/[-\s]/g,""); if(phone.endsWith(q.replace(/[-\s]/g,""))) return true; return false; }),[customers,custSearch]);
+  const filteredCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,custSearch)),[customers,custSearch]);
 
   // ── ログイン ──
   if (screen==="login") return (
@@ -606,17 +645,36 @@ export default function App() {
               </div>
               <div className="fg"><label>顧客</label>
                 <input value={resCustSearch} onChange={e=>setResCustSearch(e.target.value)} placeholder="名前・フリガナ・下4桁で検索" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",marginBottom:6}}/>
-                {resCusts.map(c=>(
-                  <div key={c.id} onClick={()=>{setResForm(f=>({...f,custId:c.id,bikeIdx:0}));setResCustSearch(c.name);}} style={{padding:"6px 10px",cursor:"pointer",borderRadius:6,background:resForm.custId===c.id?"#2a2018":"transparent",color:resForm.custId===c.id?"#f5f0e8":"#2a2018",fontSize:13,fontWeight:600}}>
-                    {c.name} {c.furigana&&<span style={{fontSize:11,opacity:0.7}}>{c.furigana}</span>}
-                  </div>
-                ))}
+                {selectedResCust&&<div style={{background:"#e8e2d8",borderRadius:8,padding:"8px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,fontSize:13}}>{selectedResCust.name}</span><button className="sico" onClick={()=>{setResForm(f=>({...f,custId:"",bikeIdx:0,repairItems:[]}));setResCustSearch("");}}>×</button></div>}
+                <div style={{maxHeight:150,overflowY:"auto",border:selectedResCust?"none":"1px solid #e8e2d8",borderRadius:8,background:"#fff"}}>
+                  {!selectedResCust&&resCusts.map(c=>(
+                    <div key={c.id} onClick={()=>{setResForm(f=>({...f,custId:c.id,bikeIdx:0}));setResCustSearch(c.name);}} style={{padding:"8px 10px",cursor:"pointer",borderBottom:"1px solid #f5f0e8",fontSize:13,fontWeight:600,color:"#2a2018"}}>
+                      {c.name} {c.furigana&&<span style={{fontSize:11,opacity:0.7}}>{c.furigana}</span>} {c.phone&&<span style={{fontSize:11,color:"#9a8f82"}}> / {c.phone}</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
               {selectedResCust?.bikes?.length>0&&(
                 <div className="fg"><label>自転車</label>
                   <select value={resForm.bikeIdx} onChange={e=>setResForm(f=>({...f,bikeIdx:+e.target.value}))}>
                     {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}
                   </select>
+                </div>
+              )}
+
+              {selectedResCust&&(
+                <div className="fg"><label>修理内容・見積もり</label>
+                  <div style={{maxHeight:170,overflowY:"auto",background:"#fff",border:"1px solid #e8e2d8",borderRadius:8,padding:"4px 8px"}}>
+                    {(repairMenus||[]).map(m=>{ const it=(resForm.repairItems||[]).find(i=>i.menuId===m.id); return <div key={m.id} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 0",borderBottom:"1px solid #f5f0e8"}}>
+                      <span style={{flex:1,fontSize:12,fontWeight:600,color:"#2a2018"}}>{m.name}</span>
+                      <span style={{fontSize:11,color:"#2a7a5a",minWidth:54,textAlign:"right"}}>¥{(m.price||0).toLocaleString()}</span>
+                      <button className="sico" onClick={()=>setResForm(f=>{ const arr=[...(f.repairItems||[])]; const idx=arr.findIndex(i=>i.menuId===m.id); if(idx<0) return f; if(arr[idx].qty<=1) return {...f,repairItems:arr.filter(i=>i.menuId!==m.id)}; arr[idx]={...arr[idx],qty:arr[idx].qty-1}; return {...f,repairItems:arr};})}>−</button>
+                      <span style={{minWidth:18,textAlign:"center",fontWeight:700,fontSize:12}}>{it?.qty||0}</span>
+                      <button className="sico" onClick={()=>setResForm(f=>{ const arr=[...(f.repairItems||[])]; const idx=arr.findIndex(i=>i.menuId===m.id); if(idx<0) arr.push({menuId:m.id,qty:1}); else arr[idx]={...arr[idx],qty:arr[idx].qty+1}; return {...f,repairItems:arr};})}>＋</button>
+                    </div>; })}
+                    {(repairMenus||[]).length===0&&<div style={{fontSize:12,color:"#b0a898",padding:8}}>設定から修理メニューを追加してください</div>}
+                  </div>
+                  {resRepairTotal>0&&<div style={{display:"flex",justifyContent:"space-between",background:"#f5f0e8",borderRadius:8,padding:"8px 10px",marginTop:6,fontWeight:800}}><span>見積合計</span><span style={{color:"#2a7a5a"}}>¥{resRepairTotal.toLocaleString()}</span></div>}
                 </div>
               )}
               <div className="fg"><label>担当者</label>
@@ -678,7 +736,7 @@ export default function App() {
       return <div style={S.root}>
         <style>{CSS}</style>
         <Header>
-          <button className="icobtn" onClick={()=>setAddEstModal(null)}><Ico.Refresh/></button>
+          <button className="icobtn" onClick={()=>{loadEstimates();loadMasters();}}><Ico.Refresh/></button>
         </Header>
         <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",alignItems:"center",gap:10}}>
           <button className="icobtn" onClick={()=>setBikeDetail(null)}><Ico.Back/></button>
@@ -788,13 +846,14 @@ export default function App() {
             {custDetail.furigana&&<div style={{fontSize:11,color:"#b0a898"}}>{custDetail.furigana}</div>}
           </div>
           <button className="smbtn" onClick={()=>setEditCustModal({...custDetail})}>編集</button>
-          <button className="smbtn" onClick={()=>{ switchMode("reservation"); setAddResModal({date:new Date(),time:"10:00"}); setResForm(f=>({...f,custId:custDetail.id,checkinDate:fmt(new Date(),"date")})); setCustDetail(null); }} style={{background:"#d6e4f0",color:"#2563a8"}}>📅</button>
           <button className="smbtn" style={{color:"#c0392b"}} onClick={()=>delCust(custDetail.id)}>削除</button>
         </div>
         <div style={{padding:"16px 20px"}}>
           {custDetail.phone&&<div style={S.infoRow}><span style={S.infoLabel}>電話番号</span><span>{custDetail.phone}</span></div>}
           {custDetail.address&&<div style={S.infoRow}><span style={S.infoLabel}>住所</span><span>{custDetail.address}</span></div>}
+          {custDetail.customer_rank&&<div style={S.infoRow}><span style={S.infoLabel}>民度ランク</span><span style={{fontWeight:700,color:custDetail.customer_rank==="注意"?"#c87a00":custDetail.customer_rank==="要注意"?"#c0392b":"#2d7a44"}}>{custDetail.customer_rank}</span></div>}
           {custDetail.memo&&<div style={S.infoRow}><span style={S.infoLabel}>メモ</span><span style={{whiteSpace:"pre-wrap"}}>{custDetail.memo}</span></div>}
+          {(custDetail.notes||[]).filter(Boolean).map((note,i)=><div key={i} style={S.infoRow}><span style={S.infoLabel}>メモ{i+1}</span><span style={{whiteSpace:"pre-wrap"}}>{note}</span></div>)}
           <div style={{marginTop:20}}>
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:12}}>🚲 登録自転車</div>
             {bikes.map((bike,i)=>(
@@ -826,7 +885,9 @@ export default function App() {
               <div className="fg"><label>フリガナ</label><input value={editCustModal.furigana||""} onChange={e=>setEditCustModal(n=>({...n,furigana:e.target.value}))} placeholder="ひらがなも可"/></div>
               <div className="fg"><label>電話番号</label><input value={editCustModal.phone||""} onChange={e=>setEditCustModal(n=>({...n,phone:e.target.value}))} type="tel"/></div>
               <div className="fg"><label>住所</label><input value={editCustModal.address||""} onChange={e=>setEditCustModal(n=>({...n,address:e.target.value}))}/></div>
+              <div className="fg"><label>民度ランク</label><select value={editCustModal.customer_rank||"通常"} onChange={e=>setEditCustModal(n=>({...n,customer_rank:e.target.value}))}><option>優良</option><option>通常</option><option>注意</option><option>要注意</option></select></div>
               <div className="fg"><label>メモ</label><textarea value={editCustModal.memo||""} onChange={e=>setEditCustModal(n=>({...n,memo:e.target.value}))} style={{...S.textarea,fontSize:16}}/></div>
+              <div className="fg"><label>追加メモ</label>{(editCustModal.notes&&editCustModal.notes.length?editCustModal.notes:[""]).map((note,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6}}><input value={note||""} onChange={e=>setEditCustModal(n=>{const notes=[...((n.notes&&n.notes.length?n.notes:[""]))]; notes[i]=e.target.value; return {...n,notes};})} placeholder={`メモ${i+1}`}/><button className="gbtn" style={{padding:"8px 10px"}} onClick={()=>setEditCustModal(n=>({...n,notes:(n.notes||[]).filter((_,idx)=>idx!==i)}))}>削除</button></div>)}<button className="gbtn" style={{fontSize:12}} onClick={()=>setEditCustModal(n=>({...n,notes:[...((n.notes&&n.notes.length?n.notes:[""])),""]}))}>＋メモ追加</button></div>
               <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button className="gbtn" onClick={()=>setEditCustModal(null)}>キャンセル</button><button className="pbtn" onClick={doEditCust}>保存</button></div>
             </div>
           </div>
@@ -871,7 +932,9 @@ export default function App() {
             <div className="fg"><label>フリガナ</label><input value={newCust.furigana} onChange={e=>setNewCust(n=>({...n,furigana:e.target.value}))} placeholder="ヤマダ タロウ（ひらがなも可）"/></div>
             <div className="fg"><label>電話番号</label><input value={newCust.phone} onChange={e=>setNewCust(n=>({...n,phone:e.target.value}))} type="tel"/></div>
             <div className="fg"><label>住所（任意）</label><input value={newCust.address} onChange={e=>setNewCust(n=>({...n,address:e.target.value}))}/></div>
+            <div className="fg"><label>民度ランク</label><select value={newCust.customer_rank} onChange={e=>setNewCust(n=>({...n,customer_rank:e.target.value}))}><option>優良</option><option>通常</option><option>注意</option><option>要注意</option></select></div>
             <div className="fg"><label>メモ（任意）</label><textarea value={newCust.memo} onChange={e=>setNewCust(n=>({...n,memo:e.target.value}))} style={{...S.textarea,fontSize:16}}/></div>
+            <div className="fg"><label>追加メモ</label>{(newCust.notes||[""]).map((note,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:6}}><input value={note} onChange={e=>setNewCust(n=>{const notes=[...(n.notes||[""])]; notes[i]=e.target.value; return {...n,notes};})} placeholder={`メモ${i+1}`}/>{(newCust.notes||[]).length>1&&<button className="gbtn" style={{padding:"8px 10px"}} onClick={()=>setNewCust(n=>({...n,notes:n.notes.filter((_,idx)=>idx!==i)}))}>削除</button>}</div>)}<button className="gbtn" style={{fontSize:12}} onClick={()=>setNewCust(n=>({...n,notes:[...(n.notes||[]),""]}))}>＋メモ追加</button></div>
             <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button className="gbtn" onClick={()=>setAddCustModal(false)}>キャンセル</button><button className="pbtn" onClick={doAddCust}>追加</button></div>
           </div>
         </div>
@@ -904,7 +967,7 @@ export default function App() {
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10,marginTop:24}}>🔧 修理メニュー</div>
             {(repairMenus||[]).length===0&&<p style={{color:"#b0a898",fontSize:12,marginBottom:8}}>修理メニュー未登録です</p>}
             {(repairMenus||[]).map(m=>(
-              <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#f5f0e8",borderRadius:8,marginBottom:6}}>
+              <div key={m.id} className="repair-menu-row">
                 <span style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{m.name}</span>
                 {m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}
                 <button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button>
@@ -1089,14 +1152,14 @@ const CSS = `
   .search-overlay { position: fixed; inset: 0; background: rgba(42,32,24,.4); z-index: 950; display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; backdrop-filter: blur(4px); }
   .search-panel { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 16px; width: 420px; max-width: 93vw; max-height: 70vh; overflow-y: auto; }
   .mover { position: fixed; inset: 0; background: rgba(42,32,24,.42); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-  .modal { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 26px; width: 370px; max-width: 92vw; max-height: 90vh; overflow-y: auto; }
+  .modal { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 26px; width: min(420px, calc(100vw - 28px)); max-width: calc(100vw - 28px); max-height: 90vh; overflow-y: auto; }
   .modal h3 { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: #2a2018; margin-bottom: 18px; }
   .fg { margin-bottom: 13px; }
   .fg label { display: block; font-size: 11px; color: #9a8f82; margin-bottom: 5px; }
   .fg input, .fg select, .fg textarea { width: 100%; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; }
   .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: #2a2018; }
   .stover { position: fixed; inset: 0; background: rgba(42,32,24,.28); z-index: 900; display: flex; justify-content: flex-end; }
-  .stpanel { background: #faf7f2; width: 350px; max-width: 93vw; height: 100%; overflow-y: auto; padding: 26px 20px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
+  .stpanel { background: #faf7f2; width: min(430px, 100vw); max-width: 100vw; height: 100%; overflow-y: auto; padding: 26px 20px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
   @keyframes sin { from { transform: translateX(100%); } to { transform: translateX(0); } }
   .sttab { flex: 1; background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 0; border-radius: 7px; color: #9a8f82; }
   .sttabon { background: #faf7f2; color: #2a2018; box-shadow: 0 1px 4px rgba(42,32,24,.09); }
@@ -1109,6 +1172,15 @@ const CSS = `
   .rninput { flex: 1; background: #fff; border: 1.5px solid #2a2018; border-radius: 6px; padding: 5px 9px; font-family: 'Noto Sans JP', sans-serif; color: #2a2018; outline: none; }
   .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; }
   .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
+  .repair-menu-row { display:flex; align-items:center; gap:6px; padding:5px 8px; background:#f5f0e8; border-radius:7px; margin-bottom:4px; min-height:34px; }
+  @media (max-width: 520px) {
+    .mover { padding: 10px; align-items: center; justify-content: center; }
+    .modal { width: calc(100vw - 20px); max-width: calc(100vw - 20px); padding: 22px 18px; border-radius: 14px; }
+    .stover { justify-content: flex-end; overflow: hidden; }
+    .stpanel { width: calc(100vw - 18px); max-width: calc(100vw - 18px); padding: 24px 16px; }
+    .fg input, .fg select, .fg textarea { min-width: 0; }
+    .pbtn, .gbtn { white-space: nowrap; }
+  }
 `;
 
 const S = {
