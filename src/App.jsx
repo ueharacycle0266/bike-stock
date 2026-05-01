@@ -530,17 +530,7 @@ export default function App() {
 
   const filteredCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,custSearch)),[customers,custSearch]);
 
-  const RepairMenuQuickAdd=()=> <div className="quick-add-box">
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-      <span style={{fontWeight:800,fontSize:12,color:"#2a2018"}}>修理メニュー追加</span>
-      <button className="sico" onClick={()=>setShowRepairMenuAdd(false)}>×</button>
-    </div>
-    <div className="quick-add-row">
-      <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" />
-      <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" inputMode="numeric" />
-      <button className="pbtn" onClick={doAddMenu}>追加</button>
-    </div>
-  </div>;
+  // RepairMenuQuickAdd はインライン化済み
 
   const EstimateLinesEditor=()=> <div style={{marginBottom:14}}>
     {(estItems||[]).map((it,i)=>{
@@ -564,7 +554,17 @@ export default function App() {
       <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addEstimateLine}>＋ 行を追加</button>
       <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>setShowRepairMenuAdd(v=>!v)}>＋ 修理メニュー追加</button>
     </div>
-    {showRepairMenuAdd&&<RepairMenuQuickAdd/>}
+    {showRepairMenuAdd&&<div className="quick-add-box">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+      <span style={{fontWeight:800,fontSize:12,color:"#2a2018"}}>修理メニュー追加</span>
+      <button className="sico" onClick={()=>setShowRepairMenuAdd(false)}>×</button>
+    </div>
+    <div className="quick-add-row">
+      <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" />
+      <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" inputMode="numeric" />
+      <button className="pbtn" onClick={doAddMenu}>追加</button>
+    </div>
+  </div>}
   </div>;
 
   const ResRepairLinesEditor=()=> <div>
@@ -589,7 +589,17 @@ export default function App() {
       <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={addResRepairLine}>＋ 修理内容を追加</button>
       <button className="gbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>setShowRepairMenuAdd(v=>!v)}>＋ 修理メニュー追加</button>
     </div>
-    {showRepairMenuAdd&&<RepairMenuQuickAdd/>}
+    {showRepairMenuAdd&&<div className="quick-add-box">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+      <span style={{fontWeight:800,fontSize:12,color:"#2a2018"}}>修理メニュー追加</span>
+      <button className="sico" onClick={()=>setShowRepairMenuAdd(false)}>×</button>
+    </div>
+    <div className="quick-add-row">
+      <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" />
+      <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" inputMode="numeric" />
+      <button className="pbtn" onClick={doAddMenu}>追加</button>
+    </div>
+  </div>}
   </div>;
 
   const EstimateMemoEditor=()=> <div className="fg"><label>メモ</label>
@@ -935,8 +945,9 @@ export default function App() {
             {custDetail.furigana&&<div style={{fontSize:11,color:"#b0a898"}}>{custDetail.furigana}</div>}
           </div>
           <button className="icobtn" onClick={()=>setAddBikeModal(true)}><Ico.Plus/></button>
-          <button className="smbtn" onClick={()=>setEditCustModal({...custDetail})}>編集</button>
-          <button className="smbtn" style={{color:"#c0392b"}} onClick={()=>delCust(custDetail.id)}>削除</button>
+          <button className="icobtn sedit" title="編集" onClick={()=>setEditCustModal({...custDetail})}><Ico.Edit/></button>
+          <button className="icobtn sdel" title="削除" onClick={()=>delCust(custDetail.id)}><Ico.Trash/></button>
+          <button className="icobtn" title="予約する" style={{background:"#d6e4f0",color:"#2563a8"}} onClick={()=>{ switchMode("reservation"); setTimeout(()=>{ setAddResModal({date:new Date(),time:"10:00"}); setResForm(f=>({...f,custId:custDetail.id,checkinDate:fmt(new Date(),"date")})); },100); setCustDetail(null); }}><Ico.Calendar/></button>
         </div>
         <div style={{padding:"16px 20px"}}>
           {custDetail.phone&&<div style={S.infoRow}><span style={S.infoLabel}>電話番号</span><span>{custDetail.phone}</span></div>}
@@ -957,7 +968,7 @@ export default function App() {
                   <div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{custEstimates(custDetail.id,i).length}件の履歴</div>
                   <div onClick={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}}>
                     <span style={{fontSize:11,color:"#9a8f82"}}>次回メンテ</span>
-                    <input type="date" value={bike.nextMaintenanceDate||""} onChange={e=>updateBikeMaintenance(i,e.target.value)} style={{background:"#f5f0e8",border:"1px solid #e0d9ce",borderRadius:6,padding:"4px 6px",fontSize:12,color:"#2a2018"}} />
+                    <input type="date" value={bike.nextMaintenanceDate||""} onChange={e=>updateBikeMaintenance(i,e.target.value)} style={{background:"#f5f0e8",border:"1px solid #e0d9ce",borderRadius:6,padding:"4px 6px",fontSize:12,color:"#2a2018",maxWidth:130,minWidth:110}} />
                   </div>
                 </div>
                 <span style={{color:"#c8bfb0",fontSize:18}}>›</span>
@@ -1025,9 +1036,10 @@ export default function App() {
       <Header>
         <button className="icobtn" onClick={()=>{loadCustomers({silent:true});loadEstimates();}}><Ico.Refresh/></button>
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
+        <button className="icobtn" onClick={()=>setStCustOpen(true)}><Ico.Settings/></button>
       </Header>
+      {maintenanceDueBikes.length>0&&(<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>)}
       <div style={{padding:"16px 20px"}}>
-        {maintenanceDueBikes.length>0&&<div className="maint-alert"><span>🛠</span><span>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
         <div className="customer-tabs">
           <button className={`cust-tab ${custTab==="search"?"cust-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
           <button className={`cust-tab ${custTab==="maintenance"?"cust-tab-on":""}`} onClick={()=>setCustTab("maintenance")}>メンテ期限 {maintenanceDueBikes.length>0&&<span>({maintenanceDueBikes.length})</span>}</button>
