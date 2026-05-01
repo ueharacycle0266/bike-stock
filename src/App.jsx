@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 
 const SUPABASE_URL = "https://autpzeeprcyosyqegtai.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dHB6ZWVwcmN5b3N5cWVndGFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTEwMDUsImV4cCI6MjA5MjgyNzAwNX0.YWH6PvFYu2n2BN5aWQZ8KaPKv4Ns4K_ObfyK28Gdq18";
@@ -33,6 +33,7 @@ const api = async (path, method="GET", body=null) => {
 };
 
 const uid = () => "x"+Math.random().toString(36).slice(2,9);
+const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const toKatakana = s => s.replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0)+0x60));
 const fmt = (dt,mode="short") => {
   if (!dt) return "";
@@ -118,6 +119,7 @@ export default function App() {
   const [customers, setCustomers] = useState([]);
   const [custLoaded, setCustLoaded] = useState(false);
   const [custLoading, setCustLoading] = useState(false);
+  const customerRequestNo = useRef(0);
   const [custSearch, setCustSearch] = useState("");
   const [custDetail, setCustDetail] = useState(null);
   const [bikeDetail, setBikeDetail] = useState(null); // {cust, bikeIdx}
@@ -162,30 +164,23 @@ export default function App() {
 
   const loadCustomers = async ({ silent=false } = {}) => {
     // 初回だけローディング表示。手動リロードでは一覧を消さずに裏で更新する。
+    const reqNo = ++customerRequestNo.current;
     if (!silent && !custLoaded && customers.length === 0) setCustLoading(true);
     try {
-      const data = await api("customers?select=*&order=created_at.desc");
+      const data = await api(`customers?select=*&order=created_at.desc&_ts=${Date.now()}`);
       if (!Array.isArray(data)) throw new Error("customersの取得結果が配列ではありません");
-
       const normalized = data.map(normalizeCustomer);
-
-      setCustomers(prev => {
-        // 取得失敗・一時的な空返却で顧客一覧が消えるのを防ぐ。
-        // ただしDB側に1件以上ある時は必ず最新データで上書きするので、他端末の追加も反映される。
-        if (normalized.length === 0 && prev.length > 0) {
-          console.warn("顧客リロードで0件が返ったため、既存表示を保持しました");
-          return prev;
-        }
-        return normalized;
-      });
-      setCustLoaded(true);
+      if (reqNo === customerRequestNo.current) {
+        setCustomers(normalized);
+        setCustLoaded(true);
+      }
       return normalized;
     } catch(e){
       console.error(e);
-      // 取得失敗時は既存の顧客一覧を残す。
+      alert("顧客データの読み込みに失敗しました。通信状態かSupabaseのcustomersテーブルを確認してください。");
       return customers;
     } finally {
-      setCustLoading(false);
+      if (reqNo === customerRequestNo.current) setCustLoading(false);
     }
   };
 
@@ -257,23 +252,63 @@ export default function App() {
   const commitRnItem=async(catId,brandId,itemId)=>{ if(!rnItemV.trim()){setRnItem(null);return;} updItemLocal(catId,brandId,itemId,{name:rnItemV.trim()}); setRnItem(null); setSaving(true); await api(`items?id=eq.${itemId}`,"PATCH",{name:rnItemV.trim()}); setSaving(false); };
 
   // ── 顧客ハンドラ ──
-  const doAddCust=async()=>{ if(!newCust.name.trim()) return; const id=uid(); const furi=toKatakana(newCust.furigana||""); const obj={id,...newCust,furigana:furi,bikes:[],created_at:new Date().toISOString()}; setCustomers(p=>[obj,...p]); setNewCust({name:"",furigana:"",phone:"",address:"",memo:""}); setAddCustModal(false); await api("customers","POST",{id,name:newCust.name.trim(),furigana:furi||null,phone:newCust.phone||null,address:newCust.address||null,memo:newCust.memo||null,bikes:[]}); };
-  const doEditCust=async()=>{ if(!editCustModal||!editCustModal.name.trim()) return; const furi=toKatakana(editCustModal.furigana||""); const upd={...editCustModal,furigana:furi}; setCustomers(p=>p.map(c=>c.id===upd.id?{...c,...upd}:c)); if(custDetail?.id===upd.id) setCustDetail(prev=>({...prev,...upd})); const id=upd.id; setEditCustModal(null); await api(`customers?id=eq.${id}`,"PATCH",{name:upd.name,furigana:furi||null,phone:upd.phone||null,address:upd.address||null,memo:upd.memo||null,bikes:upd.bikes||[]}); };
-  const delCust=async(id)=>{ if(!window.confirm("削除しますか？")) return; setCustomers(p=>p.filter(c=>c.id!==id)); setCustDetail(null); await api(`customers?id=eq.${id}`,"DELETE"); };
-  const addBike=async()=>{ if(!newBikeF.maker.trim()||!custDetail) return; const bikes=[...(custDetail.bikes||[]),{maker:newBikeF.maker,color:newBikeF.color}]; setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); setNewBikeF({maker:"",color:""}); await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); };
-  const delBike=async(idx)=>{ const bikes=(custDetail.bikes||[]).filter((_,i)=>i!==idx); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); };
+  const doAddCust=async()=>{
+    const name = newCust.name.trim();
+    if(!name) return;
+    const furi=toKatakana(newCust.furigana||"");
+    const payload={id:uuid(),name,furigana:furi||null,phone:newCust.phone||null,address:newCust.address||null,memo:newCust.memo||null,bikes:[]};
+    setSaving(true);
+    try {
+      const saved = await api("customers","POST",payload);
+      const row = normalizeCustomer(Array.isArray(saved) ? (saved[0] || {...payload,created_at:new Date().toISOString()}) : {...payload,created_at:new Date().toISOString()});
+      setCustomers(p=>[row,...p.filter(c=>c.id!==row.id)]);
+      setNewCust({name:"",furigana:"",phone:"",address:"",memo:""});
+      setAddCustModal(false);
+      await loadCustomers({silent:true});
+    } catch(e) {
+      console.error(e);
+      alert("顧客の保存に失敗しました。画面だけに追加されて共有されない状態を防ぐため、保存できるまで一覧には追加しません。");
+    } finally { setSaving(false); }
+  };
+  const doEditCust=async()=>{
+    if(!editCustModal||!editCustModal.name.trim()) return;
+    const furi=toKatakana(editCustModal.furigana||"");
+    const upd={...editCustModal,furigana:furi};
+    const id=upd.id;
+    setSaving(true);
+    try {
+      await api(`customers?id=eq.${id}`,"PATCH",{name:upd.name,furigana:furi||null,phone:upd.phone||null,address:upd.address||null,memo:upd.memo||null,bikes:upd.bikes||[]});
+      setCustomers(p=>p.map(c=>c.id===upd.id?{...c,...upd}:c));
+      if(custDetail?.id===upd.id) setCustDetail(prev=>({...prev,...upd}));
+      setEditCustModal(null);
+      await loadCustomers({silent:true});
+    } catch(e) { console.error(e); alert("顧客情報の保存に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const delCust=async(id)=>{
+    if(!window.confirm("削除しますか？")) return;
+    setSaving(true);
+    try { await api(`customers?id=eq.${id}`,"DELETE"); setCustomers(p=>p.filter(c=>c.id!==id)); setCustDetail(null); }
+    catch(e){ console.error(e); alert("顧客の削除に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const addBike=async()=>{
+    if(!newBikeF.maker.trim()||!custDetail) return;
+    const bikes=[...(custDetail.bikes||[]),{maker:newBikeF.maker,color:newBikeF.color}];
+    setSaving(true);
+    try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); setNewBikeF({maker:"",color:""}); }
+    catch(e){ console.error(e); alert("自転車情報の保存に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const delBike=async(idx)=>{
+    if(!custDetail) return;
+    const bikes=(custDetail.bikes||[]).filter((_,i)=>i!==idx);
+    setSaving(true);
+    try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); }
+    catch(e){ console.error(e); alert("自転車情報の削除に失敗しました。"); }
+    finally { setSaving(false); }
+  };
 
-  // ── メーカーマスター ──
-  const doAddMaker=async()=>{ if(!newMakerF.trim()) return; const o=(makerMaster||[]).reduce((m,r)=>Math.max(m,r.order||0),-1); const id=uid(); const obj={id,name:newMakerF.trim(),order:o+1}; setMakerMaster(p=>[...p,obj]); setNewMakerF(""); await api("maker_master","POST",obj).catch(()=>{}); };
-  const delMaker=async(id)=>{ setMakerMaster(p=>p.filter(m=>m.id!==id)); await api(`maker_master?id=eq.${id}`,"DELETE").catch(()=>{}); };
-  const commitRnMaker=async(id)=>{ if(!rnMakerV.trim()){setRnMaker(null);return;} setMakerMaster(p=>p.map(m=>m.id===id?{...m,name:rnMakerV.trim()}:m)); setRnMaker(null); await api(`maker_master?id=eq.${id}`,"PATCH",{name:rnMakerV.trim()}).catch(()=>{}); };
-
-  // ── 修理メニュー ──
-  const doAddMenu=async()=>{ if(!newMenuF.name.trim()) return; const o=(repairMenus||[]).reduce((m,r)=>Math.max(m,r.order||0),-1); const id=uid(); const obj={id,name:newMenuF.name.trim(),price:+newMenuF.price||0,order:o+1}; setRepairMenus(p=>[...p,obj]); setNewMenuF({name:"",price:""}); await api("repair_menus","POST",obj); };
-  const delMenu=async(id)=>{ setRepairMenus(p=>p.filter(m=>m.id!==id)); await api(`repair_menus?id=eq.${id}`,"DELETE"); };
-
-  // ── 見積もり ──
-  const estTotal = useMemo(()=>estItems.reduce((s,it)=>{ const m=repairMenus.find(m=>m.id===it.menuId); return s+(m?.price||0)*it.qty; },0),[estItems,repairMenus]);
   const openAddEst=(custId,bikeIdx)=>{ setAddEstModal({custId,bikeIdx}); setEstItems([]); setEstMemo(""); };
   const openEditEst=(est)=>{ setEditEstModal(est); setEstItems(est.items||[]); setEstMemo(est.memo||""); };
   const doSaveEst=async()=>{
