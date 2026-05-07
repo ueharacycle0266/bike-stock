@@ -143,6 +143,10 @@ export default function App() {
   const customerRequestNo = useRef(0);
   const [custSearch, setCustSearch] = useState("");
   const [custTab, setCustTab] = useState("search");
+  const [tempNotes, setTempNotes] = useState([]);
+  const [addTempModal, setAddTempModal] = useState(false);
+  const [newTemp, setNewTemp] = useState({name:"",phone:"",memo:"",urgent:false});
+  const [selectedTemp, setSelectedTemp] = useState(null);
   const [custDetail, setCustDetail] = useState(null);
   const [bikeDetail, setBikeDetail] = useState(null); // {cust, bikeIdx}
   const [addCustModal, setAddCustModal] = useState(false);
@@ -174,7 +178,8 @@ export default function App() {
   const [calDate, setCalDate] = useState(() => { const d=new Date(); d.setHours(0,0,0,0); return d; });
   const [blockedCells, setBlockedCells] = useState({});
   const [calBlockMode, setCalBlockMode] = useState(false);
-  const [calView, setCalView] = useState("week"); // week | list
+  const [calView, setCalView] = useState("week"); // week | list | month
+  const [monthCalDate, setMonthCalDate] = useState(() => { const d=new Date(); d.setDate(1); return d; });
   const [addResModal, setAddResModal] = useState(null); // {date, time} or null
   const [resForm, setResForm] = useState({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:"",repairItems:[]});
   const [resCustSearch, setResCustSearch] = useState("");
@@ -239,6 +244,13 @@ export default function App() {
     } catch(e){console.error(e);}
   };
 
+  const loadTempNotes = async () => {
+    try {
+      const data = await api("temp_notes?select=*&done=eq.false&order=created_at.desc");
+      if (Array.isArray(data)) setTempNotes(data);
+    } catch(e) { console.error(e); }
+  };
+
   const loadBlockedSlots = async () => {
     try {
       const data = await api("blocked_slots?select=*");
@@ -264,7 +276,7 @@ export default function App() {
 
   const switchMode = async (mode) => {
     setAppMode(mode); setModeMenu(false);
-    if (mode==="customer" && !custLoaded) { await Promise.all([loadCustomers(),loadMasters(),loadEstimates()]); }
+    if (mode==="customer" && !custLoaded) { await Promise.all([loadCustomers(),loadMasters(),loadEstimates(),loadTempNotes()]); }
     if (mode==="reservation") { await Promise.all([loadReservations(), loadBlockedSlots(), !custLoaded&&loadCustomers(), loadMasters()]); }
   };
 
@@ -530,19 +542,39 @@ export default function App() {
       const repairTotal=repairItems.reduce((sum,it)=>sum+(Number(it.price||0)*Number(it.qty||0)),0);
       if (resForm.custId && repairItems.length > 0) {
         const eid=uid();
-        const estObj={id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:repairItems,memo:resForm.memo||"予約時作成",total:repairTotal,created_at:new Date().toISOString()};
-        await api("estimates","POST",{id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:repairItems,memo:resForm.memo||"予約時作成",total:repairTotal}).catch(e=>console.error("estimate from reservation failed", e));
+        const estObj={id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:repairItems,memo:resForm.memo||"作業時作成",total:repairTotal,created_at:new Date().toISOString()};
+        await api("estimates","POST",{id:eid,customer_id:resForm.custId,bike_index:resForm.bikeIdx,items:repairItems,memo:resForm.memo||"作業時作成",total:repairTotal}).catch(e=>console.error("estimate from reservation failed", e));
         setEstimates(p=>[estObj,...p]);
       }
       setAddResModal(null);
       setResForm({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:"",repairItems:[]});
       setResCustSearch("");
-    } catch(e) { console.error(e); alert("予約の保存に失敗しました。"); }
+    } catch(e) { console.error(e); alert("作業の保存に失敗しました。"); }
     finally { setSaving(false); }
   };
   const doCheckin=async(id)=>{ setReservations(p=>p.map(r=>r.id===id?{...r,status:"in"}:r)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"PATCH",{status:"in"}).catch(()=>{}); };
   const doCheckout=async(id)=>{ setReservations(p=>p.map(r=>r.id===id?{...r,status:"done"}:r)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"PATCH",{status:"done"}).catch(()=>{}); };
   const delRes=async(id)=>{ if(!window.confirm("削除しますか？")) return; setReservations(p=>p.filter(r=>r.id!==id)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"DELETE").catch(()=>{}); };
+
+  const doAddTemp = async () => {
+    const id = uid();
+    const obj = {id, ...newTemp, done:false, created_at:new Date().toISOString()};
+    setTempNotes(p=>[obj,...p]);
+    setNewTemp({name:"",phone:"",memo:"",urgent:false});
+    setAddTempModal(false);
+    await api("temp_notes","POST",{id,name:newTemp.name||null,phone:newTemp.phone||null,memo:newTemp.memo||null,urgent:newTemp.urgent,done:false});
+  };
+
+  const doTempDone = async (id) => {
+    setTempNotes(p=>p.filter(t=>t.id!==id));
+    await api(`temp_notes?id=eq.${id}`,"PATCH",{done:true});
+  };
+
+  const delTemp = async (id) => {
+    if(!window.confirm("削除しますか？")) return;
+    setTempNotes(p=>p.filter(t=>t.id!==id));
+    await api(`temp_notes?id=eq.${id}`,"DELETE");
+  };
 
   const filteredCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,custSearch)),[customers,custSearch]);
 
@@ -652,7 +684,7 @@ export default function App() {
     <header style={S.hdr}>
       <div style={{position:"relative"}}>
         <button onClick={()=>setModeMenu(!modeMenu)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
-          <div style={S.logo}>{appMode==="stock"?"🚲 在庫":appMode==="customer"?"👤 顧客":"📅 予約"}</div>
+          <div style={S.logo}>{appMode==="stock"?"🚲 在庫":appMode==="customer"?"👤 顧客":"📅 作業"}</div>
           <span style={{color:"#b0a898",marginTop:2}}><Ico.ChevDown/></span>
         </button>
         <div style={S.sub}>{appMode==="stock"?"Inventory":appMode==="customer"?"Customers":"Reservations"}</div>
@@ -671,7 +703,7 @@ export default function App() {
   const upcoming = reservations.filter(r=>r.status==="reserved").sort((a,b)=>new Date(a.checkin_date)-new Date(b.checkin_date));
 
   // ════════════════════════════════════════
-  // 予約管理画面
+  // 作業管理画面
   // ════════════════════════════════════════
   if (appMode==="reservation") {
     const inShop = reservations.filter(r=>r.status==="in").sort((a,b)=>new Date(a.due_date||"9999")-new Date(b.due_date||"9999"));
@@ -683,6 +715,7 @@ export default function App() {
           <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
           <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
           <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
+          <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")} title="月カレンダー"><span style={{fontSize:11,fontWeight:700}}>月</span></button>
           {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}} title="封鎖モード"><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
         </Header>
 
@@ -745,7 +778,8 @@ export default function App() {
                             ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#c0392b",fontWeight:800}}>×</div>
                             :cellRes.map(r=>{
                               const c=custMap[r.customer_id];
-                              const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
+                              const staffColor=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                        const color=r.status==="done"?"#b0a898":staffColor;
                               return <div key={r.id} style={{background:color+"25",border:`1px solid ${color}60`,borderRadius:3,padding:"2px 3px",fontSize:9,color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%",boxSizing:"border-box",cursor:"pointer"}}
                                 onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
                             })
@@ -758,6 +792,57 @@ export default function App() {
               </table>
             </div>
           </>
+        )}
+
+        {calView==="month" && (
+          <div style={{padding:"0 0 20px"}}>
+            <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()-1);setMonthCalDate(d);}}><Ico.ChevLeft/></button>
+              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{monthCalDate.getFullYear()}年{monthCalDate.getMonth()+1}月</span>
+              <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()+1);setMonthCalDate(d);}}><Ico.ChevRight/></button>
+            </div>
+            <div style={{padding:"8px 12px"}}>
+              {/* 曜日ヘッダー */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
+                {["月","火","水","木","金","土","日"].map((d,i)=>(
+                  <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,padding:"4px 0",color:i===5?"#2563a8":i===6?"#c0392b":"#9a8f82"}}>{d}</div>
+                ))}
+              </div>
+              {/* カレンダーグリッド */}
+              {(()=>{
+                const year=monthCalDate.getFullYear(), month=monthCalDate.getMonth();
+                const firstDay=new Date(year,month,1).getDay();
+                const offset=firstDay===0?6:firstDay-1;
+                const daysInMonth=new Date(year,month+1,0).getDate();
+                const cells=[];
+                for(let i=0;i<offset;i++) cells.push(null);
+                for(let i=1;i<=daysInMonth;i++) cells.push(i);
+                while(cells.length%7!==0) cells.push(null);
+                const weeks=[];
+                for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
+                return weeks.map((week,wi)=>(
+                  <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
+                    {week.map((day,di)=>{
+                      if(!day) return <div key={di}/>;
+                      const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                      const dayRes=reservations.filter(r=>r.checkin_date===dateStr&&r.status!=="done");
+                      const isToday=dateStr===toLocalDateStr(new Date());
+                      const isSat=di===5, isSun=di===6;
+                      return <div key={di} style={{minHeight:52,border:"1px solid #f0ece4",borderRadius:6,padding:"2px 3px",background:isToday?"#f0ece4":"#fff",cursor:dayRes.length>0?"pointer":"default"}} onClick={()=>{if(dayRes.length>0){setAddResModal({date:new Date(dateStr+"T00:00:00"),time:"10:00"});setResForm(f=>({...f,checkinDate:dateStr}));}}}>
+                        <div style={{fontSize:11,fontWeight:700,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}</div>
+                        {dayRes.slice(0,2).map(r=>{
+                          const c=custMap[r.customer_id];
+                          const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                          return <div key={r.id} style={{background:sc+"20",borderLeft:`2px solid ${sc}`,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                        })}
+                        {dayRes.length>2&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-2}</div>}
+                      </div>;
+                    })}
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
         )}
 
         {calView==="list" && (
@@ -783,7 +868,7 @@ export default function App() {
             )}
             {upcoming.length>0&&(
               <div>
-                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📅 予約一覧</div>
+                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📅 作業一覧</div>
                 {upcoming.map(r=>{
                   const c=custMap[r.customer_id];
                   const bike=c?.bikes?.[r.bike_index];
@@ -808,7 +893,7 @@ export default function App() {
         {addResModal&&(
           <div className="mover" onClick={()=>setAddResModal(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
-              <h3>📅 予約を追加</h3>
+              <h3>📅 作業を追加</h3>
               <div style={{background:"#f5f0e8",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:13,color:"#2a2018",fontWeight:700}}>
                 {addResModal.date.getMonth()+1}/{addResModal.date.getDate()}（{getDayLabel(addResModal.date)}） {addResModal.time}
               </div>
@@ -854,7 +939,7 @@ export default function App() {
               <div className="fg"><label>メモ</label><input value={resForm.memo} onChange={e=>setResForm(f=>({...f,memo:e.target.value}))}/></div>
               <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
                 <button className="gbtn" onClick={()=>setAddResModal(null)}>キャンセル</button>
-                <button className="pbtn" onClick={doAddRes}>予約する</button>
+                <button className="pbtn" onClick={doAddRes}>作業登録</button>
               </div>
             </div>
           </div>
@@ -864,7 +949,7 @@ export default function App() {
         {selectedRes&&(()=>{
           const c=custMap[selectedRes.customer_id];
           const bike=c?.bikes?.[selectedRes.bike_index];
-          const statusLabel=selectedRes.status==="reserved"?"予約中":selectedRes.status==="in"?"入庫中":"出庫済";
+          const statusLabel=selectedRes.status==="reserved"?"受付中":selectedRes.status==="in"?"入庫中":"出庫済";
           const statusColor=selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898";
           return <div className="mover" onClick={()=>setSelectedRes(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
@@ -990,7 +1075,7 @@ export default function App() {
           <button className="icobtn" onClick={()=>setAddBikeModal(true)}><Ico.Plus/></button>
           <button className="icobtn sedit" title="編集" onClick={()=>setEditCustModal({...custDetail})}><Ico.Edit/></button>
           <button className="icobtn sdel" title="削除" onClick={()=>delCust(custDetail.id)}><Ico.Trash/></button>
-          <button className="icobtn" title="予約する" style={{background:"#d6e4f0",color:"#2563a8"}} onClick={()=>{switchMode("reservation");setTimeout(()=>{setAddResModal({date:new Date(),time:"10:00"});setResForm(f=>({...f,custId:custDetail.id,checkinDate:fmt(new Date(),"date")}));},100);setCustDetail(null);}}><Ico.Calendar/></button>
+          <button className="icobtn" title="作業登録" style={{background:"#d6e4f0",color:"#2563a8"}} onClick={()=>{switchMode("reservation");setTimeout(()=>{setAddResModal({date:new Date(),time:"10:00"});setResForm(f=>({...f,custId:custDetail.id,checkinDate:fmt(new Date(),"date")}));},100);setCustDetail(null);}}><Ico.Calendar/></button>
         </div>
         <div style={{padding:"16px 20px"}}>
           {custDetail.phone&&<div style={S.infoRow}><span style={S.infoLabel}>電話番号</span><span>{custDetail.phone}</span></div>}
@@ -1089,9 +1174,35 @@ export default function App() {
           メンテ期限
           {maintenanceDueBikes.length>0&&<span style={{background:"#c87a00",color:"#fff",borderRadius:99,padding:"0px 5px",fontSize:10,fontWeight:700}}>{maintenanceDueBikes.length}</span>}
         </button>
-        <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
+        <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>作業管理</button>
+        <button className={`cat-tab ${custTab==="temp"?"cat-tab-on":""}`} onClick={()=>setCustTab("temp")} style={{display:"inline-flex",alignItems:"center",gap:5}}>
+          {tempNotes.filter(t=>t.urgent).length>0&&<span className="dot" style={{width:6,height:6,background:"#c0392b"}}/>}
+          とりあえず
+          {tempNotes.length>0&&<span style={{background:"#c87a00",color:"#fff",borderRadius:99,padding:"0px 5px",fontSize:10,fontWeight:700}}>{tempNotes.length}</span>}
+        </button>
       </div>
       <div style={{padding:"16px 20px"}}>
+        {custTab==="temp"&&(
+          <div>
+            <button className="pbtn" style={{width:"100%",marginBottom:14}} onClick={()=>setAddTempModal(true)}>+ とりあえず追加</button>
+            {tempNotes.length===0&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"20px 0"}}>とりあえずメモがありません</p>}
+            {tempNotes.map(t=>(
+              <div key={t.id} style={{background:t.urgent?"#fdf0ee":"#fff",border:`1px solid ${t.urgent?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:8,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                      {t.urgent&&<span style={{background:"#c0392b",color:"#fff",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>急ぎ</span>}
+                      <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
+                    </div>
+                    {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
+                    {t.memo&&<div style={{fontSize:12,color:"#b0a898",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.memo}</div>}
+                  </div>
+                  <span style={{color:"#c8bfb0",fontSize:18,marginLeft:8}}>›</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {custTab==="search"&&(<>
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
             <Ico.Search/>
@@ -1127,6 +1238,7 @@ export default function App() {
               <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
               <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
               <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
+              <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
               {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
             <button className="pbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>{const d=new Date();setAddResModal({date:d,time:"12:00"});setResForm(f=>({...f,checkinDate:toLocalDateStr(d)}));}}>＋ 予約追加</button>
@@ -1190,7 +1302,8 @@ export default function App() {
                             ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#c0392b",fontWeight:800}}>×</div>
                             :cellRes.map(r=>{
                               const c=custMap[r.customer_id];
-                              const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
+                              const staffColor=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                        const color=r.status==="done"?"#b0a898":staffColor;
                               return <div key={r.id} style={{background:color+"25",border:`1px solid ${color}60`,borderRadius:3,padding:"2px 3px",fontSize:9,color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%",boxSizing:"border-box",cursor:"pointer"}}
                                 onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
                             })
@@ -1203,6 +1316,57 @@ export default function App() {
               </table>
             </div>
           </>
+        )}
+
+        {calView==="month" && (
+          <div style={{padding:"0 0 20px"}}>
+            <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()-1);setMonthCalDate(d);}}><Ico.ChevLeft/></button>
+              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{monthCalDate.getFullYear()}年{monthCalDate.getMonth()+1}月</span>
+              <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()+1);setMonthCalDate(d);}}><Ico.ChevRight/></button>
+            </div>
+            <div style={{padding:"8px 12px"}}>
+              {/* 曜日ヘッダー */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
+                {["月","火","水","木","金","土","日"].map((d,i)=>(
+                  <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,padding:"4px 0",color:i===5?"#2563a8":i===6?"#c0392b":"#9a8f82"}}>{d}</div>
+                ))}
+              </div>
+              {/* カレンダーグリッド */}
+              {(()=>{
+                const year=monthCalDate.getFullYear(), month=monthCalDate.getMonth();
+                const firstDay=new Date(year,month,1).getDay();
+                const offset=firstDay===0?6:firstDay-1;
+                const daysInMonth=new Date(year,month+1,0).getDate();
+                const cells=[];
+                for(let i=0;i<offset;i++) cells.push(null);
+                for(let i=1;i<=daysInMonth;i++) cells.push(i);
+                while(cells.length%7!==0) cells.push(null);
+                const weeks=[];
+                for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
+                return weeks.map((week,wi)=>(
+                  <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
+                    {week.map((day,di)=>{
+                      if(!day) return <div key={di}/>;
+                      const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                      const dayRes=reservations.filter(r=>r.checkin_date===dateStr&&r.status!=="done");
+                      const isToday=dateStr===toLocalDateStr(new Date());
+                      const isSat=di===5, isSun=di===6;
+                      return <div key={di} style={{minHeight:52,border:"1px solid #f0ece4",borderRadius:6,padding:"2px 3px",background:isToday?"#f0ece4":"#fff",cursor:dayRes.length>0?"pointer":"default"}} onClick={()=>{if(dayRes.length>0){setAddResModal({date:new Date(dateStr+"T00:00:00"),time:"10:00"});setResForm(f=>({...f,checkinDate:dateStr}));}}}>
+                        <div style={{fontSize:11,fontWeight:700,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}</div>
+                        {dayRes.slice(0,2).map(r=>{
+                          const c=custMap[r.customer_id];
+                          const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                          return <div key={r.id} style={{background:sc+"20",borderLeft:`2px solid ${sc}`,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                        })}
+                        {dayRes.length>2&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-2}</div>}
+                      </div>;
+                    })}
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
         )}
 
         {calView==="list" && (
@@ -1228,7 +1392,7 @@ export default function App() {
             )}
             {upcoming.length>0&&(
               <div>
-                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📅 予約一覧</div>
+                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📅 作業一覧</div>
                 {upcoming.map(r=>{
                   const c=custMap[r.customer_id];
                   const bike=c?.bikes?.[r.bike_index];
@@ -1253,7 +1417,7 @@ export default function App() {
         {addResModal&&(
           <div className="mover" onClick={()=>setAddResModal(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
-              <h3>📅 予約を追加</h3>
+              <h3>📅 作業を追加</h3>
               <div style={{background:"#f5f0e8",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:13,color:"#2a2018",fontWeight:700}}>
                 {addResModal.date.getMonth()+1}/{addResModal.date.getDate()}（{getDayLabel(addResModal.date)}） {addResModal.time}
               </div>
@@ -1299,7 +1463,7 @@ export default function App() {
               <div className="fg"><label>メモ</label><input value={resForm.memo} onChange={e=>setResForm(f=>({...f,memo:e.target.value}))}/></div>
               <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
                 <button className="gbtn" onClick={()=>setAddResModal(null)}>キャンセル</button>
-                <button className="pbtn" onClick={doAddRes}>予約する</button>
+                <button className="pbtn" onClick={doAddRes}>作業登録</button>
               </div>
             </div>
           </div>
@@ -1309,7 +1473,7 @@ export default function App() {
         {selectedRes&&(()=>{
           const c=custMap[selectedRes.customer_id];
           const bike=c?.bikes?.[selectedRes.bike_index];
-          const statusLabel=selectedRes.status==="reserved"?"予約中":selectedRes.status==="in"?"入庫中":"出庫済";
+          const statusLabel=selectedRes.status==="reserved"?"受付中":selectedRes.status==="in"?"入庫中":"出庫済";
           const statusColor=selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898";
           return <div className="mover" onClick={()=>setSelectedRes(null)}>
             <div className="modal" onClick={e=>e.stopPropagation()}>
@@ -1349,6 +1513,56 @@ export default function App() {
             <div className="fg"><label>民度ランク</label><select value={newCust.customer_rank} onChange={e=>setNewCust(n=>({...n,customer_rank:e.target.value}))}><option>優良</option><option>通常</option><option>注意</option><option>要注意</option></select></div>
             <div className="fg"><label>メモ（任意）</label><textarea value={newCust.memo} onChange={e=>setNewCust(n=>({...n,memo:e.target.value}))} style={{...S.textarea,fontSize:16}}/></div>
             <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}><button className="gbtn" onClick={()=>setAddCustModal(false)}>キャンセル</button><button className="pbtn" onClick={doAddCust}>追加</button></div>
+          </div>
+        </div>
+      )}
+
+      {/* とりあえず追加モーダル */}
+      {addTempModal&&(
+        <div className="mover" onClick={()=>setAddTempModal(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <h3>📝 とりあえずメモ</h3>
+            <div className="fg"><label>お名前</label><input value={newTemp.name} onChange={e=>setNewTemp(n=>({...n,name:e.target.value}))} placeholder="山田さん" autoFocus/></div>
+            <div className="fg"><label>電話番号</label><input value={newTemp.phone} onChange={e=>setNewTemp(n=>({...n,phone:e.target.value}))} placeholder="090-0000-0000" type="tel"/></div>
+            <div className="fg"><label>ご要件メモ</label><textarea value={newTemp.memo} onChange={e=>setNewTemp(n=>({...n,memo:e.target.value}))} placeholder="例: タイヤ交換希望、後日連絡" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"9px 11px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",resize:"vertical",minHeight:80}}/></div>
+            <label style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:newTemp.urgent?"#fdf0ee":"#f5f0e8",borderRadius:10,cursor:"pointer",marginBottom:16,border:`1.5px solid ${newTemp.urgent?"#c0392b":"transparent"}`}}>
+              <input type="checkbox" checked={newTemp.urgent} onChange={e=>setNewTemp(n=>({...n,urgent:e.target.checked}))} style={{width:20,height:20}}/>
+              <span style={{fontWeight:700,fontSize:14,color:newTemp.urgent?"#c0392b":"#7a6f63"}}>🚨 急ぎ</span>
+            </label>
+            <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+              <button className="gbtn" onClick={()=>setAddTempModal(false)}>キャンセル</button>
+              <button className="pbtn" onClick={doAddTemp}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* とりあえず詳細モーダル */}
+      {selectedTemp&&(
+        <div className="mover" onClick={()=>setSelectedTemp(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  {selectedTemp.urgent&&<span style={{background:"#c0392b",color:"#fff",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:4}}>急ぎ</span>}
+                  <h3 style={{marginBottom:0}}>{selectedTemp.name||"名前未入力"}</h3>
+                </div>
+                <div style={{fontSize:11,color:"#b0a898",marginTop:4}}>{new Date(selectedTemp.created_at).toLocaleString("ja-JP")}</div>
+              </div>
+              <button className="icobtn" onClick={()=>setSelectedTemp(null)}><Ico.X/></button>
+            </div>
+            {selectedTemp.phone&&<div style={S.infoRow}><span style={S.infoLabel}>電話番号</span><span>{selectedTemp.phone}</span></div>}
+            {selectedTemp.memo&&<div style={S.infoRow}><span style={S.infoLabel}>要件</span><span style={{whiteSpace:"pre-wrap"}}>{selectedTemp.memo}</span></div>}
+            <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
+              <button className="pbtn" style={{flex:2,fontSize:12}} onClick={()=>{
+                setNewCust({name:selectedTemp.name||"",furigana:"",phone:selectedTemp.phone||"",address:"",memo:selectedTemp.memo||""});
+                setAddCustModal(true);
+                doTempDone(selectedTemp.id);
+                setSelectedTemp(null);
+                setCustTab("search");
+              }}>👤 顧客登録へ</button>
+              <button className="gbtn" style={{fontSize:12}} onClick={()=>{delTemp(selectedTemp.id);setSelectedTemp(null);}}>削除</button>
+            </div>
           </div>
         </div>
       )}
