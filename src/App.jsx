@@ -169,6 +169,8 @@ export default function App() {
   // ── 予約 ──
   const [reservations, setReservations] = useState([]);
   const [calDate, setCalDate] = useState(() => { const d=new Date(); d.setHours(0,0,0,0); return d; });
+  const [blockedCells, setBlockedCells] = useState({}); // key: "date_time" -> true
+  const [calBlockMode, setCalBlockMode] = useState(false); // 封鎖モード
   const [calView, setCalView] = useState("week"); // week | list
   const [addResModal, setAddResModal] = useState(null); // {date, time} or null
   const [resForm, setResForm] = useState({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:"",repairItems:[]});
@@ -667,26 +669,33 @@ export default function App() {
           <button className="icobtn" onClick={()=>loadReservations()}><Ico.Refresh/></button>
           <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
           <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
+          {calView==="week"&&<button className="icobtn" title="封鎖モード" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
         </Header>
 
         {calView==="week" && (
           <>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              <div style={{display:"flex",gap:4}}>
+                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setMonth(d.getMonth()-1);setCalDate(d);}} style={{fontSize:10,padding:"5px 8px",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}}>月−</button>
+                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              </div>
               <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calDate.getFullYear()}年{calDate.getMonth()+1}月</span>
-              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
+              <div style={{display:"flex",gap:4}}>
+                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
+                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setMonth(d.getMonth()+1);setCalDate(d);}} style={{fontSize:10,padding:"5px 8px",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}}>月+</button>
+              </div>
             </div>
-            <div style={{overflowX:"auto"}} className="hide-scroll">
-              <table style={{borderCollapse:"collapse",width:"100%",minWidth:500}}>
-                <thead>
-                  <tr style={{background:"#faf7f2"}}>
-                    <th style={{width:48,padding:"6px 4px",fontSize:11,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
+            <div style={{overflowY:"auto",maxHeight:"calc(100vh - 180px)"}}>
+              <table style={{borderCollapse:"collapse",width:"100%",tableLayout:"fixed"}}>
+                <thead style={{position:"sticky",top:0,zIndex:10,background:"#faf7f2"}}>
+                  <tr>
+                    <th style={{width:"38px",padding:"6px 2px",fontSize:10,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
                     {weekDates.map(d=>{
                       const isToday=fmt(d,"date")===fmt(new Date(),"date");
                       const isSun=d.getDay()===0; const isSat=d.getDay()===6;
-                      return <th key={d.toISOString()} style={{padding:"6px 2px",fontSize:11,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",minWidth:46}}>
-                        <div style={{fontSize:13,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
-                        <div style={{fontSize:10}}>{getDayLabel(d)}</div>
+                      return <th key={d.toISOString()} style={{padding:"4px 1px",fontSize:10,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",width:"calc((100% - 38px) / 7)"}}>
+                        <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
+                        <div style={{fontSize:9}}>{getDayLabel(d)}</div>
                       </th>;
                     })}
                   </tr>
@@ -694,19 +703,28 @@ export default function App() {
                 <tbody>
                   {HOURS.map(time=>(
                     <tr key={time}>
-                      <td style={{fontSize:10,color:"#b0a898",padding:"0 4px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"top",paddingTop:2,whiteSpace:"nowrap"}}>{time}</td>
+                      <td style={{fontSize:9,color:"#b0a898",padding:"0 2px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"middle",whiteSpace:"nowrap",width:"38px"}}>{time}</td>
                       {weekDates.map(d=>{
                         const key=`${fmt(d,"date")}_${time}`;
-                        const cellRes=resByCell[key]||[];
+                        const cellRes=(resByCell[key]||[]);
+                        const isBlocked=blockedCells[key];
                         const isToday=fmt(d,"date")===fmt(new Date(),"date");
-                        return <td key={key} style={{border:"1px solid #f0ece4",height:36,verticalAlign:"top",background:isToday?"#faf7f4":"#fff",cursor:"pointer",position:"relative"}}
-                          onClick={()=>{setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));}}>
-                          {cellRes.map(r=>{
-                            const c=custMap[r.customer_id];
-                            const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
-                            return <div key={r.id} style={{background:color+"20",border:`1px solid ${color}50`,borderRadius:3,padding:"1px 3px",fontSize:9,color:color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",margin:1}}
-                              onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
-                          })}
+                        return <td key={key}
+                          style={{border:"1px solid #f0ece4",height:34,verticalAlign:"middle",background:isBlocked?"#f5f0e8":isToday?"#faf7f4":"#fff",cursor:"pointer",padding:1}}
+                          onClick={()=>{
+                            if(calBlockMode){setBlockedCells(p=>isBlocked?((n=>{delete n[key];return n;})({...p})):{...p,[key]:true});return;}
+                            if(isBlocked){if(window.confirm("封鎖を解除しますか？")){setBlockedCells(p=>{const n={...p};delete n[key];return n;});}return;}
+                            setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));
+                          }}>
+                          {isBlocked
+                            ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#c0392b",fontWeight:800}}>×</div>
+                            :cellRes.map(r=>{
+                              const c=custMap[r.customer_id];
+                              const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
+                              return <div key={r.id} style={{background:color+"25",border:`1px solid ${color}60`,borderRadius:3,padding:"2px 3px",fontSize:9,color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%",boxSizing:"border-box",cursor:"pointer"}}
+                                onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                            })
+                          }
                         </td>;
                       })}
                     </tr>
@@ -1040,10 +1058,14 @@ export default function App() {
       </Header>
       {maintenanceDueBikes.length>0&&(<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>)}
       <div style={{padding:"16px 20px"}}>
-        <div className="customer-tabs">
-          <button className={`cust-tab ${custTab==="search"?"cust-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
-          <button className={`cust-tab ${custTab==="maintenance"?"cust-tab-on":""}`} onClick={()=>setCustTab("maintenance")}>メンテ期限 {maintenanceDueBikes.length>0&&<span>({maintenanceDueBikes.length})</span>}</button>
-          <button className={`cust-tab ${custTab==="reservation"?"cust-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
+        <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",overflowX:"auto",whiteSpace:"nowrap",display:"flex",gap:4}} className="hide-scroll">
+          <button className={`cat-tab ${custTab==="search"?"cat-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
+          <button className={`cat-tab ${custTab==="maintenance"?"cat-tab-on":""}`} onClick={()=>setCustTab("maintenance")} style={{display:"inline-flex",alignItems:"center",gap:5}}>
+            {maintenanceDueBikes.length>0&&<span className="dot" style={{width:6,height:6,background:"#c87a00"}}/>}
+            メンテ期限
+            {maintenanceDueBikes.length>0&&<span style={{background:"#c87a00",color:"#fff",borderRadius:99,padding:"0px 5px",fontSize:10,fontWeight:700}}>{maintenanceDueBikes.length}</span>}
+          </button>
+          <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
         </div>
         {custTab==="search"&&(<>
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
@@ -1086,21 +1108,27 @@ export default function App() {
         {calView==="week" && (
           <>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              <div style={{display:"flex",gap:4}}>
+                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setMonth(d.getMonth()-1);setCalDate(d);}} style={{fontSize:10,padding:"5px 8px",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}}>月−</button>
+                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              </div>
               <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calDate.getFullYear()}年{calDate.getMonth()+1}月</span>
-              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
+              <div style={{display:"flex",gap:4}}>
+                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
+                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setMonth(d.getMonth()+1);setCalDate(d);}} style={{fontSize:10,padding:"5px 8px",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}}>月+</button>
+              </div>
             </div>
-            <div style={{overflowX:"auto"}} className="hide-scroll">
-              <table style={{borderCollapse:"collapse",width:"100%",minWidth:500}}>
-                <thead>
-                  <tr style={{background:"#faf7f2"}}>
-                    <th style={{width:48,padding:"6px 4px",fontSize:11,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
+            <div style={{overflowY:"auto",maxHeight:"calc(100vh - 180px)"}}>
+              <table style={{borderCollapse:"collapse",width:"100%",tableLayout:"fixed"}}>
+                <thead style={{position:"sticky",top:0,zIndex:10,background:"#faf7f2"}}>
+                  <tr>
+                    <th style={{width:"38px",padding:"6px 2px",fontSize:10,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
                     {weekDates.map(d=>{
                       const isToday=fmt(d,"date")===fmt(new Date(),"date");
                       const isSun=d.getDay()===0; const isSat=d.getDay()===6;
-                      return <th key={d.toISOString()} style={{padding:"6px 2px",fontSize:11,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",minWidth:46}}>
-                        <div style={{fontSize:13,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
-                        <div style={{fontSize:10}}>{getDayLabel(d)}</div>
+                      return <th key={d.toISOString()} style={{padding:"4px 1px",fontSize:10,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",width:"calc((100% - 38px) / 7)"}}>
+                        <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
+                        <div style={{fontSize:9}}>{getDayLabel(d)}</div>
                       </th>;
                     })}
                   </tr>
@@ -1108,19 +1136,28 @@ export default function App() {
                 <tbody>
                   {HOURS.map(time=>(
                     <tr key={time}>
-                      <td style={{fontSize:10,color:"#b0a898",padding:"0 4px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"top",paddingTop:2,whiteSpace:"nowrap"}}>{time}</td>
+                      <td style={{fontSize:9,color:"#b0a898",padding:"0 2px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"middle",whiteSpace:"nowrap",width:"38px"}}>{time}</td>
                       {weekDates.map(d=>{
                         const key=`${fmt(d,"date")}_${time}`;
-                        const cellRes=resByCell[key]||[];
+                        const cellRes=(resByCell[key]||[]);
+                        const isBlocked=blockedCells[key];
                         const isToday=fmt(d,"date")===fmt(new Date(),"date");
-                        return <td key={key} style={{border:"1px solid #f0ece4",height:36,verticalAlign:"top",background:isToday?"#faf7f4":"#fff",cursor:"pointer",position:"relative"}}
-                          onClick={()=>{setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));}}>
-                          {cellRes.map(r=>{
-                            const c=custMap[r.customer_id];
-                            const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
-                            return <div key={r.id} style={{background:color+"20",border:`1px solid ${color}50`,borderRadius:3,padding:"1px 3px",fontSize:9,color:color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",margin:1}}
-                              onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
-                          })}
+                        return <td key={key}
+                          style={{border:"1px solid #f0ece4",height:34,verticalAlign:"middle",background:isBlocked?"#f5f0e8":isToday?"#faf7f4":"#fff",cursor:"pointer",padding:1}}
+                          onClick={()=>{
+                            if(calBlockMode){setBlockedCells(p=>isBlocked?((n=>{delete n[key];return n;})({...p})):{...p,[key]:true});return;}
+                            if(isBlocked){if(window.confirm("封鎖を解除しますか？")){setBlockedCells(p=>{const n={...p};delete n[key];return n;});}return;}
+                            setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));
+                          }}>
+                          {isBlocked
+                            ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#c0392b",fontWeight:800}}>×</div>
+                            :cellRes.map(r=>{
+                              const c=custMap[r.customer_id];
+                              const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
+                              return <div key={r.id} style={{background:color+"25",border:`1px solid ${color}60`,borderRadius:3,padding:"2px 3px",fontSize:9,color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%",boxSizing:"border-box",cursor:"pointer"}}
+                                onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                            })
+                          }
                         </td>;
                       })}
                     </tr>
