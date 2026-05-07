@@ -151,6 +151,7 @@ export default function App() {
   const [addTempModal, setAddTempModal] = useState(false);
   const [newTemp, setNewTemp] = useState({name:"",phone:"",memo:"",tags:[],repairItems:[],createdAt:null});
   const [selectedTemp, setSelectedTemp] = useState(null);
+  const [editTempModal, setEditTempModal] = useState(null); // 編集中のtempNote
   const [custDetail, setCustDetail] = useState(null);
   const [bikeDetail, setBikeDetail] = useState(null); // {cust, bikeIdx}
   const [addCustModal, setAddCustModal] = useState(false);
@@ -229,8 +230,8 @@ export default function App() {
         api("temp_tags?select=*&order=order.asc").catch(()=>[]),
       ]);
       setRepairMenus(Array.isArray(menus) ? [...menus].sort((a,b)=>a.name.localeCompare(b.name,'ja')) : []);
-      setMakerMaster(Array.isArray(makers) ? makers : []);
-      setTempTags(Array.isArray(tags) ? tags : []);
+      setMakerMaster(Array.isArray(makers) ? [...makers].sort((a,b)=>a.name.localeCompare(b.name,'ja')) : []);
+      setTempTags(Array.isArray(tags) ? [...tags].sort((a,b)=>a.name.localeCompare(b.name,'ja')) : []);
     } catch(e){
       console.error(e);
     }
@@ -591,7 +592,7 @@ export default function App() {
     const id = uid();
     const order = (tempTags||[]).length;
     const obj = {id, name:name.trim(), order};
-    setTempTags(p=>[...p, obj]);
+    setTempTags(p=>[...p, obj].sort((a,b)=>a.name.localeCompare(b.name,'ja')));
     await api("temp_tags","POST",{id, name:name.trim(), order});
   };
 
@@ -612,6 +613,15 @@ export default function App() {
     await api("temp_notes","POST",{id,name:newTemp.name||null,phone:newTemp.phone||null,memo:newTemp.memo||null,tags:JSON.stringify(tags),repair_items:JSON.stringify(repairItems),repair_total:repairTotal,done:false});
   };
 
+  const doEditTemp = async () => {
+    if (!editTempModal) return;
+    const {id, name, phone, memo, tags, repairItems} = editTempModal;
+    const repairTotal = (repairItems||[]).reduce((s,it)=>{const m=repairMenus.find(m=>m.id===it.menuId);return s+(m?.price||0)*(it.qty||1);},0);
+    setTempNotes(p=>p.map(t=>t.id===id?{...t,name,phone,memo,tags:tags||[],repairItems:repairItems||[],repairTotal}:t));
+    setEditTempModal(null);
+    await api(`temp_notes?id=eq.${id}`,"PATCH",{name:name||null,phone:phone||null,memo:memo||null,tags:JSON.stringify(tags||[]),repair_items:JSON.stringify(repairItems||[]),repair_total:repairTotal});
+  };
+
   const doTempDone = async (id) => {
     setTempNotes(p=>p.filter(t=>t.id!==id));
     await api(`temp_notes?id=eq.${id}`,"PATCH",{done:true});
@@ -623,7 +633,12 @@ export default function App() {
     await api(`temp_notes?id=eq.${id}`,"DELETE");
   };
 
-  const filteredCusts = useMemo(()=>customers.filter(c=>searchCustomerMatch(c,custSearch)),[customers,custSearch]);
+  const filteredCusts = useMemo(()=>{
+    const q = custSearch.trim();
+    if (!q) return []; // 空の時は表示しない
+    if (q === 'all') return customers; // allで全表示
+    return customers.filter(c=>searchCustomerMatch(c,custSearch));
+  },[customers,custSearch]);
 
   // RepairMenuQuickAdd はインライン化済み
 
@@ -1259,17 +1274,21 @@ export default function App() {
             <button className="pbtn" style={{width:"100%",marginBottom:14}} onClick={()=>{setNewTemp(n=>({...n,createdAt:new Date()}));setAddTempModal(true);}}>+ とりあえず追加</button>
             {tempNotes.length===0&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"20px 0"}}>とりあえずメモがありません</p>}
             {tempNotes.map(t=>(
-              <div key={t.id} style={{background:t.urgent?"#fdf0ee":"#fff",border:`1px solid ${t.urgent?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:8,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
+              <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:`1px solid ${(t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                      {t.urgent&&<span style={{background:"#c0392b",color:"#fff",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>急ぎ</span>}
+                  <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
+                      {(t.tags||[]).map(tid=>{const tag=tempTags.find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
                       <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
                     </div>
                     {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
                     {t.memo&&<div style={{fontSize:12,color:"#b0a898",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.memo}</div>}
+                    {(t.repairItems||[]).filter(it=>it.menuId).length>0&&<div style={{fontSize:11,color:"#2a7a5a",marginTop:2}}>見積: ¥{(t.repairTotal||0).toLocaleString()}</div>}
                   </div>
-                  <span style={{color:"#c8bfb0",fontSize:18,marginLeft:8}}>›</span>
+                  <div style={{display:"flex",gap:4,marginLeft:8}}>
+                    <button className="sico sedit" onClick={e=>{e.stopPropagation();setEditTempModal({...t,tags:t.tags||[],repairItems:t.repairItems||[]});}}><Ico.Edit/></button>
+                    <span style={{color:"#c8bfb0",fontSize:18,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>›</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -1280,7 +1299,7 @@ export default function App() {
             <Ico.Search/>
             <input value={custSearch} onChange={e=>setCustSearch(e.target.value)} placeholder="名前・電話番号で検索... 例: 山田 090" style={{flex:1,background:"none",border:"none",outline:"none",fontSize:14,color:"#2a2018",fontFamily:"Noto Sans JP,sans-serif"}}/>
           </div>
-          {filteredCusts.length===0&&!custLoading&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"40px 0"}}>{custLoaded?"顧客がいません。＋から追加してください":"読み込み中..."}</p>}
+          {filteredCusts.length===0&&!custLoading&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"40px 0"}}>{!custSearch.trim()?"名前・フリガナ・下4桁で検索（allで全表示）":custLoaded?"見つかりませんでした":"読み込み中..."}</p>}
           {filteredCusts.map(c=>(
             <div key={c.id} className="irow" onClick={()=>setCustDetail(c)}>
               <div style={{width:40,height:40,borderRadius:"50%",background:"#e8e2d8",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:16,color:"#7a6f63",flexShrink:0}}>{c.name[0]}</div>
@@ -1660,6 +1679,47 @@ export default function App() {
             <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
               <button className="gbtn" onClick={()=>setAddTempModal(false)}>キャンセル</button>
               <button className="pbtn" onClick={doAddTemp}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* とりあえず編集モーダル */}
+      {editTempModal&&(
+        <div className="mover" onClick={()=>setEditTempModal(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <h3>✏️ とりあえず編集</h3>
+            <div className="fg"><label>お名前</label><input value={editTempModal.name||""} onChange={e=>setEditTempModal(n=>({...n,name:e.target.value}))} placeholder="山田さん" autoFocus/></div>
+            <div className="fg"><label>電話番号</label><input value={editTempModal.phone||""} onChange={e=>setEditTempModal(n=>({...n,phone:e.target.value}))} type="tel"/></div>
+            <div className="fg"><label>ご要件メモ</label><textarea value={editTempModal.memo||""} onChange={e=>setEditTempModal(n=>({...n,memo:e.target.value}))} style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"9px 11px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",resize:"vertical",minHeight:60}}/></div>
+            {tempTags.length>0&&<div className="fg"><label>チェック項目</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:4}}>
+                {tempTags.map(tag=>{
+                  const checked=(editTempModal.tags||[]).includes(tag.id);
+                  return <label key={tag.id} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 12px",background:checked?"#fdf0ee":"#f5f0e8",borderRadius:8,cursor:"pointer",border:`1.5px solid ${checked?"#c0392b":"transparent"}`,fontWeight:600,fontSize:13,color:checked?"#c0392b":"#7a6f63"}}>
+                    <input type="checkbox" checked={checked} onChange={()=>setEditTempModal(n=>({...n,tags:checked?(n.tags||[]).filter(t=>t!==tag.id):[...(n.tags||[]),tag.id]}))} style={{width:16,height:16}}/>{tag.name}
+                  </label>;
+                })}
+              </div>
+            </div>}
+            <div className="fg"><label>修理内容・見積もり</label>
+              {(editTempModal.repairItems||[]).map((it,idx)=>(
+                <div key={idx} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,background:"#f5f0e8",borderRadius:8,padding:"8px 10px"}}>
+                  <select value={it.menuId} onChange={e=>setEditTempModal(n=>{const r=[...n.repairItems];r[idx]={...r[idx],menuId:e.target.value};return {...n,repairItems:r};})} style={{flex:2,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 8px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}>
+                    <option value="">メニュー選択</option>
+                    {repairMenus.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
+                  </select>
+                  <select value={it.qty||1} onChange={e=>setEditTempModal(n=>{const r=[...n.repairItems];r[idx]={...r[idx],qty:+e.target.value};return {...n,repairItems:r};})} style={{width:56,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 4px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}>
+                    {[1,2,3,4,5].map(n=><option key={n} value={n}>{n}個</option>)}
+                  </select>
+                  <button style={{width:28,height:28,borderRadius:6,border:"none",background:"#f0d9d6",color:"#c0392b",cursor:"pointer",fontSize:14,fontWeight:700,flexShrink:0}} onClick={()=>setEditTempModal(n=>({...n,repairItems:n.repairItems.filter((_,i)=>i!==idx)}))}>×</button>
+                </div>
+              ))}
+              <button style={{width:"100%",background:"#e8f0d6",border:"1px solid #c8e0b0",borderRadius:8,padding:"8px",fontSize:13,color:"#2d7a44",cursor:"pointer",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}} onClick={()=>setEditTempModal(n=>({...n,repairItems:[...(n.repairItems||[]),{menuId:"",qty:1}]}))}>+ 行を追加</button>
+            </div>
+            <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:8}}>
+              <button className="gbtn" onClick={()=>setEditTempModal(null)}>キャンセル</button>
+              <button className="pbtn" onClick={doEditTemp}>保存</button>
             </div>
           </div>
         </div>
