@@ -1056,18 +1056,17 @@ export default function App() {
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
         <button className="icobtn" onClick={()=>setStCustOpen(true)}><Ico.Settings/></button>
       </Header>
+      {maintenanceDueBikes.length>0&&<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
+      <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",gap:4,overflowX:"auto"}} className="hide-scroll">
+        <button className={`cat-tab ${custTab==="search"?"cat-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
+        <button className={`cat-tab ${custTab==="maintenance"?"cat-tab-on":""}`} onClick={()=>setCustTab("maintenance")} style={{display:"inline-flex",alignItems:"center",gap:5}}>
+          {maintenanceDueBikes.length>0&&<span className="dot" style={{width:6,height:6,background:"#c87a00"}}/>}
+          メンテ期限
+          {maintenanceDueBikes.length>0&&<span style={{background:"#c87a00",color:"#fff",borderRadius:99,padding:"0px 5px",fontSize:10,fontWeight:700}}>{maintenanceDueBikes.length}</span>}
+        </button>
+        <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
+      </div>
       <div style={{padding:"16px 20px"}}>
-
-      {maintenanceDueBikes.length>0&&<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8,margin:0}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
-        <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",gap:4,justifyContent:"flex-start",overflowX:"auto"}} className="hide-scroll">
-          <button className={`cat-tab ${custTab==="search"?"cat-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
-          <button className={`cat-tab ${custTab==="maintenance"?"cat-tab-on":""}`} onClick={()=>setCustTab("maintenance")} style={{display:"inline-flex",alignItems:"center",gap:5}}>
-            {maintenanceDueBikes.length>0&&<span className="dot" style={{width:6,height:6,background:"#c87a00"}}/>}
-            メンテ期限
-            {maintenanceDueBikes.length>0&&<span style={{background:"#c87a00",color:"#fff",borderRadius:99,padding:"0px 5px",fontSize:10,fontWeight:700}}>{maintenanceDueBikes.length}</span>}
-          </button>
-          <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
-        </div>
         {custTab==="search"&&(<>
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
             <Ico.Search/>
