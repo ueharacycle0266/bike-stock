@@ -1529,11 +1529,11 @@ const CSS = `
   .search-overlay { position: fixed; inset: 0; background: rgba(42,32,24,.4); z-index: 950; display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; backdrop-filter: blur(4px); }
   .search-panel { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 16px; width: 420px; max-width: 93vw; max-height: 70vh; overflow-y: auto; }
   .mover { position: fixed; inset: 0; background: rgba(42,32,24,.42); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-  .modal { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 26px; width: min(420px, calc(100vw - 28px)); max-width: calc(100vw - 28px); max-height: 90vh; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
+  .modal { background: #faf7f2; border: 1px solid #ddd6ca; border-radius: 16px; padding: 20px 16px; width: calc(100vw - 32px); max-width: 420px; max-height: 90vh; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
   .modal h3 { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: #2a2018; margin-bottom: 18px; }
   .fg { margin-bottom: 13px; }
   .fg label { display: block; font-size: 11px; color: #9a8f82; margin-bottom: 5px; }
-  .fg input, .fg select, .fg textarea { width: 100%; max-width: 100%; box-sizing: border-box; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; }
+  .fg input, .fg select, .fg textarea { width: 100%; max-width: 100%; box-sizing: border-box; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; display: block; }
   .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: #2a2018; }
   .stover { position: fixed; inset: 0; background: rgba(42,32,24,.28); z-index: 900; display: flex; justify-content: flex-end; }
   .stpanel { background: #faf7f2; width: min(300px, 92vw); max-width: 92vw; height: 100%; overflow-y: auto; padding: 20px 16px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
