@@ -35,6 +35,9 @@ const api = async (path, method="GET", body=null) => {
 const uid = () => "x"+Math.random().toString(36).slice(2,9);
 const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 const toKatakana = s => s.replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0)+0x60));
+const toLocalDateStr = (d) => {
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+};
 const fmt = (dt,mode="short") => {
   if (!dt) return "";
   const d = new Date(dt);
@@ -241,7 +244,7 @@ export default function App() {
       const data = await api("blocked_slots?select=*");
       if (Array.isArray(data)) {
         const map = {};
-        data.forEach(b => { map[b.slot_date+"_"+b.slot_time] = b.id; });
+        data.forEach(b => { const dateStr = b.slot_date.substring(0,10); map[dateStr+"_"+b.slot_time] = b.id; });
         setBlockedCells(map);
       }
     } catch(e) { console.error(e); }
@@ -702,7 +705,7 @@ export default function App() {
                   <tr>
                     <th style={{width:"36px",padding:"4px 2px",fontSize:10,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
                     {weekDates.map(d=>{
-                      const isToday=fmt(d,"date")===fmt(new Date(),"date");
+                      const isToday=toLocalDateStr(d)===toLocalDateStr(new Date());
                       const isSun=d.getDay()===0; const isSat=d.getDay()===6;
                       return <th key={d.toISOString()} style={{padding:"4px 1px",fontSize:10,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",width:"calc((100% - 36px) / 7)"}}>
                         <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
@@ -716,10 +719,10 @@ export default function App() {
                     <tr key={time}>
                       <td style={{fontSize:9,color:"#b0a898",padding:"0 2px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"middle",whiteSpace:"nowrap",width:"36px"}}>{time}</td>
                       {weekDates.map(d=>{
-                        const key=`${fmt(d,"date")}_${time}`;
+                        const key=toLocalDateStr(d)+"_"+time;
                         const cellRes=resByCell[key]||[];
                         const isBlocked=!!blockedCells[key];
-                        const isToday=fmt(d,"date")===fmt(new Date(),"date");
+                        const isToday=toLocalDateStr(d)===toLocalDateStr(new Date());
                         return <td key={key}
                           style={{border:"1px solid #f0ece4",height:34,verticalAlign:"middle",background:isBlocked?"#fdf0ee":isToday?"#faf7f4":"#fff",cursor:"pointer",padding:1}}
                           onClick={()=>{
@@ -731,12 +734,12 @@ export default function App() {
                               } else {
                                 const newId=uid();
                                 setBlockedCells(p=>({...p,[key]:newId}));
-                                api("blocked_slots","POST",{id:newId,slot_date:fmt(d,"date"),slot_time:time});
+                                api("blocked_slots","POST",{id:newId,slot_date:toLocalDateStr(d),slot_time:time});
                               }
                               return;
                             }
                             if(isBlocked){if(window.confirm("封鎖を解除しますか？")){const bid=blockedCells[key];setBlockedCells(p=>{const n={...p};delete n[key];return n;});if(bid) api("blocked_slots?id=eq."+bid,"DELETE");}return;}
-                            setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));
+                            setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:toLocalDateStr(d)}));
                           }}>
                           {isBlocked
                             ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#c0392b",fontWeight:800}}>×</div>
@@ -1126,7 +1129,7 @@ export default function App() {
               <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
               {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
-            <button className="pbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>{const d=new Date();setAddResModal({date:d,time:"12:00"});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));}}>＋ 予約追加</button>
+            <button className="pbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>{const d=new Date();setAddResModal({date:d,time:"12:00"});setResForm(f=>({...f,checkinDate:toLocalDateStr(d)}));}}>＋ 予約追加</button>
           </div>
         {calView==="week" && (
           <>
@@ -1147,7 +1150,7 @@ export default function App() {
                   <tr>
                     <th style={{width:"36px",padding:"4px 2px",fontSize:10,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
                     {weekDates.map(d=>{
-                      const isToday=fmt(d,"date")===fmt(new Date(),"date");
+                      const isToday=toLocalDateStr(d)===toLocalDateStr(new Date());
                       const isSun=d.getDay()===0; const isSat=d.getDay()===6;
                       return <th key={d.toISOString()} style={{padding:"4px 1px",fontSize:10,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",width:"calc((100% - 36px) / 7)"}}>
                         <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
@@ -1161,10 +1164,10 @@ export default function App() {
                     <tr key={time}>
                       <td style={{fontSize:9,color:"#b0a898",padding:"0 2px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"middle",whiteSpace:"nowrap",width:"36px"}}>{time}</td>
                       {weekDates.map(d=>{
-                        const key=`${fmt(d,"date")}_${time}`;
+                        const key=toLocalDateStr(d)+"_"+time;
                         const cellRes=resByCell[key]||[];
                         const isBlocked=!!blockedCells[key];
-                        const isToday=fmt(d,"date")===fmt(new Date(),"date");
+                        const isToday=toLocalDateStr(d)===toLocalDateStr(new Date());
                         return <td key={key}
                           style={{border:"1px solid #f0ece4",height:34,verticalAlign:"middle",background:isBlocked?"#fdf0ee":isToday?"#faf7f4":"#fff",cursor:"pointer",padding:1}}
                           onClick={()=>{
@@ -1176,12 +1179,12 @@ export default function App() {
                               } else {
                                 const newId=uid();
                                 setBlockedCells(p=>({...p,[key]:newId}));
-                                api("blocked_slots","POST",{id:newId,slot_date:fmt(d,"date"),slot_time:time});
+                                api("blocked_slots","POST",{id:newId,slot_date:toLocalDateStr(d),slot_time:time});
                               }
                               return;
                             }
                             if(isBlocked){if(window.confirm("封鎖を解除しますか？")){const bid=blockedCells[key];setBlockedCells(p=>{const n={...p};delete n[key];return n;});if(bid) api("blocked_slots?id=eq."+bid,"DELETE");}return;}
-                            setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));
+                            setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:toLocalDateStr(d)}));
                           }}>
                           {isBlocked
                             ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#c0392b",fontWeight:800}}>×</div>
