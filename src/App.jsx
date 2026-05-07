@@ -228,7 +228,7 @@ export default function App() {
         api("maker_master?select=*&order=order.asc").catch(()=>[]),
         api("temp_tags?select=*&order=order.asc").catch(()=>[]),
       ]);
-      setRepairMenus(Array.isArray(menus) ? menus : []);
+      setRepairMenus(Array.isArray(menus) ? [...menus].sort((a,b)=>a.name.localeCompare(b.name,'ja')) : []);
       setMakerMaster(Array.isArray(makers) ? makers : []);
       setTempTags(Array.isArray(tags) ? tags : []);
     } catch(e){
@@ -430,7 +430,7 @@ export default function App() {
     try {
       const saved=await api("repair_menus","POST",{id,name,price,order:o});
       const row=Array.isArray(saved) ? (saved[0] || {id,name,price,order:o}) : {id,name,price,order:o};
-      setRepairMenus(p=>[...p,row].sort((a,b)=>(a.order??0)-(b.order??0)));
+      setRepairMenus(p=>[...p,row].sort((a,b)=>a.name.localeCompare(b.name,'ja')));
       setNewMenuF({name:"",price:""});
     } catch(e) { console.error(e); alert("修理メニューの追加に失敗しました。"); }
     finally { setSaving(false); }
@@ -1236,7 +1236,7 @@ export default function App() {
       <Header>
         <button className="icobtn" onClick={()=>{loadCustomers({silent:true});loadEstimates();}}><Ico.Refresh/></button>
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
-        <button className="icobtn" onClick={()=>setStCustOpen(true)}><Ico.Settings/></button>
+        <button className="icobtn" onClick={()=>{setStCustOpen(true);loadMasters();loadTempNotes();}}><Ico.Settings/></button>
       </Header>
       {maintenanceDueBikes.length>0&&<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
       <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",gap:4,overflowX:"auto"}} className="hide-scroll">
