@@ -789,9 +789,9 @@ export default function App() {
               </div>
               <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
                   <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",opacity:resForm.dueDateUnknown?0.4:1}}/>
-                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer",marginTop:4}}>
+                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
                     <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
                   </label>
                 </div>
@@ -1058,8 +1058,8 @@ export default function App() {
       </Header>
       <div style={{padding:"16px 20px"}}>
 
-      {maintenanceDueBikes.length>0&&<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
-        <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",gap:4,justifyContent:"center"}}>
+      {maintenanceDueBikes.length>0&&<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8,margin:0}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
+        <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",gap:4,justifyContent:"flex-start",overflowX:"auto"}} className="hide-scroll">
           <button className={`cat-tab ${custTab==="search"?"cat-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
           <button className={`cat-tab ${custTab==="maintenance"?"cat-tab-on":""}`} onClick={()=>setCustTab("maintenance")} style={{display:"inline-flex",alignItems:"center",gap:5}}>
             {maintenanceDueBikes.length>0&&<span className="dot" style={{width:6,height:6,background:"#c87a00"}}/>}
@@ -1224,9 +1224,9 @@ export default function App() {
               </div>
               <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
                   <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",opacity:resForm.dueDateUnknown?0.4:1}}/>
-                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer",marginTop:4}}>
+                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
                     <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
                   </label>
                 </div>
@@ -1338,9 +1338,9 @@ export default function App() {
                 <button className="sico sdel" onClick={()=>delMaker(m.id)}><Ico.Trash/></button>
               </div>
             ))}
-            <div style={{display:"flex",gap:8,marginTop:8}}>
-              <input value={newMakerF} onChange={e=>setNewMakerF(e.target.value)} placeholder="例: GIANT" style={{flex:1,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}} onKeyDown={e=>e.key==="Enter"&&doAddMaker()}/>
-              <button className="pbtn" style={{padding:"8px 14px",fontSize:12}} onClick={doAddMaker}>追加</button>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+              <input value={newMakerF} onChange={e=>setNewMakerF(e.target.value)} placeholder="例: GIANT" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}} onKeyDown={e=>e.key==="Enter"&&doAddMaker()}/>
+              <button className="pbtn" style={{width:"100%",padding:"10px",fontSize:13}} onClick={doAddMaker}>追加</button>
             </div>
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10,marginTop:24}}>🔧 修理メニュー</div>
             {(repairMenus||[]).length===0&&<p style={{color:"#b0a898",fontSize:12,marginBottom:8}}>修理メニュー未登録です</p>}
@@ -1351,10 +1351,10 @@ export default function App() {
                 <button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button>
               </div>
             ))}
-            <div style={{display:"flex",gap:6,marginTop:8}}>
-              <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" style={{flex:2,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}}/>
-              <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" style={{flex:1,minWidth:70,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}}/>
-              <button className="pbtn" style={{padding:"8px 12px",fontSize:12}} onClick={doAddMenu}>追加</button>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+              <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}}/>
+              <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額（円）" type="number" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}}/>
+              <button className="pbtn" style={{width:"100%",padding:"10px",fontSize:13}} onClick={doAddMenu}>追加</button>
             </div>
           </aside>
         </div>
