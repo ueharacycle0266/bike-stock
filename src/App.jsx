@@ -169,8 +169,8 @@ export default function App() {
   // ── 予約 ──
   const [reservations, setReservations] = useState([]);
   const [calDate, setCalDate] = useState(() => { const d=new Date(); d.setHours(0,0,0,0); return d; });
-  const [blockedCells, setBlockedCells] = useState({}); // key: "date_time" -> true
-  const [calBlockMode, setCalBlockMode] = useState(false); // 封鎖モード
+  const [blockedCells, setBlockedCells] = useState({});
+  const [calBlockMode, setCalBlockMode] = useState(false);
   const [calView, setCalView] = useState("week"); // week | list
   const [addResModal, setAddResModal] = useState(null); // {date, time} or null
   const [resForm, setResForm] = useState({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:"",repairItems:[]});
@@ -669,7 +669,7 @@ export default function App() {
           <button className="icobtn" onClick={()=>loadReservations()}><Ico.Refresh/></button>
           <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
           <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
-          {calView==="week"&&<button className="icobtn" title="封鎖モード" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
+          {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}} title="封鎖モード"><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
         </Header>
 
         {calView==="week" && (
@@ -689,11 +689,11 @@ export default function App() {
               <table style={{borderCollapse:"collapse",width:"100%",tableLayout:"fixed"}}>
                 <thead style={{position:"sticky",top:0,zIndex:10,background:"#faf7f2"}}>
                   <tr>
-                    <th style={{width:"38px",padding:"6px 2px",fontSize:10,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
+                    <th style={{width:"36px",padding:"4px 2px",fontSize:10,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
                     {weekDates.map(d=>{
                       const isToday=fmt(d,"date")===fmt(new Date(),"date");
                       const isSun=d.getDay()===0; const isSat=d.getDay()===6;
-                      return <th key={d.toISOString()} style={{padding:"4px 1px",fontSize:10,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",width:"calc((100% - 38px) / 7)"}}>
+                      return <th key={d.toISOString()} style={{padding:"4px 1px",fontSize:10,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",width:"calc((100% - 36px) / 7)"}}>
                         <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
                         <div style={{fontSize:9}}>{getDayLabel(d)}</div>
                       </th>;
@@ -703,21 +703,21 @@ export default function App() {
                 <tbody>
                   {HOURS.map(time=>(
                     <tr key={time}>
-                      <td style={{fontSize:9,color:"#b0a898",padding:"0 2px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"middle",whiteSpace:"nowrap",width:"38px"}}>{time}</td>
+                      <td style={{fontSize:9,color:"#b0a898",padding:"0 2px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"middle",whiteSpace:"nowrap",width:"36px"}}>{time}</td>
                       {weekDates.map(d=>{
                         const key=`${fmt(d,"date")}_${time}`;
-                        const cellRes=(resByCell[key]||[]);
+                        const cellRes=resByCell[key]||[];
                         const isBlocked=blockedCells[key];
                         const isToday=fmt(d,"date")===fmt(new Date(),"date");
                         return <td key={key}
-                          style={{border:"1px solid #f0ece4",height:34,verticalAlign:"middle",background:isBlocked?"#f5f0e8":isToday?"#faf7f4":"#fff",cursor:"pointer",padding:1}}
+                          style={{border:"1px solid #f0ece4",height:34,verticalAlign:"middle",background:isBlocked?"#fdf0ee":isToday?"#faf7f4":"#fff",cursor:"pointer",padding:1}}
                           onClick={()=>{
-                            if(calBlockMode){setBlockedCells(p=>isBlocked?((n=>{delete n[key];return n;})({...p})):{...p,[key]:true});return;}
+                            if(calBlockMode){setBlockedCells(p=>{const n={...p};if(n[key])delete n[key];else n[key]=true;return n;});return;}
                             if(isBlocked){if(window.confirm("封鎖を解除しますか？")){setBlockedCells(p=>{const n={...p};delete n[key];return n;});}return;}
                             setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));
                           }}>
                           {isBlocked
-                            ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#c0392b",fontWeight:800}}>×</div>
+                            ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#c0392b",fontWeight:800}}>×</div>
                             :cellRes.map(r=>{
                               const c=custMap[r.customer_id];
                               const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
@@ -789,9 +789,9 @@ export default function App() {
               </div>
               <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
                   <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",opacity:resForm.dueDateUnknown?0.4:1}}/>
-                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
+                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer",marginTop:4}}>
                     <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
                   </label>
                 </div>
@@ -965,7 +965,7 @@ export default function App() {
           <button className="icobtn" onClick={()=>setAddBikeModal(true)}><Ico.Plus/></button>
           <button className="icobtn sedit" title="編集" onClick={()=>setEditCustModal({...custDetail})}><Ico.Edit/></button>
           <button className="icobtn sdel" title="削除" onClick={()=>delCust(custDetail.id)}><Ico.Trash/></button>
-          <button className="icobtn" title="予約する" style={{background:"#d6e4f0",color:"#2563a8"}} onClick={()=>{ switchMode("reservation"); setTimeout(()=>{ setAddResModal({date:new Date(),time:"10:00"}); setResForm(f=>({...f,custId:custDetail.id,checkinDate:fmt(new Date(),"date")})); },100); setCustDetail(null); }}><Ico.Calendar/></button>
+          <button className="icobtn" title="予約する" style={{background:"#d6e4f0",color:"#2563a8"}} onClick={()=>{switchMode("reservation");setTimeout(()=>{setAddResModal({date:new Date(),time:"10:00"});setResForm(f=>({...f,custId:custDetail.id,checkinDate:fmt(new Date(),"date")}));},100);setCustDetail(null);}}><Ico.Calendar/></button>
         </div>
         <div style={{padding:"16px 20px"}}>
           {custDetail.phone&&<div style={S.infoRow}><span style={S.infoLabel}>電話番号</span><span>{custDetail.phone}</span></div>}
@@ -986,7 +986,7 @@ export default function App() {
                   <div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{custEstimates(custDetail.id,i).length}件の履歴</div>
                   <div onClick={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}}>
                     <span style={{fontSize:11,color:"#9a8f82"}}>次回メンテ</span>
-                    <input type="date" value={bike.nextMaintenanceDate||""} onChange={e=>updateBikeMaintenance(i,e.target.value)} style={{background:"#f5f0e8",border:"1px solid #e0d9ce",borderRadius:6,padding:"4px 6px",fontSize:12,color:"#2a2018",maxWidth:130,minWidth:110}} />
+                    <input type="date" value={bike.nextMaintenanceDate||""} onChange={e=>updateBikeMaintenance(i,e.target.value)} style={{background:"#f5f0e8",border:"1px solid #e0d9ce",borderRadius:6,padding:"4px 6px",fontSize:12,color:"#2a2018",maxWidth:130}} />
                   </div>
                 </div>
                 <span style={{color:"#c8bfb0",fontSize:18}}>›</span>
@@ -1056,9 +1056,10 @@ export default function App() {
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
         <button className="icobtn" onClick={()=>setStCustOpen(true)}><Ico.Settings/></button>
       </Header>
-      {maintenanceDueBikes.length>0&&(<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>)}
-      <div>
-        <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",gap:4,justifyContent:"center"}} className="hide-scroll">
+      <div style={{padding:"16px 20px"}}>
+
+      {maintenanceDueBikes.length>0&&<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>}
+        <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",gap:4,justifyContent:"center"}}>
           <button className={`cat-tab ${custTab==="search"?"cat-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
           <button className={`cat-tab ${custTab==="maintenance"?"cat-tab-on":""}`} onClick={()=>setCustTab("maintenance")} style={{display:"inline-flex",alignItems:"center",gap:5}}>
             {maintenanceDueBikes.length>0&&<span className="dot" style={{width:6,height:6,background:"#c87a00"}}/>}
@@ -1067,7 +1068,6 @@ export default function App() {
           </button>
           <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
         </div>
-        <div style={{padding:"16px 20px"}}>
         {custTab==="search"&&(<>
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
             <Ico.Search/>
@@ -1103,7 +1103,7 @@ export default function App() {
               <button className="icobtn" onClick={()=>loadReservations()}><Ico.Refresh/></button>
               <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
               <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
-              {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}} title="封鎖モード"><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
+              {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
             <button className="pbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>{const d=new Date();setAddResModal({date:d,time:"12:00"});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));}}>＋ 予約追加</button>
           </div>
@@ -1124,11 +1124,11 @@ export default function App() {
               <table style={{borderCollapse:"collapse",width:"100%",tableLayout:"fixed"}}>
                 <thead style={{position:"sticky",top:0,zIndex:10,background:"#faf7f2"}}>
                   <tr>
-                    <th style={{width:"38px",padding:"6px 2px",fontSize:10,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
+                    <th style={{width:"36px",padding:"4px 2px",fontSize:10,color:"#b0a898",borderBottom:"1px solid #e0d9ce",borderRight:"1px solid #f0ece4"}}></th>
                     {weekDates.map(d=>{
                       const isToday=fmt(d,"date")===fmt(new Date(),"date");
                       const isSun=d.getDay()===0; const isSat=d.getDay()===6;
-                      return <th key={d.toISOString()} style={{padding:"4px 1px",fontSize:10,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",width:"calc((100% - 38px) / 7)"}}>
+                      return <th key={d.toISOString()} style={{padding:"4px 1px",fontSize:10,borderBottom:"1px solid #e0d9ce",textAlign:"center",color:isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,background:isToday?"#f0ece4":"#faf7f2",width:"calc((100% - 36px) / 7)"}}>
                         <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#2a2018"}}>{d.getDate()}</div>
                         <div style={{fontSize:9}}>{getDayLabel(d)}</div>
                       </th>;
@@ -1138,21 +1138,21 @@ export default function App() {
                 <tbody>
                   {HOURS.map(time=>(
                     <tr key={time}>
-                      <td style={{fontSize:9,color:"#b0a898",padding:"0 2px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"middle",whiteSpace:"nowrap",width:"38px"}}>{time}</td>
+                      <td style={{fontSize:9,color:"#b0a898",padding:"0 2px",textAlign:"right",borderRight:"1px solid #f0ece4",verticalAlign:"middle",whiteSpace:"nowrap",width:"36px"}}>{time}</td>
                       {weekDates.map(d=>{
                         const key=`${fmt(d,"date")}_${time}`;
-                        const cellRes=(resByCell[key]||[]);
+                        const cellRes=resByCell[key]||[];
                         const isBlocked=blockedCells[key];
                         const isToday=fmt(d,"date")===fmt(new Date(),"date");
                         return <td key={key}
-                          style={{border:"1px solid #f0ece4",height:34,verticalAlign:"middle",background:isBlocked?"#f5f0e8":isToday?"#faf7f4":"#fff",cursor:"pointer",padding:1}}
+                          style={{border:"1px solid #f0ece4",height:34,verticalAlign:"middle",background:isBlocked?"#fdf0ee":isToday?"#faf7f4":"#fff",cursor:"pointer",padding:1}}
                           onClick={()=>{
-                            if(calBlockMode){setBlockedCells(p=>isBlocked?((n=>{delete n[key];return n;})({...p})):{...p,[key]:true});return;}
+                            if(calBlockMode){setBlockedCells(p=>{const n={...p};if(n[key])delete n[key];else n[key]=true;return n;});return;}
                             if(isBlocked){if(window.confirm("封鎖を解除しますか？")){setBlockedCells(p=>{const n={...p};delete n[key];return n;});}return;}
                             setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));
                           }}>
                           {isBlocked
-                            ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#c0392b",fontWeight:800}}>×</div>
+                            ?<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#c0392b",fontWeight:800}}>×</div>
                             :cellRes.map(r=>{
                               const c=custMap[r.customer_id];
                               const color=r.status==="in"?"#2d7a44":r.status==="done"?"#b0a898":"#2563a8";
@@ -1224,9 +1224,9 @@ export default function App() {
               </div>
               <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
                   <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",opacity:resForm.dueDateUnknown?0.4:1}}/>
-                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
+                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer",marginTop:4}}>
                     <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
                   </label>
                 </div>
@@ -1537,7 +1537,7 @@ const CSS = `
   .fg input, .fg select, .fg textarea { width: 100%; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; }
   .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: #2a2018; }
   .stover { position: fixed; inset: 0; background: rgba(42,32,24,.28); z-index: 900; display: flex; justify-content: flex-end; }
-  .stpanel { background: #faf7f2; width: min(320px, 94vw); max-width: 94vw; height: 100%; overflow-y: auto; padding: 20px 16px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
+  .stpanel { background: #faf7f2; width: min(300px, 92vw); max-width: 92vw; height: 100%; overflow-y: auto; padding: 20px 16px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
   @keyframes sin { from { transform: translateX(100%); } to { transform: translateX(0); } }
   .sttab { flex: 1; background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 0; border-radius: 7px; color: #9a8f82; }
   .sttabon { background: #faf7f2; color: #2a2018; box-shadow: 0 1px 4px rgba(42,32,24,.09); }
@@ -1551,10 +1551,7 @@ const CSS = `
   .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 600; color: #7a6f63; cursor: pointer; }
   .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
   .repair-menu-row { display:flex; align-items:center; gap:6px; padding:5px 8px; background:#f5f0e8; border-radius:7px; margin-bottom:4px; min-height:34px; }
-  .customer-tabs { display:flex; gap:4px; background:#faf7f2; border:1px solid #e0d9ce; border-radius:14px; padding:8px; margin: 0 0 14px; overflow-x:auto; white-space:nowrap; }
-  .cust-tab { flex:1 0 auto; border:none; border-radius:10px; padding:8px 12px; background:transparent; color:#c8bfb0; font-family:'Noto Sans JP', sans-serif; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; justify-content:center; gap:4px; }
-  .cust-tab:hover { color:#7a6f63; background:#f0ece4; }
-  .cust-tab-on { background:#2a2018; color:#f5f0e8 !important; box-shadow:none; }
+  /* cust-tab は cat-tab に統一 */
   .estimate-line { display:grid; grid-template-columns: 1fr 54px 82px 32px; gap:6px; align-items:center; margin-bottom:7px; }
   .estimate-line input, .estimate-line select { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 9px; color:#2a2018; font-family:'Noto Sans JP', sans-serif; outline:none; }
   .line-total { min-width:0; background:#f5f0e8; border:1px solid #e0d9ce; border-radius:8px; padding:8px 7px; color:#2a7a5a; font-size:12px; font-weight:800; text-align:right; white-space:nowrap; }
@@ -1568,13 +1565,13 @@ const CSS = `
   .compact-form input { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 10px; font-family:'Noto Sans JP', sans-serif; color:#2a2018; outline:none; }
   .compact-form input[type="number"] { max-width:86px; }
   .compact-row { min-height:36px; padding:6px 8px; }
-  .cust-settings-panel { width:min(300px, 92vw); overflow-x:hidden; }
+  .cust-settings-panel { width:min(390px, 100vw); overflow-x:hidden; }
 
   @media (max-width: 520px) {
     .mover { padding: 10px; align-items: center; justify-content: center; }
     .modal { width: calc(100vw - 20px); max-width: calc(100vw - 20px); padding: 22px 18px; border-radius: 14px; }
     .stover { justify-content: flex-end; overflow: hidden; }
-    .stpanel { width: calc(100vw - 20px); max-width: calc(100vw - 20px); padding: 20px 14px; }
+    .stpanel { width: calc(100vw - 18px); max-width: calc(100vw - 18px); padding: 24px 16px; }
     .fg input, .fg select, .fg textarea { min-width: 0; }
     .pbtn, .gbtn { white-space: nowrap; }
     .estimate-line { grid-template-columns: minmax(0,1fr) 44px 68px 30px; gap:5px; }
