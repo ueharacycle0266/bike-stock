@@ -149,7 +149,7 @@ export default function App() {
   const [editRepairMenu, setEditRepairMenu] = useState(null); // {id, name, price}
   const [newTagInput, setNewTagInput] = useState("");
   const [addTempModal, setAddTempModal] = useState(false);
-  const [newTemp, setNewTemp] = useState({name:"",phone:"",memo:"",tags:[],repairItems:[]});
+  const [newTemp, setNewTemp] = useState({name:"",phone:"",memo:"",tags:[],repairItems:[],createdAt:null});
   const [selectedTemp, setSelectedTemp] = useState(null);
   const [custDetail, setCustDetail] = useState(null);
   const [bikeDetail, setBikeDetail] = useState(null); // {cust, bikeIdx}
@@ -222,22 +222,17 @@ export default function App() {
   };
 
   const loadMasters = async () => {
-    // 顧客設定は maker_master / repair_menus が未作成・権限不足でも画面を落とさない
     try {
-      const menus = await api("repair_menus?select=*&order=order.asc").catch(e => {
-        console.error("repair_menus load failed", e);
-        return [];
-      });
-      const makers = await api("maker_master?select=*&order=order.asc").catch(e => {
-        console.error("maker_master load failed", e);
-        return [];
-      });
+      const [menus, makers, tags] = await Promise.all([
+        api("repair_menus?select=*&order=name.asc").catch(()=>[]),
+        api("maker_master?select=*&order=order.asc").catch(()=>[]),
+        api("temp_tags?select=*&order=order.asc").catch(()=>[]),
+      ]);
       setRepairMenus(Array.isArray(menus) ? menus : []);
       setMakerMaster(Array.isArray(makers) ? makers : []);
+      setTempTags(Array.isArray(tags) ? tags : []);
     } catch(e){
       console.error(e);
-      setRepairMenus([]);
-      setMakerMaster([]);
     }
   };
 
@@ -287,7 +282,7 @@ export default function App() {
 
   const switchMode = async (mode) => {
     setAppMode(mode); setModeMenu(false);
-    if (mode==="customer" && !custLoaded) { await Promise.all([loadCustomers(),loadMasters(),loadEstimates(),loadTempNotes(),loadTempTags()]); }
+    if (mode==="customer" && !custLoaded) { await Promise.all([loadCustomers(),loadMasters(),loadEstimates(),loadTempNotes()]); }
     if (mode==="reservation") { await Promise.all([loadReservations(), loadBlockedSlots(), !custLoaded&&loadCustomers(), loadMasters()]); }
   };
 
@@ -1251,7 +1246,7 @@ export default function App() {
           メンテ期限
           {maintenanceDueBikes.length>0&&<span style={{background:"#c87a00",color:"#fff",borderRadius:99,padding:"0px 5px",fontSize:10,fontWeight:700}}>{maintenanceDueBikes.length}</span>}
         </button>
-        <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>作業管理</button>
+        <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadBlockedSlots();loadCustomers({silent:true});}}>作業管理</button>
         <button className={`cat-tab ${custTab==="temp"?"cat-tab-on":""}`} onClick={()=>setCustTab("temp")} style={{display:"inline-flex",alignItems:"center",gap:5}}>
           {tempNotes.filter(t=>t.urgent).length>0&&<span className="dot" style={{width:6,height:6,background:"#c0392b"}}/>}
           とりあえず
@@ -1261,7 +1256,7 @@ export default function App() {
       <div style={{padding:"16px 20px"}}>
         {custTab==="temp"&&(
           <div>
-            <button className="pbtn" style={{width:"100%",marginBottom:14}} onClick={()=>setAddTempModal(true)}>+ とりあえず追加</button>
+            <button className="pbtn" style={{width:"100%",marginBottom:14}} onClick={()=>{setNewTemp(n=>({...n,createdAt:new Date()}));setAddTempModal(true);}}>+ とりあえず追加</button>
             {tempNotes.length===0&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"20px 0"}}>とりあえずメモがありません</p>}
             {tempNotes.map(t=>(
               <div key={t.id} style={{background:t.urgent?"#fdf0ee":"#fff",border:`1px solid ${t.urgent?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:8,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
@@ -1626,6 +1621,9 @@ export default function App() {
         <div className="mover" onClick={()=>setAddTempModal(false)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
             <h3>📝 とりあえずメモ</h3>
+            <div style={{background:"#f5f0e8",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:13,color:"#2a2018",fontWeight:700}}>
+              {newTemp.createdAt&&`${newTemp.createdAt.getMonth()+1}/${newTemp.createdAt.getDate()}（${["日","月","火","水","木","金","土"][newTemp.createdAt.getDay()]}） ${String(newTemp.createdAt.getHours()).padStart(2,"0")}:${String(newTemp.createdAt.getMinutes()).padStart(2,"0")}`}
+            </div>
             <div className="fg"><label>お名前</label><input value={newTemp.name} onChange={e=>setNewTemp(n=>({...n,name:e.target.value}))} placeholder="山田さん" autoFocus/></div>
             <div className="fg"><label>電話番号</label><input value={newTemp.phone} onChange={e=>setNewTemp(n=>({...n,phone:e.target.value}))} placeholder="090-0000-0000" type="tel"/></div>
             <div className="fg"><label>ご要件メモ</label><textarea value={newTemp.memo} onChange={e=>setNewTemp(n=>({...n,memo:e.target.value}))} placeholder="例: タイヤ交換希望" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"9px 11px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",resize:"vertical",minHeight:60}}/></div>
@@ -1640,20 +1638,24 @@ export default function App() {
               </div>
             </div>}
             <div className="fg"><label>修理内容・見積もり（任意）</label>
-              {repairMenus.map(m=>{
-                const items=newTemp.repairItems||[];
-                const it=items.find(i=>i.menuId===m.id);
-                return <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #f5f0e8"}}>
-                  <span style={{flex:1,fontSize:13,color:"#2a2018"}}>{m.name}</span>
-                  <span style={{fontSize:11,color:"#2a7a5a",minWidth:50,textAlign:"right"}}>¥{(m.price||0).toLocaleString()}</span>
-                  <div style={{display:"flex",alignItems:"center",gap:4}}>
-                    <button style={{width:26,height:26,borderRadius:6,border:"1px solid #e0d9ce",background:"#f5f0e8",cursor:"pointer",fontSize:14,color:"#c0392b"}} onClick={()=>setNewTemp(n=>{const idx=(n.repairItems||[]).findIndex(i=>i.menuId===m.id);if(idx<0) return n;const r=[...n.repairItems];if(r[idx].qty<=1) return {...n,repairItems:r.filter(i=>i.menuId!==m.id)};r[idx]={...r[idx],qty:r[idx].qty-1};return {...n,repairItems:r};})}>−</button>
-                    <span style={{minWidth:20,textAlign:"center",fontWeight:700,fontSize:13}}>{it?.qty||0}</span>
-                    <button style={{width:26,height:26,borderRadius:6,border:"1px solid #e0d9ce",background:"#f5f0e8",cursor:"pointer",fontSize:14,color:"#2d7a44"}} onClick={()=>setNewTemp(n=>{const idx=(n.repairItems||[]).findIndex(i=>i.menuId===m.id);if(idx<0) return {...n,repairItems:[...(n.repairItems||[]),{menuId:m.id,qty:1}]};const r=[...n.repairItems];r[idx]={...r[idx],qty:r[idx].qty+1};return {...n,repairItems:r};})}>+</button>
-                  </div>
-                </div>;
-              })}
-              {(newTemp.repairItems||[]).length>0&&<div style={{marginTop:8,fontWeight:700,color:"#2a7a5a",fontSize:13}}>見積合計: ¥{(newTemp.repairItems||[]).reduce((s,it)=>{const m=repairMenus.find(m=>m.id===it.menuId);return s+(m?.price||0)*it.qty;},0).toLocaleString()}</div>}
+              {(newTemp.repairItems||[]).map((it,idx)=>(
+                <div key={idx} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,background:"#f5f0e8",borderRadius:8,padding:"8px 10px"}}>
+                  <select value={it.menuId} onChange={e=>setNewTemp(n=>{const r=[...n.repairItems];r[idx]={...r[idx],menuId:e.target.value};return {...n,repairItems:r};})} style={{flex:2,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 8px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}>
+                    <option value="">メニュー選択</option>
+                    {repairMenus.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
+                  </select>
+                  <select value={it.qty} onChange={e=>setNewTemp(n=>{const r=[...n.repairItems];r[idx]={...r[idx],qty:+e.target.value};return {...n,repairItems:r};})} style={{width:56,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 4px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none",textAlign:"center"}}>
+                    {[1,2,3,4,5].map(n=><option key={n} value={n}>{n}個</option>)}
+                  </select>
+                  <button style={{width:28,height:28,borderRadius:6,border:"none",background:"#f0d9d6",color:"#c0392b",cursor:"pointer",fontSize:14,fontWeight:700,flexShrink:0}} onClick={()=>setNewTemp(n=>({...n,repairItems:n.repairItems.filter((_,i)=>i!==idx)}))}>×</button>
+                </div>
+              ))}
+              <button style={{width:"100%",background:"#e8f0d6",border:"1px solid #c8e0b0",borderRadius:8,padding:"8px",fontSize:13,color:"#2d7a44",cursor:"pointer",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700,marginBottom:6}} onClick={()=>setNewTemp(n=>({...n,repairItems:[...(n.repairItems||[]),{menuId:"",qty:1}]}))}>+ 行を追加</button>
+              {(newTemp.repairItems||[]).filter(it=>it.menuId).length>0&&(
+                <div style={{fontWeight:700,color:"#2a7a5a",fontSize:13,textAlign:"right"}}>
+                  見積合計: ¥{(newTemp.repairItems||[]).reduce((s,it)=>{const m=repairMenus.find(m=>m.id===it.menuId);return s+(m?.price||0)*(it.qty||1);},0).toLocaleString()}
+                </div>
+              )}
             </div>
             <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
               <button className="gbtn" onClick={()=>setAddTempModal(false)}>キャンセル</button>
