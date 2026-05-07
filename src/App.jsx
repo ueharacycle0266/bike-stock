@@ -147,8 +147,9 @@ export default function App() {
   const [tempTags, setTempTags] = useState([]);
   const [mainteSubTab, setMainteSubTab] = useState("expired"); // expired | 1month | 3month
   const [editRepairMenu, setEditRepairMenu] = useState(null); // {id, name, price}
+  const [newTagInput, setNewTagInput] = useState("");
   const [addTempModal, setAddTempModal] = useState(false);
-  const [newTemp, setNewTemp] = useState({name:"",phone:"",memo:"",urgent:false});
+  const [newTemp, setNewTemp] = useState({name:"",phone:"",memo:"",tags:[],repairItems:[]});
   const [selectedTemp, setSelectedTemp] = useState(null);
   const [custDetail, setCustDetail] = useState(null);
   const [bikeDetail, setBikeDetail] = useState(null); // {cust, bikeIdx}
@@ -502,7 +503,7 @@ export default function App() {
   const deleteResRepairLine = (idx) => setResForm(f=>({...f,repairItems:(f.repairItems||[]).filter((_,i)=>i!==idx)}));
   const maintenanceDueBikes = useMemo(()=>{
     const today=new Date(); today.setHours(0,0,0,0);
-    const limit=new Date(today); limit.setDate(limit.getDate()+30);
+    const limit=new Date(today); limit.setMonth(limit.getMonth()+3);
     const rows=[];
     customers.forEach(c=>(c.bikes||[]).forEach((b,idx)=>{
       if(!b.nextMaintenanceDate) return;
@@ -767,7 +768,7 @@ export default function App() {
           <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
           <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
           <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")} title="月カレンダー"><span style={{fontSize:11,fontWeight:700}}>月</span></button>
-          {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}} title="封鎖モード"><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
+          {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}} title="封鎖モード"><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
         </Header>
 
         {calView==="week" && (
@@ -846,13 +847,13 @@ export default function App() {
         )}
 
         {calView==="month" && (
-          <div style={{padding:"0 0 20px"}}>
+          <div style={{padding:"0 0 20px",minHeight:"calc(100vh - 200px)"}}>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()-1);setMonthCalDate(d);}}><Ico.ChevLeft/></button>
               <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{monthCalDate.getFullYear()}年{monthCalDate.getMonth()+1}月</span>
               <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()+1);setMonthCalDate(d);}}><Ico.ChevRight/></button>
             </div>
-            <div style={{padding:"6px 8px"}}>
+            <div style={{padding:"4px 6px"}}>
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
                 {["月","火","水","木","金","土","日"].map((d,i)=>(
                   <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,padding:"4px 0",color:i===5?"#2563a8":i===6?"#c0392b":"#9a8f82"}}>{d}</div>
@@ -878,7 +879,7 @@ export default function App() {
                       const isDayBlocked=HOURS.every(t=>!!blockedCells[dateStr+"_"+t]);
                       const isToday=dateStr===toLocalDateStr(new Date());
                       const isSat=di===5, isSun=di===6;
-                      return <div key={di} style={{minHeight:64,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",position:"relative"}}
+                      return <div key={di} style={{minHeight:90,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",position:"relative"}}
                         onClick={()=>{
                           if(calBlockMode){blockDay(dateStr);return;}
                           const d=new Date(dateStr+"T00:00:00");
@@ -1324,7 +1325,7 @@ export default function App() {
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{background:new Date(r.date)<now?"#f0d9d6":"#fdf0ee",color:"#c0392b",fontSize:12,fontWeight:800,padding:"4px 8px",borderRadius:7}}>{fmt(r.date,"mmdd")}</span>
-                  <button className="sico sdel" title="メンテ期限を削除" onClick={async(e)=>{e.stopPropagation();const bikes=[...(r.customer.bikes||[])];if(bikes[r.bikeIdx]){const b={...bikes[r.bikeIdx]};delete b.maintenanceDate;bikes[r.bikeIdx]=b;const updCust={...r.customer,bikes};setCustomers(p=>p.map(c=>c.id===updCust.id?updCust:c));await api(`customers?id=eq.${updCust.id}`,"PATCH",{bikes});}}}><Ico.Trash/></button>
+                  <button className="sico sdel" title="メンテ期限を削除" onClick={async(e)=>{e.stopPropagation();const bikes=[...(r.customer.bikes||[])];if(bikes[r.bikeIdx]){const b={...bikes[r.bikeIdx]};delete b.nextMaintenanceDate;bikes[r.bikeIdx]=b;const updCust={...r.customer,bikes};setCustomers(p=>p.map(c=>c.id===updCust.id?updCust:c));await api(`customers?id=eq.${updCust.id}`,"PATCH",{bikes});}}}><Ico.Trash/></button>
                 </div>
               </div>
             ));
@@ -1337,7 +1338,7 @@ export default function App() {
               <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
               <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
               <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
-              {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
+              {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
             <button className="pbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>{const d=new Date();setAddResModal({date:d,time:"12:00"});setResForm(f=>({...f,checkinDate:toLocalDateStr(d)}));}}>＋ 予約追加</button>
           </div>
@@ -1417,13 +1418,13 @@ export default function App() {
         )}
 
         {calView==="month" && (
-          <div style={{padding:"0 0 20px"}}>
+          <div style={{padding:"0 0 20px",minHeight:"calc(100vh - 200px)"}}>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()-1);setMonthCalDate(d);}}><Ico.ChevLeft/></button>
               <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{monthCalDate.getFullYear()}年{monthCalDate.getMonth()+1}月</span>
               <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()+1);setMonthCalDate(d);}}><Ico.ChevRight/></button>
             </div>
-            <div style={{padding:"6px 8px"}}>
+            <div style={{padding:"4px 6px"}}>
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
                 {["月","火","水","木","金","土","日"].map((d,i)=>(
                   <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,padding:"4px 0",color:i===5?"#2563a8":i===6?"#c0392b":"#9a8f82"}}>{d}</div>
@@ -1449,7 +1450,7 @@ export default function App() {
                       const isDayBlocked=HOURS.every(t=>!!blockedCells[dateStr+"_"+t]);
                       const isToday=dateStr===toLocalDateStr(new Date());
                       const isSat=di===5, isSun=di===6;
-                      return <div key={di} style={{minHeight:64,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",position:"relative"}}
+                      return <div key={di} style={{minHeight:90,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",position:"relative"}}
                         onClick={()=>{
                           if(calBlockMode){blockDay(dateStr);return;}
                           const d=new Date(dateStr+"T00:00:00");
@@ -1728,12 +1729,10 @@ export default function App() {
                 <button className="sico sdel" onClick={()=>delTempTag(tag.id)}><Ico.Trash/></button>
               </div>
             ))}
-            {(()=>{const [tagInput,setTagInput]=React.useState("");return(
-              <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
-                <input value={tagInput} onChange={e=>setTagInput(e.target.value)} placeholder="新しいタグ名" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}} onKeyDown={e=>e.key==="Enter"&&(doAddTempTag(tagInput),setTagInput(""))}/>
-                <button className="pbtn" style={{width:"100%",padding:"10px",fontSize:13}} onClick={()=>{doAddTempTag(tagInput);setTagInput("");}}>追加</button>
-              </div>
-            );})()}
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+              <input value={newTagInput} onChange={e=>setNewTagInput(e.target.value)} placeholder="新しいタグ名" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}} onKeyDown={e=>{if(e.key==="Enter"&&newTagInput.trim()){doAddTempTag(newTagInput);setNewTagInput("");}}}/>
+              <button className="pbtn" style={{width:"100%",padding:"10px",fontSize:13}} onClick={()=>{if(newTagInput.trim()){doAddTempTag(newTagInput);setNewTagInput("");}}}>追加</button>
+            </div>
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10,marginTop:24}}>🔧 修理メニュー</div>
             {(repairMenus||[]).length===0&&<p style={{color:"#b0a898",fontSize:12,marginBottom:8}}>修理メニュー未登録です</p>}
             {(repairMenus||[]).map(m=>(
