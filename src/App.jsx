@@ -511,7 +511,7 @@ export default function App() {
     setSaving(true);
     try {
       await api("reservations","POST",{id,customer_id:resForm.custId||null,bike_index:resForm.bikeIdx,checkin_date:resForm.checkinDate,checkin_time:addResModal.time,due_date:resForm.dueDateUnknown?null:resForm.dueDate||null,staff:resForm.staff,memo:resForm.memo||null,status:"reserved"});
-      setReservations(p=>[...p,obj]);
+      await loadReservations();
       const repairItems=cleanEstimateItems(resForm.repairItems);
       const repairTotal=repairItems.reduce((sum,it)=>sum+(Number(it.price||0)*Number(it.qty||0)),0);
       if (resForm.custId && repairItems.length > 0) {
@@ -787,10 +787,10 @@ export default function App() {
               <div style={{background:"#f5f0e8",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:13,color:"#2a2018",fontWeight:700}}>
                 {addResModal.date.getMonth()+1}/{addResModal.date.getDate()}（{getDayLabel(addResModal.date)}） {addResModal.time}
               </div>
-              <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
+              <div className="fg"><label>入庫日 *</label><input style={{width:"68%",minWidth:220}} type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",opacity:resForm.dueDateUnknown?0.4:1}}/>
+                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"68%",minWidth:220,opacity:resForm.dueDateUnknown?0.4:1}}/>
                   <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
                     <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
                   </label>
@@ -1221,10 +1221,10 @@ export default function App() {
               <div style={{background:"#f5f0e8",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:13,color:"#2a2018",fontWeight:700}}>
                 {addResModal.date.getMonth()+1}/{addResModal.date.getDate()}（{getDayLabel(addResModal.date)}） {addResModal.time}
               </div>
-              <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
+              <div className="fg"><label>入庫日 *</label><input style={{width:"68%",minWidth:220}} type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",opacity:resForm.dueDateUnknown?0.4:1}}/>
+                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"68%",minWidth:220,opacity:resForm.dueDateUnknown?0.4:1}}/>
                   <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
                     <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
                   </label>
