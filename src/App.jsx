@@ -241,7 +241,7 @@ export default function App() {
       const data = await api("blocked_slots?select=*");
       if (Array.isArray(data)) {
         const map = {};
-        data.forEach(b => { map[`${b.slot_date}_${b.slot_time}`] = b.id; });
+        data.forEach(b => { map[b.slot_date+"_"+b.slot_time] = b.id; });
         setBlockedCells(map);
       }
     } catch(e) { console.error(e); }
@@ -522,7 +522,7 @@ export default function App() {
     setSaving(true);
     try {
       await api("reservations","POST",{id,customer_id:resForm.custId||null,bike_index:resForm.bikeIdx,checkin_date:resForm.checkinDate,checkin_time:addResModal.time,due_date:resForm.dueDateUnknown?null:resForm.dueDate||null,staff:resForm.staff,memo:resForm.memo||null,status:"reserved"});
-      setReservations(p=>[...p,obj]);
+      await loadReservations();
       const repairItems=cleanEstimateItems(resForm.repairItems);
       const repairTotal=repairItems.reduce((sum,it)=>sum+(Number(it.price||0)*Number(it.qty||0)),0);
       if (resForm.custId && repairItems.length > 0) {
@@ -727,15 +727,15 @@ export default function App() {
                               if(isBlocked){
                                 const bid=blockedCells[key];
                                 setBlockedCells(p=>{const n={...p};delete n[key];return n;});
-                                if(bid) await api(`blocked_slots?id=eq.${bid}`,"DELETE");
+                                if(bid) api("blocked_slots?id=eq."+bid,"DELETE");
                               } else {
                                 const newId=uid();
                                 setBlockedCells(p=>({...p,[key]:newId}));
-                                await api("blocked_slots","POST",{id:newId,slot_date:fmt(d,"date"),slot_time:time});
+                                api("blocked_slots","POST",{id:newId,slot_date:fmt(d,"date"),slot_time:time});
                               }
                               return;
                             }
-                            if(isBlocked){if(window.confirm("封鎖を解除しますか？")){const bid=blockedCells[key];setBlockedCells(p=>{const n={...p};delete n[key];return n;});if(bid) await api(`blocked_slots?id=eq.${bid}`,"DELETE");}return;}
+                            if(isBlocked){if(window.confirm("封鎖を解除しますか？")){const bid=blockedCells[key];setBlockedCells(p=>{const n={...p};delete n[key];return n;});if(bid) api("blocked_slots?id=eq."+bid,"DELETE");}return;}
                             setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));
                           }}>
                           {isBlocked
@@ -809,15 +809,17 @@ export default function App() {
               <div style={{background:"#f5f0e8",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:13,color:"#2a2018",fontWeight:700}}>
                 {addResModal.date.getMonth()+1}/{addResModal.date.getDate()}（{getDayLabel(addResModal.date)}） {addResModal.time}
               </div>
-              <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))} style={{width:"100%",boxSizing:"border-box"}}/></div>
+              <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
-                <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",boxSizing:"border-box",opacity:resForm.dueDateUnknown?0.4:1,marginBottom:6}}/>
-                <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
-                  <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
-                </label>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{opacity:resForm.dueDateUnknown?0.4:1}}/>
+                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
+                    <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
+                  </label>
+                </div>
               </div>
               <div className="fg"><label>顧客</label>
-                <input value={resCustSearch} onChange={e=>setResCustSearch(e.target.value)} placeholder="名前・フリガナ・下4桁で検索" style={{width:"100%",boxSizing:"border-box",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"9px 11px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",marginBottom:6}}/>
+                <input value={resCustSearch} onChange={e=>setResCustSearch(e.target.value)} placeholder="名前・フリガナ・下4桁で検索" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",marginBottom:6}}/>
                 {selectedResCust&&<div style={{background:"#e8e2d8",borderRadius:8,padding:"8px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,fontSize:13}}>{selectedResCust.name}</span><button className="sico" onClick={()=>{setResForm(f=>({...f,custId:"",bikeIdx:0,repairItems:[]}));setResCustSearch("");}}>×</button></div>}
                 <div style={{maxHeight:150,overflowY:"auto",border:selectedResCust?"none":"1px solid #e8e2d8",borderRadius:8,background:"#fff"}}>
                   {!selectedResCust&&resCusts.map(c=>(
@@ -1170,15 +1172,15 @@ export default function App() {
                               if(isBlocked){
                                 const bid=blockedCells[key];
                                 setBlockedCells(p=>{const n={...p};delete n[key];return n;});
-                                if(bid) await api(`blocked_slots?id=eq.${bid}`,"DELETE");
+                                if(bid) api("blocked_slots?id=eq."+bid,"DELETE");
                               } else {
                                 const newId=uid();
                                 setBlockedCells(p=>({...p,[key]:newId}));
-                                await api("blocked_slots","POST",{id:newId,slot_date:fmt(d,"date"),slot_time:time});
+                                api("blocked_slots","POST",{id:newId,slot_date:fmt(d,"date"),slot_time:time});
                               }
                               return;
                             }
-                            if(isBlocked){if(window.confirm("封鎖を解除しますか？")){const bid=blockedCells[key];setBlockedCells(p=>{const n={...p};delete n[key];return n;});if(bid) await api(`blocked_slots?id=eq.${bid}`,"DELETE");}return;}
+                            if(isBlocked){if(window.confirm("封鎖を解除しますか？")){const bid=blockedCells[key];setBlockedCells(p=>{const n={...p};delete n[key];return n;});if(bid) api("blocked_slots?id=eq."+bid,"DELETE");}return;}
                             setAddResModal({date:d,time});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));
                           }}>
                           {isBlocked
@@ -1252,15 +1254,17 @@ export default function App() {
               <div style={{background:"#f5f0e8",borderRadius:8,padding:"8px 12px",marginBottom:14,fontSize:13,color:"#2a2018",fontWeight:700}}>
                 {addResModal.date.getMonth()+1}/{addResModal.date.getDate()}（{getDayLabel(addResModal.date)}） {addResModal.time}
               </div>
-              <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))} style={{width:"100%",boxSizing:"border-box"}}/></div>
+              <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
-                <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",boxSizing:"border-box",opacity:resForm.dueDateUnknown?0.4:1,marginBottom:6}}/>
-                <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
-                  <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
-                </label>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{opacity:resForm.dueDateUnknown?0.4:1}}/>
+                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
+                    <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
+                  </label>
+                </div>
               </div>
               <div className="fg"><label>顧客</label>
-                <input value={resCustSearch} onChange={e=>setResCustSearch(e.target.value)} placeholder="名前・フリガナ・下4桁で検索" style={{width:"100%",boxSizing:"border-box",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"9px 11px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",marginBottom:6}}/>
+                <input value={resCustSearch} onChange={e=>setResCustSearch(e.target.value)} placeholder="名前・フリガナ・下4桁で検索" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",marginBottom:6}}/>
                 {selectedResCust&&<div style={{background:"#e8e2d8",borderRadius:8,padding:"8px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,fontSize:13}}>{selectedResCust.name}</span><button className="sico" onClick={()=>{setResForm(f=>({...f,custId:"",bikeIdx:0,repairItems:[]}));setResCustSearch("");}}>×</button></div>}
                 <div style={{maxHeight:150,overflowY:"auto",border:selectedResCust?"none":"1px solid #e8e2d8",borderRadius:8,background:"#fff"}}>
                   {!selectedResCust&&resCusts.map(c=>(
@@ -1562,7 +1566,7 @@ const CSS = `
   .modal h3 { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; color: #2a2018; margin-bottom: 18px; }
   .fg { margin-bottom: 13px; }
   .fg label { display: block; font-size: 11px; color: #9a8f82; margin-bottom: 5px; }
-  .fg input, .fg select, .fg textarea { width: 100%; max-width: 100%; box-sizing: border-box; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; display: block; min-width: 0; }
+  .fg input, .fg select, .fg textarea { width: 100%; max-width: 100%; box-sizing: border-box; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; display: block; }
   .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: #2a2018; }
   .stover { position: fixed; inset: 0; background: rgba(42,32,24,.28); z-index: 900; display: flex; justify-content: flex-end; }
   .stpanel { background: #faf7f2; width: min(300px, 92vw); max-width: 92vw; height: 100%; overflow-y: auto; padding: 20px 16px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
