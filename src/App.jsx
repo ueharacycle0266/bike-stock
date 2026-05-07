@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 
 const SUPABASE_URL = "https://autpzeeprcyosyqegtai.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dHB6ZWVwcmN5b3N5cWVndGFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTEwMDUsImV4cCI6MjA5MjgyNzAwNX0.YWH6PvFYu2n2BN5aWQZ8KaPKv4Ns4K_ObfyK28Gdq18";
@@ -144,6 +144,9 @@ export default function App() {
   const [custSearch, setCustSearch] = useState("");
   const [custTab, setCustTab] = useState("search");
   const [tempNotes, setTempNotes] = useState([]);
+  const [tempTags, setTempTags] = useState([]);
+  const [mainteSubTab, setMainteSubTab] = useState("expired"); // expired | 1month | 3month
+  const [editRepairMenu, setEditRepairMenu] = useState(null); // {id, name, price}
   const [addTempModal, setAddTempModal] = useState(false);
   const [newTemp, setNewTemp] = useState({name:"",phone:"",memo:"",urgent:false});
   const [selectedTemp, setSelectedTemp] = useState(null);
@@ -244,6 +247,13 @@ export default function App() {
     } catch(e){console.error(e);}
   };
 
+  const loadTempTags = async () => {
+    try {
+      const data = await api("temp_tags?select=*&order=order.asc");
+      if (Array.isArray(data)) setTempTags(data);
+    } catch(e) { console.error(e); }
+  };
+
   const loadTempNotes = async () => {
     try {
       const data = await api("temp_notes?select=*&done=eq.false&order=created_at.desc");
@@ -276,7 +286,7 @@ export default function App() {
 
   const switchMode = async (mode) => {
     setAppMode(mode); setModeMenu(false);
-    if (mode==="customer" && !custLoaded) { await Promise.all([loadCustomers(),loadMasters(),loadEstimates(),loadTempNotes()]); }
+    if (mode==="customer" && !custLoaded) { await Promise.all([loadCustomers(),loadMasters(),loadEstimates(),loadTempNotes(),loadTempTags()]); }
     if (mode==="reservation") { await Promise.all([loadReservations(), loadBlockedSlots(), !custLoaded&&loadCustomers(), loadMasters()]); }
   };
 
@@ -554,15 +564,56 @@ export default function App() {
   };
   const doCheckin=async(id)=>{ setReservations(p=>p.map(r=>r.id===id?{...r,status:"in"}:r)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"PATCH",{status:"in"}).catch(()=>{}); };
   const doCheckout=async(id)=>{ setReservations(p=>p.map(r=>r.id===id?{...r,status:"done"}:r)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"PATCH",{status:"done"}).catch(()=>{}); };
+  const blockDay = async (dateStr) => {
+    const newCells = {};
+    const toAdd = [];
+    for (const time of HOURS) {
+      const key = dateStr+"_"+time;
+      if (!blockedCells[key]) {
+        const id = uid();
+        newCells[key] = id;
+        toAdd.push({id, slot_date:dateStr, slot_time:time});
+      }
+    }
+    if (toAdd.length === 0) {
+      // 全部封鎖済みなら解除
+      const toRemove = HOURS.map(t=>dateStr+"_"+t).filter(k=>blockedCells[k]);
+      const newBlocked = {...blockedCells};
+      toRemove.forEach(k=>delete newBlocked[k]);
+      setBlockedCells(newBlocked);
+      await Promise.all(toRemove.map(k=>api(`blocked_slots?id=eq.${blockedCells[k]}`,"DELETE")));
+    } else {
+      setBlockedCells(p=>({...p,...newCells}));
+      await Promise.all(toAdd.map(b=>api("blocked_slots","POST",b)));
+    }
+  };
+
   const delRes=async(id)=>{ if(!window.confirm("削除しますか？")) return; setReservations(p=>p.filter(r=>r.id!==id)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"DELETE").catch(()=>{}); };
+
+  const doAddTempTag = async (name) => {
+    if (!name.trim()) return;
+    const id = uid();
+    const order = (tempTags||[]).length;
+    const obj = {id, name:name.trim(), order};
+    setTempTags(p=>[...p, obj]);
+    await api("temp_tags","POST",{id, name:name.trim(), order});
+  };
+
+  const delTempTag = async (id) => {
+    setTempTags(p=>p.filter(t=>t.id!==id));
+    await api(`temp_tags?id=eq.${id}`,"DELETE");
+  };
 
   const doAddTemp = async () => {
     const id = uid();
-    const obj = {id, ...newTemp, done:false, created_at:new Date().toISOString()};
+    const tags = newTemp.tags||[];
+    const repairItems = newTemp.repairItems||[];
+    const repairTotal = repairItems.reduce((s,it)=>{const m=repairMenus.find(m=>m.id===it.menuId);return s+(m?.price||0)*it.qty;},0);
+    const obj = {id, ...newTemp, tags, repairItems, repairTotal, done:false, created_at:new Date().toISOString()};
     setTempNotes(p=>[obj,...p]);
-    setNewTemp({name:"",phone:"",memo:"",urgent:false});
+    setNewTemp({name:"",phone:"",memo:"",tags:[],repairItems:[]});
     setAddTempModal(false);
-    await api("temp_notes","POST",{id,name:newTemp.name||null,phone:newTemp.phone||null,memo:newTemp.memo||null,urgent:newTemp.urgent,done:false});
+    await api("temp_notes","POST",{id,name:newTemp.name||null,phone:newTemp.phone||null,memo:newTemp.memo||null,tags:JSON.stringify(tags),repair_items:JSON.stringify(repairItems),repair_total:repairTotal,done:false});
   };
 
   const doTempDone = async (id) => {
@@ -801,14 +852,12 @@ export default function App() {
               <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{monthCalDate.getFullYear()}年{monthCalDate.getMonth()+1}月</span>
               <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()+1);setMonthCalDate(d);}}><Ico.ChevRight/></button>
             </div>
-            <div style={{padding:"8px 12px"}}>
-              {/* 曜日ヘッダー */}
+            <div style={{padding:"6px 8px"}}>
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
                 {["月","火","水","木","金","土","日"].map((d,i)=>(
                   <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,padding:"4px 0",color:i===5?"#2563a8":i===6?"#c0392b":"#9a8f82"}}>{d}</div>
                 ))}
               </div>
-              {/* カレンダーグリッド */}
               {(()=>{
                 const year=monthCalDate.getFullYear(), month=monthCalDate.getMonth();
                 const firstDay=new Date(year,month,1).getDay();
@@ -821,21 +870,28 @@ export default function App() {
                 const weeks=[];
                 for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
                 return weeks.map((week,wi)=>(
-                  <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
+                  <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
                     {week.map((day,di)=>{
-                      if(!day) return <div key={di}/>;
+                      if(!day) return <div key={di} style={{minHeight:64}}/>;
                       const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                       const dayRes=reservations.filter(r=>r.checkin_date===dateStr&&r.status!=="done");
+                      const isDayBlocked=HOURS.every(t=>!!blockedCells[dateStr+"_"+t]);
                       const isToday=dateStr===toLocalDateStr(new Date());
                       const isSat=di===5, isSun=di===6;
-                      return <div key={di} style={{minHeight:52,border:"1px solid #f0ece4",borderRadius:6,padding:"2px 3px",background:isToday?"#f0ece4":"#fff",cursor:dayRes.length>0?"pointer":"default"}} onClick={()=>{if(dayRes.length>0){setAddResModal({date:new Date(dateStr+"T00:00:00"),time:"10:00"});setResForm(f=>({...f,checkinDate:dateStr}));}}}>
-                        <div style={{fontSize:11,fontWeight:700,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}</div>
-                        {dayRes.slice(0,2).map(r=>{
+                      return <div key={di} style={{minHeight:64,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",position:"relative"}}
+                        onClick={()=>{
+                          if(calBlockMode){blockDay(dateStr);return;}
+                          const d=new Date(dateStr+"T00:00:00");
+                          setCalDate(d); setCalView("week");
+                        }}>
+                        <div style={{fontSize:12,fontWeight:800,color:isDayBlocked?"#c0392b":isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}{isDayBlocked&&" ×"}</div>
+                        {!isDayBlocked&&dayRes.slice(0,3).map(r=>{
                           const c=custMap[r.customer_id];
                           const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                          return <div key={r.id} style={{background:sc+"20",borderLeft:`2px solid ${sc}`,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                          return <div key={r.id} style={{background:sc+"20",borderLeft:`2px solid ${sc}`,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
+                            onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
                         })}
-                        {dayRes.length>2&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-2}</div>}
+                        {!isDayBlocked&&dayRes.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-3}</div>}
                       </div>;
                     })}
                   </div>
@@ -1150,7 +1206,27 @@ export default function App() {
               {(makerMaster||[]).map(m=><div key={m.id} className="strow compact-row"><span style={{flex:1,fontWeight:600,fontSize:13}}>{m.name}</span><button className="sico sedit" onClick={()=>{setRnMaker(m.id);setRnMakerV(m.name);}}><Ico.Edit/></button><button className="sico sdel" onClick={()=>delMaker(m.id)}><Ico.Trash/></button></div>)}
               <div className="compact-form"><input value={newMakerF} onChange={e=>setNewMakerF(e.target.value)} placeholder="例: GIANT" onKeyDown={e=>e.key==="Enter"&&doAddMaker()}/><button className="pbtn" onClick={doAddMaker}>追加</button></div>
               <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:8,marginTop:18}}>🔧 修理メニュー</div>
-              {(repairMenus||[]).map(m=><div key={m.id} className="repair-menu-row"><span style={{flex:1,fontSize:13,fontWeight:600}}>{m.name}</span>{m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}<button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button></div>)}
+              {(repairMenus||[]).map(m=>(
+                <div key={m.id} className="repair-menu-row">
+                  {editRepairMenu?.id===m.id?(
+                    <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,width:"100%"}}>
+                      <input value={editRepairMenu.name} onChange={e=>setEditRepairMenu(n=>({...n,name:e.target.value}))} style={{width:"100%",background:"#fff",border:"1.5px solid #2a2018",borderRadius:6,padding:"4px 8px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}/>
+                      <input type="number" value={editRepairMenu.price} onChange={e=>setEditRepairMenu(n=>({...n,price:e.target.value}))} style={{width:"100%",background:"#fff",border:"1.5px solid #2a2018",borderRadius:6,padding:"4px 8px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}} placeholder="金額"/>
+                      <div style={{display:"flex",gap:4}}>
+                        <button className="pbtn" style={{flex:1,padding:"5px",fontSize:12}} onClick={doEditMenu}>保存</button>
+                        <button className="gbtn" style={{flex:1,padding:"5px",fontSize:12}} onClick={()=>setEditRepairMenu(null)}>キャンセル</button>
+                      </div>
+                    </div>
+                  ):(
+                    <>
+                      <span style={{flex:1,fontSize:13,fontWeight:600}}>{m.name}</span>
+                      {m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}
+                      <button className="sico sedit" onClick={()=>setEditRepairMenu({id:m.id,name:m.name,price:String(m.price||0)})}><Ico.Edit/></button>
+                      <button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button>
+                    </>
+                  )}
+                </div>
+              ))}
               <div className="compact-form"><input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容"/><input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number"/><button className="pbtn" onClick={doAddMenu}>追加</button></div>
             </aside>
           </div>
@@ -1223,14 +1299,36 @@ export default function App() {
           ))}
         </>)}
         {custTab==="maintenance"&&(<div>
-          {maintenanceDueBikes.length===0&&<div style={S.empty}><div style={{fontSize:34}}>🛠</div><p style={{color:"#9a8f82",marginTop:10}}>1ヶ月以内のメンテナンス予定はありません</p></div>}
-          {maintenanceDueBikes.map((r,i)=><div key={`${r.customer.id}-${r.bikeIdx}-${i}`} className="irow" onClick={()=>{setCustDetail(r.customer);setBikeDetail({cust:r.customer,bikeIdx:r.bikeIdx});}}>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:800,color:"#2a2018",fontSize:14}}>{r.customer.name} <span style={{fontSize:12,color:"#2563a8"}}>🚲 {r.bike.maker}{r.bike.color?` (${r.bike.color})`:""}</span></div>
-              {r.customer.phone&&<div style={{color:"#9a8f82",fontSize:12}}>{r.customer.phone}</div>}
-            </div>
-            <span style={{background:"#fdf0ee",color:"#c0392b",fontSize:12,fontWeight:800,padding:"4px 8px",borderRadius:7}}>{fmt(r.date,"mmdd")}</span>
-          </div>)}
+          <div style={{display:"flex",gap:4,padding:"0 0 12px",overflowX:"auto"}} className="hide-scroll">
+            {[["expired","期限切れ"],["1month","1ヶ月以内"],["3month","3ヶ月以内"]].map(([key,label])=>(
+              <button key={key} className={`cat-tab ${mainteSubTab===key?"cat-tab-on":""}`} onClick={()=>setMainteSubTab(key)}>{label}</button>
+            ))}
+          </div>
+          {(()=>{
+            const now=new Date(); now.setHours(0,0,0,0);
+            const in1m=new Date(now); in1m.setMonth(in1m.getMonth()+1);
+            const in3m=new Date(now); in3m.setMonth(in3m.getMonth()+3);
+            const filtered=maintenanceDueBikes.filter(r=>{
+              const d=new Date(r.date);
+              if(mainteSubTab==="expired") return d<now;
+              if(mainteSubTab==="1month") return d>=now&&d<=in1m;
+              if(mainteSubTab==="3month") return d>=now&&d<=in3m;
+              return true;
+            });
+            if(filtered.length===0) return <div style={S.empty}><div style={{fontSize:34}}>🛠</div><p style={{color:"#9a8f82",marginTop:10}}>該当なし</p></div>;
+            return filtered.map((r,i)=>(
+              <div key={`${r.customer.id}-${r.bikeIdx}-${i}`} className="irow" style={{position:"relative"}}>
+                <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{setCustDetail(r.customer);setBikeDetail({cust:r.customer,bikeIdx:r.bikeIdx});}}>
+                  <div style={{fontWeight:800,color:"#2a2018",fontSize:14}}>{r.customer.name} <span style={{fontSize:12,color:"#2563a8"}}>🚲 {r.bike.maker}{r.bike.color?` (${r.bike.color})`:""}</span></div>
+                  {r.customer.phone&&<div style={{color:"#9a8f82",fontSize:12}}>{r.customer.phone}</div>}
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{background:new Date(r.date)<now?"#f0d9d6":"#fdf0ee",color:"#c0392b",fontSize:12,fontWeight:800,padding:"4px 8px",borderRadius:7}}>{fmt(r.date,"mmdd")}</span>
+                  <button className="sico sdel" title="メンテ期限を削除" onClick={async(e)=>{e.stopPropagation();const bikes=[...(r.customer.bikes||[])];if(bikes[r.bikeIdx]){const b={...bikes[r.bikeIdx]};delete b.maintenanceDate;bikes[r.bikeIdx]=b;const updCust={...r.customer,bikes};setCustomers(p=>p.map(c=>c.id===updCust.id?updCust:c));await api(`customers?id=eq.${updCust.id}`,"PATCH",{bikes});}}}><Ico.Trash/></button>
+                </div>
+              </div>
+            ));
+          })()}
         </div>)}
         {custTab==="reservation"&&(<div className="customer-reservation-panel">
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:12,flexWrap:"wrap"}}>
@@ -1325,14 +1423,12 @@ export default function App() {
               <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{monthCalDate.getFullYear()}年{monthCalDate.getMonth()+1}月</span>
               <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()+1);setMonthCalDate(d);}}><Ico.ChevRight/></button>
             </div>
-            <div style={{padding:"8px 12px"}}>
-              {/* 曜日ヘッダー */}
+            <div style={{padding:"6px 8px"}}>
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
                 {["月","火","水","木","金","土","日"].map((d,i)=>(
                   <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,padding:"4px 0",color:i===5?"#2563a8":i===6?"#c0392b":"#9a8f82"}}>{d}</div>
                 ))}
               </div>
-              {/* カレンダーグリッド */}
               {(()=>{
                 const year=monthCalDate.getFullYear(), month=monthCalDate.getMonth();
                 const firstDay=new Date(year,month,1).getDay();
@@ -1345,21 +1441,28 @@ export default function App() {
                 const weeks=[];
                 for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
                 return weeks.map((week,wi)=>(
-                  <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
+                  <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
                     {week.map((day,di)=>{
-                      if(!day) return <div key={di}/>;
+                      if(!day) return <div key={di} style={{minHeight:64}}/>;
                       const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                       const dayRes=reservations.filter(r=>r.checkin_date===dateStr&&r.status!=="done");
+                      const isDayBlocked=HOURS.every(t=>!!blockedCells[dateStr+"_"+t]);
                       const isToday=dateStr===toLocalDateStr(new Date());
                       const isSat=di===5, isSun=di===6;
-                      return <div key={di} style={{minHeight:52,border:"1px solid #f0ece4",borderRadius:6,padding:"2px 3px",background:isToday?"#f0ece4":"#fff",cursor:dayRes.length>0?"pointer":"default"}} onClick={()=>{if(dayRes.length>0){setAddResModal({date:new Date(dateStr+"T00:00:00"),time:"10:00"});setResForm(f=>({...f,checkinDate:dateStr}));}}}>
-                        <div style={{fontSize:11,fontWeight:700,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}</div>
-                        {dayRes.slice(0,2).map(r=>{
+                      return <div key={di} style={{minHeight:64,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",position:"relative"}}
+                        onClick={()=>{
+                          if(calBlockMode){blockDay(dateStr);return;}
+                          const d=new Date(dateStr+"T00:00:00");
+                          setCalDate(d); setCalView("week");
+                        }}>
+                        <div style={{fontSize:12,fontWeight:800,color:isDayBlocked?"#c0392b":isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}{isDayBlocked&&" ×"}</div>
+                        {!isDayBlocked&&dayRes.slice(0,3).map(r=>{
                           const c=custMap[r.customer_id];
                           const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                          return <div key={r.id} style={{background:sc+"20",borderLeft:`2px solid ${sc}`,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                          return <div key={r.id} style={{background:sc+"20",borderLeft:`2px solid ${sc}`,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
+                            onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
                         })}
-                        {dayRes.length>2&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-2}</div>}
+                        {!isDayBlocked&&dayRes.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-3}</div>}
                       </div>;
                     })}
                   </div>
@@ -1524,11 +1627,33 @@ export default function App() {
             <h3>📝 とりあえずメモ</h3>
             <div className="fg"><label>お名前</label><input value={newTemp.name} onChange={e=>setNewTemp(n=>({...n,name:e.target.value}))} placeholder="山田さん" autoFocus/></div>
             <div className="fg"><label>電話番号</label><input value={newTemp.phone} onChange={e=>setNewTemp(n=>({...n,phone:e.target.value}))} placeholder="090-0000-0000" type="tel"/></div>
-            <div className="fg"><label>ご要件メモ</label><textarea value={newTemp.memo} onChange={e=>setNewTemp(n=>({...n,memo:e.target.value}))} placeholder="例: タイヤ交換希望、後日連絡" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"9px 11px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",resize:"vertical",minHeight:80}}/></div>
-            <label style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:newTemp.urgent?"#fdf0ee":"#f5f0e8",borderRadius:10,cursor:"pointer",marginBottom:16,border:`1.5px solid ${newTemp.urgent?"#c0392b":"transparent"}`}}>
-              <input type="checkbox" checked={newTemp.urgent} onChange={e=>setNewTemp(n=>({...n,urgent:e.target.checked}))} style={{width:20,height:20}}/>
-              <span style={{fontWeight:700,fontSize:14,color:newTemp.urgent?"#c0392b":"#7a6f63"}}>🚨 急ぎ</span>
-            </label>
+            <div className="fg"><label>ご要件メモ</label><textarea value={newTemp.memo} onChange={e=>setNewTemp(n=>({...n,memo:e.target.value}))} placeholder="例: タイヤ交換希望" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"9px 11px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",resize:"vertical",minHeight:60}}/></div>
+            {tempTags.length>0&&<div className="fg"><label>チェック項目（複数選択可）</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:4}}>
+                {tempTags.map(tag=>{
+                  const checked=(newTemp.tags||[]).includes(tag.id);
+                  return <label key={tag.id} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 12px",background:checked?"#fdf0ee":"#f5f0e8",borderRadius:8,cursor:"pointer",border:`1.5px solid ${checked?"#c0392b":"transparent"}`,fontWeight:600,fontSize:13,color:checked?"#c0392b":"#7a6f63"}}>
+                    <input type="checkbox" checked={checked} onChange={e=>setNewTemp(n=>({...n,tags:checked?(n.tags||[]).filter(t=>t!==tag.id):[...(n.tags||[]),tag.id]}))} style={{width:16,height:16}}/>{tag.name}
+                  </label>;
+                })}
+              </div>
+            </div>}
+            <div className="fg"><label>修理内容・見積もり（任意）</label>
+              {repairMenus.map(m=>{
+                const items=newTemp.repairItems||[];
+                const it=items.find(i=>i.menuId===m.id);
+                return <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #f5f0e8"}}>
+                  <span style={{flex:1,fontSize:13,color:"#2a2018"}}>{m.name}</span>
+                  <span style={{fontSize:11,color:"#2a7a5a",minWidth:50,textAlign:"right"}}>¥{(m.price||0).toLocaleString()}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <button style={{width:26,height:26,borderRadius:6,border:"1px solid #e0d9ce",background:"#f5f0e8",cursor:"pointer",fontSize:14,color:"#c0392b"}} onClick={()=>setNewTemp(n=>{const idx=(n.repairItems||[]).findIndex(i=>i.menuId===m.id);if(idx<0) return n;const r=[...n.repairItems];if(r[idx].qty<=1) return {...n,repairItems:r.filter(i=>i.menuId!==m.id)};r[idx]={...r[idx],qty:r[idx].qty-1};return {...n,repairItems:r};})}>−</button>
+                    <span style={{minWidth:20,textAlign:"center",fontWeight:700,fontSize:13}}>{it?.qty||0}</span>
+                    <button style={{width:26,height:26,borderRadius:6,border:"1px solid #e0d9ce",background:"#f5f0e8",cursor:"pointer",fontSize:14,color:"#2d7a44"}} onClick={()=>setNewTemp(n=>{const idx=(n.repairItems||[]).findIndex(i=>i.menuId===m.id);if(idx<0) return {...n,repairItems:[...(n.repairItems||[]),{menuId:m.id,qty:1}]};const r=[...n.repairItems];r[idx]={...r[idx],qty:r[idx].qty+1};return {...n,repairItems:r};})}>+</button>
+                  </div>
+                </div>;
+              })}
+              {(newTemp.repairItems||[]).length>0&&<div style={{marginTop:8,fontWeight:700,color:"#2a7a5a",fontSize:13}}>見積合計: ¥{(newTemp.repairItems||[]).reduce((s,it)=>{const m=repairMenus.find(m=>m.id===it.menuId);return s+(m?.price||0)*it.qty;},0).toLocaleString()}</div>}
+            </div>
             <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
               <button className="gbtn" onClick={()=>setAddTempModal(false)}>キャンセル</button>
               <button className="pbtn" onClick={doAddTemp}>追加</button>
@@ -1541,10 +1666,10 @@ export default function App() {
       {selectedTemp&&(
         <div className="mover" onClick={()=>setSelectedTemp(null)}>
           <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
               <div>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  {selectedTemp.urgent&&<span style={{background:"#c0392b",color:"#fff",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:4}}>急ぎ</span>}
+                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  {(selectedTemp.tags||[]).map(tid=>{const tag=tempTags.find(t=>t.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:4}}>{tag.name}</span>:null;})}
                   <h3 style={{marginBottom:0}}>{selectedTemp.name||"名前未入力"}</h3>
                 </div>
                 <div style={{fontSize:11,color:"#b0a898",marginTop:4}}>{new Date(selectedTemp.created_at).toLocaleString("ja-JP")}</div>
@@ -1553,6 +1678,11 @@ export default function App() {
             </div>
             {selectedTemp.phone&&<div style={S.infoRow}><span style={S.infoLabel}>電話番号</span><span>{selectedTemp.phone}</span></div>}
             {selectedTemp.memo&&<div style={S.infoRow}><span style={S.infoLabel}>要件</span><span style={{whiteSpace:"pre-wrap"}}>{selectedTemp.memo}</span></div>}
+            {(selectedTemp.repairItems||[]).length>0&&<div style={{marginTop:10}}>
+              <div style={{fontSize:11,color:"#9a8f82",marginBottom:6}}>修理内容・見積もり</div>
+              {(selectedTemp.repairItems||[]).map((it,i)=>{const m=repairMenus.find(m=>m.id===it.menuId);return m?<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"3px 0",borderBottom:"1px solid #f5f0e8"}}><span>{m.name} × {it.qty}</span><span style={{color:"#2a7a5a",fontWeight:600}}>¥{((m.price||0)*it.qty).toLocaleString()}</span></div>:null;})}
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontWeight:800,fontSize:14}}><span>合計</span><span style={{color:"#2a7a5a"}}>¥{(selectedTemp.repairTotal||(selectedTemp.repairItems||[]).reduce((s,it)=>{const m=repairMenus.find(m=>m.id===it.menuId);return s+(m?.price||0)*it.qty;},0)).toLocaleString()}</span></div>
+            </div>}
             <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
               <button className="pbtn" style={{flex:2,fontSize:12}} onClick={()=>{
                 setNewCust({name:selectedTemp.name||"",furigana:"",phone:selectedTemp.phone||"",address:"",memo:selectedTemp.memo||""});
@@ -1591,6 +1721,19 @@ export default function App() {
               <input value={newMakerF} onChange={e=>setNewMakerF(e.target.value)} placeholder="例: GIANT" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}} onKeyDown={e=>e.key==="Enter"&&doAddMaker()}/>
               <button className="pbtn" style={{width:"100%",padding:"10px",fontSize:13}} onClick={doAddMaker}>追加</button>
             </div>
+            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10,marginTop:16}}>🏷 とりあえずタグ設定</div>
+            {(tempTags||[]).map(tag=>(
+              <div key={tag.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#f5f0e8",borderRadius:8,marginBottom:6}}>
+                <span style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{tag.name}</span>
+                <button className="sico sdel" onClick={()=>delTempTag(tag.id)}><Ico.Trash/></button>
+              </div>
+            ))}
+            {(()=>{const [tagInput,setTagInput]=React.useState("");return(
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
+                <input value={tagInput} onChange={e=>setTagInput(e.target.value)} placeholder="新しいタグ名" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}} onKeyDown={e=>e.key==="Enter"&&(doAddTempTag(tagInput),setTagInput(""))}/>
+                <button className="pbtn" style={{width:"100%",padding:"10px",fontSize:13}} onClick={()=>{doAddTempTag(tagInput);setTagInput("");}}>追加</button>
+              </div>
+            );})()}
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10,marginTop:24}}>🔧 修理メニュー</div>
             {(repairMenus||[]).length===0&&<p style={{color:"#b0a898",fontSize:12,marginBottom:8}}>修理メニュー未登録です</p>}
             {(repairMenus||[]).map(m=>(
