@@ -789,10 +789,10 @@ export default function App() {
               </div>
               <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{flex:1,opacity:resForm.dueDateUnknown?0.4:1}}/>
-                  <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,color:"#7a6f63",whiteSpace:"nowrap"}}>
-                    <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))}/>未定
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",opacity:resForm.dueDateUnknown?0.4:1}}/>
+                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
+                    <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
                   </label>
                 </div>
               </div>
@@ -1057,8 +1057,8 @@ export default function App() {
         <button className="icobtn" onClick={()=>setStCustOpen(true)}><Ico.Settings/></button>
       </Header>
       {maintenanceDueBikes.length>0&&(<div style={{background:"#fff7df",borderBottom:"1px solid #ead49b",padding:"8px 20px",display:"flex",alignItems:"center",gap:8}}><span className="dot" style={{background:"#c87a00"}}/><span style={{fontSize:12,color:"#8a6410",fontWeight:700}}>メンテナンス誘致が必要な自転車が{maintenanceDueBikes.length}台あります</span></div>)}
-      <div style={{padding:"16px 20px"}}>
-        <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",overflowX:"auto",whiteSpace:"nowrap",display:"flex",gap:4}} className="hide-scroll">
+      <div>
+        <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",gap:4,justifyContent:"center"}} className="hide-scroll">
           <button className={`cat-tab ${custTab==="search"?"cat-tab-on":""}`} onClick={()=>setCustTab("search")}>検索</button>
           <button className={`cat-tab ${custTab==="maintenance"?"cat-tab-on":""}`} onClick={()=>setCustTab("maintenance")} style={{display:"inline-flex",alignItems:"center",gap:5}}>
             {maintenanceDueBikes.length>0&&<span className="dot" style={{width:6,height:6,background:"#c87a00"}}/>}
@@ -1067,6 +1067,7 @@ export default function App() {
           </button>
           <button className={`cat-tab ${custTab==="reservation"?"cat-tab-on":""}`} onClick={()=>{setCustTab("reservation");loadReservations();loadCustomers({silent:true});}}>予約管理</button>
         </div>
+        <div style={{padding:"16px 20px"}}>
         {custTab==="search"&&(<>
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#f5f0e8",border:"1.5px solid #ccc5ba",borderRadius:10,padding:"8px 12px",marginBottom:14}}>
             <Ico.Search/>
@@ -1102,6 +1103,7 @@ export default function App() {
               <button className="icobtn" onClick={()=>loadReservations()}><Ico.Refresh/></button>
               <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
               <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
+              {calView==="week"&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}} title="封鎖モード"><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
             <button className="pbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>{const d=new Date();setAddResModal({date:d,time:"12:00"});setResForm(f=>({...f,checkinDate:fmt(d,"date")}));}}>＋ 予約追加</button>
           </div>
@@ -1222,10 +1224,10 @@ export default function App() {
               </div>
               <div className="fg"><label>入庫日 *</label><input type="date" value={resForm.checkinDate} onChange={e=>setResForm(f=>({...f,checkinDate:e.target.value}))}/></div>
               <div className="fg"><label>出庫予定日</label>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{flex:1,opacity:resForm.dueDateUnknown?0.4:1}}/>
-                  <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,color:"#7a6f63",whiteSpace:"nowrap"}}>
-                    <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))}/>未定
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  <input type="date" value={resForm.dueDate} onChange={e=>setResForm(f=>({...f,dueDate:e.target.value,dueDateUnknown:false}))} disabled={resForm.dueDateUnknown} style={{width:"100%",opacity:resForm.dueDateUnknown?0.4:1}}/>
+                  <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
+                    <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(f=>({...f,dueDateUnknown:e.target.checked,dueDate:e.target.checked?"":f.dueDate}))} style={{width:16,height:16}}/>出庫日未定
                   </label>
                 </div>
               </div>
@@ -1535,7 +1537,7 @@ const CSS = `
   .fg input, .fg select, .fg textarea { width: 100%; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; }
   .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: #2a2018; }
   .stover { position: fixed; inset: 0; background: rgba(42,32,24,.28); z-index: 900; display: flex; justify-content: flex-end; }
-  .stpanel { background: #faf7f2; width: min(430px, 100vw); max-width: 100vw; height: 100%; overflow-y: auto; padding: 26px 20px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
+  .stpanel { background: #faf7f2; width: min(320px, 94vw); max-width: 94vw; height: 100%; overflow-y: auto; padding: 20px 16px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
   @keyframes sin { from { transform: translateX(100%); } to { transform: translateX(0); } }
   .sttab { flex: 1; background: none; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 0; border-radius: 7px; color: #9a8f82; }
   .sttabon { background: #faf7f2; color: #2a2018; box-shadow: 0 1px 4px rgba(42,32,24,.09); }
@@ -1566,13 +1568,13 @@ const CSS = `
   .compact-form input { min-width:0; background:#f5f0e8; border:1px solid #ccc5ba; border-radius:8px; padding:8px 10px; font-family:'Noto Sans JP', sans-serif; color:#2a2018; outline:none; }
   .compact-form input[type="number"] { max-width:86px; }
   .compact-row { min-height:36px; padding:6px 8px; }
-  .cust-settings-panel { width:min(390px, 100vw); overflow-x:hidden; }
+  .cust-settings-panel { width:min(300px, 92vw); overflow-x:hidden; }
 
   @media (max-width: 520px) {
     .mover { padding: 10px; align-items: center; justify-content: center; }
     .modal { width: calc(100vw - 20px); max-width: calc(100vw - 20px); padding: 22px 18px; border-radius: 14px; }
     .stover { justify-content: flex-end; overflow: hidden; }
-    .stpanel { width: calc(100vw - 18px); max-width: calc(100vw - 18px); padding: 24px 16px; }
+    .stpanel { width: calc(100vw - 20px); max-width: calc(100vw - 20px); padding: 20px 14px; }
     .fg input, .fg select, .fg textarea { min-width: 0; }
     .pbtn, .gbtn { white-space: nowrap; }
     .estimate-line { grid-template-columns: minmax(0,1fr) 44px 68px 30px; gap:5px; }
