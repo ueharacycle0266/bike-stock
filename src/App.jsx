@@ -189,6 +189,7 @@ export default function App() {
   const [resForm, setResForm] = useState({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:"",repairItems:[]});
   const [resCustSearch, setResCustSearch] = useState("");
   const [selectedRes, setSelectedRes] = useState(null);
+  const [editResModal, setEditResModal] = useState(null);
 
   // ── データ取得 ──
   const loadStock = async () => {
@@ -284,7 +285,7 @@ export default function App() {
   const switchMode = async (mode) => {
     setAppMode(mode); setModeMenu(false);
     if (mode==="customer" && !custLoaded) { await Promise.all([loadCustomers(),loadMasters(),loadEstimates(),loadTempNotes()]); }
-    if (mode==="reservation") { await Promise.all([loadReservations(), loadBlockedSlots(), !custLoaded&&loadCustomers(), loadMasters()]); }
+    if (mode==="reservation") { await Promise.all([loadReservations(), loadBlockedSlots(), loadTempNotes(), !custLoaded&&loadCustomers(), loadMasters()]); }
   };
 
   // ── 在庫 派生 ──
@@ -561,6 +562,15 @@ export default function App() {
   };
   const doCheckin=async(id)=>{ setReservations(p=>p.map(r=>r.id===id?{...r,status:"in"}:r)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"PATCH",{status:"in"}).catch(()=>{}); };
   const doCheckout=async(id)=>{ setReservations(p=>p.map(r=>r.id===id?{...r,status:"done"}:r)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"PATCH",{status:"done"}).catch(()=>{}); };
+  const doEditRes = async () => {
+    if (!editResModal) return;
+    const {id, checkin_date, checkin_time, due_date, dueDateUnknown, staff, memo, customer_id, bike_index} = editResModal;
+    const upd = {...editResModal, due_date: dueDateUnknown?null:due_date||null};
+    setReservations(p=>p.map(r=>r.id===id?upd:r));
+    setEditResModal(null);
+    await api(`reservations?id=eq.${id}`,"PATCH",{checkin_date,checkin_time,due_date:dueDateUnknown?null:due_date||null,staff,memo:memo||null}).catch(()=>{});
+  };
+
   const blockDay = async (dateStr) => {
     const newCells = {};
     const toAdd = [];
@@ -775,10 +785,10 @@ export default function App() {
         <style>{CSS}</style>
         <Header>
           <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
-          <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
-          <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
-          <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")} title="月カレンダー"><span style={{fontSize:11,fontWeight:700}}>月</span></button>
-          {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}} title="封鎖モード"><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
+          <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><span style={{fontSize:11,fontWeight:700}}>週</span></button>
+          <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
+          <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.Bike/></button>
+          {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
         </Header>
 
         {calView==="week" && (
@@ -920,11 +930,12 @@ export default function App() {
                 {inShop.map(r=>{
                   const c=custMap[r.customer_id];
                   const bike=c?.bikes?.[r.bike_index];
-                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
+                  const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderLeft:`3px solid ${sc}`,borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                      <div>
+                      <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c?.name||"?"} {bike&&<span style={{fontSize:11,color:"#2563a8"}}>🚲{bike.maker}</span>}</div>
-                        <div style={{fontSize:12,color:"#9a8f82",marginTop:2}}>入庫: {fmt(r.checkin_date,"mmdd")} ・ {r.staff}</div>
+                        <div style={{fontSize:12,color:"#9a8f82",marginTop:2}}>入庫: {fmt(r.checkin_date,"mmdd")} ・ <span style={{color:sc,fontWeight:600}}>{r.staff}</span></div>
                         {r.memo&&<div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{r.memo}</div>}
                       </div>
                       {r.due_date?<span style={{background:"#fdf0ee",color:"#c0392b",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,flexShrink:0}}>{fmt(r.due_date,"mmdd")}出庫</span>:<span style={{background:"#f5f0e8",color:"#b0a898",fontSize:11,padding:"2px 7px",borderRadius:6}}>出庫日未定</span>}
@@ -934,16 +945,17 @@ export default function App() {
               </div>
             )}
             {upcoming.length>0&&(
-              <div>
+              <div style={{marginBottom:20}}>
                 <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📅 作業一覧</div>
                 {upcoming.map(r=>{
                   const c=custMap[r.customer_id];
                   const bike=c?.bikes?.[r.bike_index];
-                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
+                  const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderLeft:`3px solid ${sc}`,borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                      <div>
+                      <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c?.name||"?"} {bike&&<span style={{fontSize:11,color:"#2563a8"}}>🚲{bike.maker}</span>}</div>
-                        <div style={{fontSize:12,color:"#9a8f82",marginTop:2}}>{fmt(r.checkin_date,"mmdd")} {r.checkin_time} ・ {r.staff}</div>
+                        <div style={{fontSize:12,color:"#9a8f82",marginTop:2}}>{fmt(r.checkin_date,"mmdd")} {r.checkin_time} ・ <span style={{color:sc,fontWeight:600}}>{r.staff}</span></div>
                         {r.memo&&<div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{r.memo}</div>}
                       </div>
                       {r.due_date?<span style={{background:"#e8f0d6",color:"#2d7a44",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,flexShrink:0}}>{fmt(r.due_date,"mmdd")}出庫予定</span>:<span style={{background:"#f5f0e8",color:"#b0a898",fontSize:11,padding:"2px 7px",borderRadius:6}}>出庫日未定</span>}
@@ -952,7 +964,64 @@ export default function App() {
                 })}
               </div>
             )}
-            {inShop.length===0&&upcoming.length===0&&<div style={S.empty}><div style={{fontSize:38}}>📅</div><p style={{color:"#9a8f82",marginTop:12}}>予約・入庫はありません</p></div>}
+            {tempNotes.filter(t=>!t.done).length>0&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📝 とりあえず ({tempNotes.filter(t=>!t.done).length}件)</div>
+                {tempNotes.filter(t=>!t.done).map(t=>(
+                  <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:`1px solid ${(t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:6}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
+                          {(t.tags||[]).map(tid=>{const tag=tempTags.find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
+                          <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
+                        </div>
+                        {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
+                        {t.memo&&<div style={{fontSize:11,color:"#b0a898",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.memo}</div>}
+                        {(t.repairItems||[]).filter(it=>it.menuId).length>0&&<div style={{fontSize:11,color:"#2a7a5a",marginTop:2}}>見積: ¥{(t.repairTotal||0).toLocaleString()}</div>}
+                      </div>
+                      <button className="smbtn" style={{fontSize:11,background:"#d6e4f0",color:"#2563a8",flexShrink:0,marginLeft:8}} onClick={()=>{
+                        setAddResModal({date:new Date(),time:"10:00"});
+                        setResForm(f=>({...f,custId:"",checkinDate:toLocalDateStr(new Date()),memo:(t.memo||"")}));
+                        setResCustSearch(t.name||"");
+                      }}>📅 作業へ</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {inShop.length===0&&upcoming.length===0&&tempNotes.filter(t=>!t.done).length===0&&<div style={S.empty}><div style={{fontSize:38}}>📅</div><p style={{color:"#9a8f82",marginTop:12}}>作業・入庫はありません</p></div>}
+          </div>
+        )}
+
+        {/* 作業編集モーダル */}
+        {editResModal&&(
+          <div className="mover" onClick={()=>setEditResModal(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <h3>✏️ 作業を編集</h3>
+              <div className="fg"><label>入庫日</label><input type="date" value={editResModal.checkin_date||""} onChange={e=>setEditResModal(n=>({...n,checkin_date:e.target.value}))}/></div>
+              <div className="fg"><label>時間</label>
+                <select value={editResModal.checkin_time||""} onChange={e=>setEditResModal(n=>({...n,checkin_time:e.target.value}))}>
+                  <option value="">未設定</option>
+                  {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              <div className="fg"><label>出庫予定日</label>
+                <input type="date" value={editResModal.due_date||""} onChange={e=>setEditResModal(n=>({...n,due_date:e.target.value,dueDateUnknown:false}))} disabled={editResModal.dueDateUnknown} style={{opacity:editResModal.dueDateUnknown?0.4:1,marginBottom:6}}/>
+                <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
+                  <input type="checkbox" checked={!!editResModal.dueDateUnknown} onChange={e=>setEditResModal(n=>({...n,dueDateUnknown:e.target.checked,due_date:e.target.checked?"":n.due_date}))} style={{width:16,height:16}}/>出庫日未定
+                </label>
+              </div>
+              <div className="fg"><label>担当者</label>
+                <select value={editResModal.staff||"あさと"} onChange={e=>setEditResModal(n=>({...n,staff:e.target.value}))}>
+                  {STAFF.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="fg"><label>メモ</label><input value={editResModal.memo||""} onChange={e=>setEditResModal(n=>({...n,memo:e.target.value}))}/></div>
+              <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+                <button className="gbtn" onClick={()=>setEditResModal(null)}>キャンセル</button>
+                <button className="pbtn" onClick={doEditRes}>保存</button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1036,6 +1105,7 @@ export default function App() {
               <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
                 {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
                 {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
+                <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date})}><Ico.Edit/></button>
                 <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
               </div>
             </div>
@@ -1611,6 +1681,7 @@ export default function App() {
               <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
                 {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
                 {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
+                <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date})}><Ico.Edit/></button>
                 <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
               </div>
             </div>
