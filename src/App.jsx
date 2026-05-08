@@ -627,7 +627,7 @@ export default function App() {
     setTempNotes(p=>[obj,...p]);
     setNewTemp({name:"",phone:"",memo:"",tags:[],repairItems:[]});
     setAddTempModal(false);
-    await api("temp_notes","POST",{id,name:newTemp.name||null,phone:newTemp.phone||null,memo:newTemp.memo||null,tags:tags,repair_items:repairItems,repair_total:repairTotal,done:false});
+    await api("temp_notes","POST",{id,name:newTemp.name||null,phone:newTemp.phone||null,memo:newTemp.memo||null,tags:JSON.stringify(tags),repair_items:JSON.stringify(repairItems),repair_total:repairTotal,done:false});
   };
 
   const doEditTemp = async () => {
@@ -636,7 +636,7 @@ export default function App() {
     const repairTotal = (repairItems||[]).reduce((s,it)=>{const m=repairMenus.find(m=>m.id===it.menuId);return s+(m?.price||0)*(it.qty||1);},0);
     setTempNotes(p=>p.map(t=>t.id===id?{...t,name,phone,memo,tags:tags||[],repairItems:repairItems||[],repairTotal}:t));
     setEditTempModal(null);
-    await api(`temp_notes?id=eq.${id}`,"PATCH",{name:name||null,phone:phone||null,memo:memo||null,tags:tags||[],repair_items:repairItems||[],repair_total:repairTotal});
+    await api(`temp_notes?id=eq.${id}`,"PATCH",{name:name||null,phone:phone||null,memo:memo||null,tags:JSON.stringify(tags||[]),repair_items:JSON.stringify(repairItems||[]),repair_total:repairTotal});
   };
 
   const doTempDone = async (id) => {
@@ -1424,7 +1424,7 @@ export default function App() {
             <div style={{display:"flex",gap:6}}>
               <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
               <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
-              <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
+              <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.Bike/></button>
               <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
               {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
