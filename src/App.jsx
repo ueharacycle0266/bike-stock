@@ -778,9 +778,6 @@ export default function App() {
     </header>
   );
 
-  const inShop = reservations.filter(r=>r.status==="in").sort((a,b)=>new Date(a.due_date||"9999")-new Date(b.due_date||"9999"));
-  const upcoming = reservations.filter(r=>r.status==="reserved").sort((a,b)=>new Date(a.checkin_date)-new Date(b.checkin_date));
-
   // ════════════════════════════════════════
   // 作業管理画面
   // ════════════════════════════════════════
