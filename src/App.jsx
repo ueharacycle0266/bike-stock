@@ -254,9 +254,9 @@ export default function App() {
 
   const loadTempNotes = async () => {
     try {
-      const data = await api("temp_notes?select=*&done=eq.false&order=created_at.desc");
+      const data = await api("temp_notes?select=*&order=created_at.desc");
       if (Array.isArray(data)) {
-        setTempNotes(data.map(t=>({
+        setTempNotes(data.filter(t=>!t.done).map(t=>({
           ...t,
           tags: Array.isArray(t.tags) ? t.tags : (typeof t.tags==="string" ? JSON.parse(t.tags||"[]") : []),
           repairItems: Array.isArray(t.repair_items) ? t.repair_items : (typeof t.repair_items==="string" ? JSON.parse(t.repair_items||"[]") : []),
@@ -974,7 +974,7 @@ export default function App() {
                 {tempNotes.filter(t=>!t.done).map(t=>(
                   <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:`1px solid ${(t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:6}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                      <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
+                      <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
                           {(t.tags||[]).map(tid=>{const tag=tempTags.find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
                           <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
@@ -1350,7 +1350,7 @@ export default function App() {
             {tempNotes.map(t=>(
               <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:`1px solid ${(t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
+                  <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
                       {(t.tags||[]).map(tid=>{const tag=tempTags.find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
                       <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
@@ -1361,7 +1361,7 @@ export default function App() {
                   </div>
                   <div style={{display:"flex",gap:4,marginLeft:8}}>
                     <button className="sico sedit" onClick={e=>{e.stopPropagation();setEditTempModal({...t,tags:t.tags||[],repairItems:t.repairItems||[]});}}><Ico.Edit/></button>
-                    <span style={{color:"#c8bfb0",fontSize:18,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>›</span>
+                    <span style={{color:"#c8bfb0",fontSize:18,cursor:"pointer"}} onClick={()=>{}}>›</span>
                   </div>
                 </div>
               </div>
