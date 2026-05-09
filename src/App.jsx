@@ -4,7 +4,6 @@ const SUPABASE_URL = "https://autpzeeprcyosyqegtai.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dHB6ZWVwcmN5b3N5cWVndGFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTEwMDUsImV4cCI6MjA5MjgyNzAwNX0.YWH6PvFYu2n2BN5aWQZ8KaPKv4Ns4K_ObfyK28Gdq18";
 const PASSWORD = "0266";
 const STAFF = ["あさと", "たけし"];
-const STAFF_COLOR = {"あさと":"#2563a8","たけし":"#2d7a44"};
 const HOURS = Array.from({length:22}, (_,i) => { const h=Math.floor(i/2)+9, m=i%2===0?"00":"30"; return `${h}:${m}`; });
 
 const api = async (path, method="GET", body=null) => {
@@ -108,7 +107,6 @@ const Ico = {
   Calendar:()=>(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>),
   List:()=>(<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>),
   Bike:()=>(<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 0 0-1-1h-1l-4 8"/><path d="M12 6l4 8H5.5"/></svg>),
-  List:()=>(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>),
 };
 
 export default function App() {
@@ -793,7 +791,7 @@ export default function App() {
           <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
           <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><span style={{fontSize:11,fontWeight:700}}>週</span></button>
           <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
-          <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
+          <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.Bike/></button>
           {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
         </Header>
 
@@ -978,7 +976,7 @@ export default function App() {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
-                          {(t.tags||[]).map(tid=>{const tag=(tempTags||[]).find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
+                          {(t.tags||[]).map(tid=>{const tag=tempTags.find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
                           <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
                         </div>
                         {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
@@ -1062,7 +1060,7 @@ export default function App() {
               {selectedResCust?.bikes?.length>0&&(
                 <div className="fg"><label>自転車</label>
                   <select value={resForm.bikeIdx} onChange={e=>setResForm(f=>({...f,bikeIdx:+e.target.value}))}>
-                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?" ("+b.color+")":""}</option>)}
+                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}
                   </select>
                 </div>
               )}
@@ -1088,37 +1086,35 @@ export default function App() {
         )}
 
         {/* 予約詳細モーダル */}
-              {selectedRes&&<div className="mover" onClick={()=>setSelectedRes(null)}>
-          <div className="modal" onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
-              <h3 style={{marginBottom:0}}>{custMap[selectedRes.customer_id]?.name||"顧客不明"}</h3>
-              <button className="icobtn" onClick={()=>setSelectedRes(null)}><Ico.X/></button>
+        {selectedRes&&(()=>{
+          const c=custMap[selectedRes.customer_id];
+          const bike=c?.bikes?.[selectedRes.bike_index];
+          const statusLabel=selectedRes.status==="reserved"?"受付中":selectedRes.status==="in"?"入庫中":"出庫済";
+          const statusColor=selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898";
+          return <div className="mover" onClick={()=>setSelectedRes(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
+                <h3 style={{marginBottom:0}}>{c?.name||"顧客不明"}</h3>
+                <button className="icobtn" onClick={()=>setSelectedRes(null)}><Ico.X/></button>
+              </div>
+              <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+                <span style={{background:statusColor+"20",color:statusColor,fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{statusLabel}</span>
+                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</span>}
+              </div>
+              <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
+              {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
+              <div style={S.infoRow}><span style={S.infoLabel}>出庫予定</span><span>{selectedRes.due_date?fmt(selectedRes.due_date,"mmdd"):"未定"}</span></div>
+              <div style={S.infoRow}><span style={S.infoLabel}>担当</span><span>{selectedRes.staff}</span></div>
+              {selectedRes.memo&&<div style={S.infoRow}><span style={S.infoLabel}>メモ</span><span>{selectedRes.memo}</span></div>}
+              <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
+                {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
+                {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
+                <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date})}><Ico.Edit/></button>
+                <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
+              </div>
             </div>
-            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-              <span style={{background:(selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898")+"20",color:selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898",fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>
-                {selectedRes.status==="reserved"?"受付中":selectedRes.status==="in"?"入庫中":"出庫済"}
-              </span>
-              {custMap[selectedRes.customer_id]?.bikes?.[selectedRes.bike_index]&&(
-                <span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>
-                  🚲 {custMap[selectedRes.customer_id].bikes[selectedRes.bike_index].maker}
-                  {custMap[selectedRes.customer_id].bikes[selectedRes.bike_index].color?" ("+custMap[selectedRes.customer_id].bikes[selectedRes.bike_index].color+")":""}
-                </span>
-              )}
-              <span style={{background:(STAFF_COLOR[selectedRes.staff]||"#9a6f3a")+"20",color:STAFF_COLOR[selectedRes.staff]||"#9a6f3a",fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{selectedRes.staff}</span>
-            </div>
-            <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
-            {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
-            <div style={S.infoRow}><span style={S.infoLabel}>出庫予定</span><span>{selectedRes.due_date?fmt(selectedRes.due_date,"mmdd"):"未定"}</span></div>
-            <div style={S.infoRow}><span style={S.infoLabel}>担当</span><span>{selectedRes.staff}</span></div>
-            {selectedRes.memo&&<div style={S.infoRow}><span style={S.infoLabel}>メモ</span><span>{selectedRes.memo}</span></div>}
-            <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
-              {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
-              {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
-              <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>{setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date});setSelectedRes(null);}}><Ico.Edit/></button>
-              <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
-            </div>
-          </div>
-        </div>}
+          </div>;
+        })()}
       </div>
     );
   }
@@ -1140,7 +1136,7 @@ export default function App() {
         <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",alignItems:"center",gap:10}}>
           <button className="icobtn" onClick={()=>setBikeDetail(null)}><Ico.Back/></button>
           <div style={{flex:1}}>
-            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:15,color:"#2563a8"}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</div>
+            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:15,color:"#2563a8"}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</div>
             <div style={{fontSize:12,color:"#9a8f82"}}>{cust.name}</div>
           </div>
           <button className="pbtn" style={{fontSize:12,padding:"6px 14px"}} onClick={()=>openAddEst(cust.id,bikeIdx)}>+ 見積もり作成</button>
@@ -1356,7 +1352,7 @@ export default function App() {
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
-                      {(t.tags||[]).map(tid=>{const tag=(tempTags||[]).find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
+                      {(t.tags||[]).map(tid=>{const tag=tempTags.find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
                       <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
                     </div>
                     {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
@@ -1412,7 +1408,7 @@ export default function App() {
             return filtered.map((r,i)=>(
               <div key={`${r.customer.id}-${r.bikeIdx}-${i}`} className="irow" style={{position:"relative"}}>
                 <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{setCustDetail(r.customer);setBikeDetail({cust:r.customer,bikeIdx:r.bikeIdx});}}>
-                  <div style={{fontWeight:800,color:"#2a2018",fontSize:14}}>{r.customer.name} <span style={{fontSize:12,color:"#2563a8"}}>🚲 {r.bike.maker}{r.bike.color?" ("+r.bike.color+")":""}</span></div>
+                  <div style={{fontWeight:800,color:"#2a2018",fontSize:14}}>{r.customer.name} <span style={{fontSize:12,color:"#2563a8"}}>🚲 {r.bike.maker}{r.bike.color?` (${r.bike.color})`:""}</span></div>
                   {r.customer.phone&&<div style={{color:"#9a8f82",fontSize:12}}>{r.customer.phone}</div>}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1428,7 +1424,7 @@ export default function App() {
             <div style={{display:"flex",gap:6}}>
               <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
               <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
-              <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.List/></button>
+              <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.Bike/></button>
               <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
               {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
@@ -1640,7 +1636,7 @@ export default function App() {
               {selectedResCust?.bikes?.length>0&&(
                 <div className="fg"><label>自転車</label>
                   <select value={resForm.bikeIdx} onChange={e=>setResForm(f=>({...f,bikeIdx:+e.target.value}))}>
-                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?" ("+b.color+")":""}</option>)}
+                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}
                   </select>
                 </div>
               )}
@@ -1679,7 +1675,7 @@ export default function App() {
               </div>
               <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
                 <span style={{background:statusColor+"20",color:statusColor,fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{statusLabel}</span>
-                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</span>}
+                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</span>}
               </div>
               <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
               {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
