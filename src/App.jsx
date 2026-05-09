@@ -254,9 +254,9 @@ export default function App() {
 
   const loadTempNotes = async () => {
     try {
-      const data = await api("temp_notes?select=*&order=created_at.desc");
+      const data = await api("temp_notes?select=*&done=eq.false&order=created_at.desc");
       if (Array.isArray(data)) {
-        setTempNotes(data.filter(t=>!t.done).map(t=>({
+        setTempNotes(data.map(t=>({
           ...t,
           tags: Array.isArray(t.tags) ? t.tags : (typeof t.tags==="string" ? JSON.parse(t.tags||"[]") : []),
           repairItems: Array.isArray(t.repair_items) ? t.repair_items : (typeof t.repair_items==="string" ? JSON.parse(t.repair_items||"[]") : []),
@@ -972,13 +972,23 @@ export default function App() {
               <div style={{marginBottom:20}}>
                 <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📝 とりあえず ({tempNotes.filter(t=>!t.done).length}件)</div>
                 {tempNotes.filter(t=>!t.done).map(t=>(
-                  <div key={t.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontWeight:700,fontSize:14,color:"#2a2018",marginBottom:4}}>{t.name||"名前未入力"}</div>
-                      {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
-                      {t.repairTotal>0&&<div style={{fontSize:11,color:"#2a7a5a"}}>見積: ¥{(t.repairTotal||0).toLocaleString()}</div>}
+                  <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:`1px solid ${(t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:6}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
+                          {(t.tags||[]).map(tid=>{const tag=(tempTags||[]).find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
+                          <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
+                        </div>
+                        {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
+                        {t.memo&&<div style={{fontSize:11,color:"#b0a898",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.memo}</div>}
+                        {(t.repairItems||[]).filter(it=>it.menuId).length>0&&<div style={{fontSize:11,color:"#2a7a5a",marginTop:2}}>見積: ¥{(t.repairTotal||0).toLocaleString()}</div>}
+                      </div>
+                      <button className="smbtn" style={{fontSize:11,background:"#d6e4f0",color:"#2563a8",flexShrink:0,marginLeft:8}} onClick={()=>{
+                        setAddResModal({date:new Date(),time:"10:00"});
+                        setResForm(f=>({...f,custId:"",checkinDate:toLocalDateStr(new Date()),memo:(t.memo||"")}));
+                        setResCustSearch(t.name||"");
+                      }}>📅 作業へ</button>
                     </div>
-                    <button style={{background:"#d6e4f0",color:"#2563a8",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"Noto Sans JP,sans-serif",flexShrink:0}} onClick={()=>{setAddResModal({date:new Date(),time:"10:00"});setResForm(f=>({...f,custId:"",checkinDate:toLocalDateStr(new Date()),memo:t.memo||""}));setResCustSearch(t.name||"");}}>📅 作業へ</button>
                   </div>
                 ))}
               </div>
@@ -1121,7 +1131,7 @@ export default function App() {
       return <div style={S.root}>
         <style>{CSS}</style>
         <Header>
-          <button className="icobtn" onClick={()=>{loadCustomers({silent:true});loadMasters();loadEstimates();loadTempNotes();}}><Ico.Refresh/></button>
+          <button className="icobtn" onClick={()=>{loadEstimates();loadMasters();}}><Ico.Refresh/></button>
         </Header>
         <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",alignItems:"center",gap:10}}>
           <button className="icobtn" onClick={()=>setBikeDetail(null)}><Ico.Back/></button>
@@ -1313,7 +1323,7 @@ export default function App() {
     return <div style={S.root}>
       <style>{CSS}</style>
       <Header>
-        <button className="icobtn" onClick={()=>{loadCustomers({silent:true});loadEstimates();}}><Ico.Refresh/></button>
+        <button className="icobtn" onClick={()=>{loadCustomers({silent:true});loadMasters();loadEstimates();loadTempNotes();}}><Ico.Refresh/></button>
         <button className="icobtn" onClick={()=>setAddCustModal(true)}><Ico.Plus/></button>
         <button className="icobtn" onClick={()=>{setStCustOpen(true);loadMasters();loadTempNotes();}}><Ico.Settings/></button>
       </Header>
@@ -1340,9 +1350,9 @@ export default function App() {
             {tempNotes.map(t=>(
               <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:`1px solid ${(t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{}}>
+                  <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
-                      {(t.tags||[]).map(tid=>{const tag=tempTags.find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
+                      {(t.tags||[]).map(tid=>{const tag=(tempTags||[]).find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
                       <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
                     </div>
                     {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
@@ -1351,7 +1361,7 @@ export default function App() {
                   </div>
                   <div style={{display:"flex",gap:4,marginLeft:8}}>
                     <button className="sico sedit" onClick={e=>{e.stopPropagation();setEditTempModal({...t,tags:t.tags||[],repairItems:t.repairItems||[]});}}><Ico.Edit/></button>
-                    <span style={{color:"#c8bfb0",fontSize:18,cursor:"pointer"}} onClick={()=>{}}>›</span>
+                    <span style={{color:"#c8bfb0",fontSize:18,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>›</span>
                   </div>
                 </div>
               </div>
