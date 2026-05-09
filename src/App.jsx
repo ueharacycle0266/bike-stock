@@ -4,6 +4,7 @@ const SUPABASE_URL = "https://autpzeeprcyosyqegtai.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dHB6ZWVwcmN5b3N5cWVndGFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTEwMDUsImV4cCI6MjA5MjgyNzAwNX0.YWH6PvFYu2n2BN5aWQZ8KaPKv4Ns4K_ObfyK28Gdq18";
 const PASSWORD = "0266";
 const STAFF = ["あさと", "たけし"];
+const STAFF_COLOR = {"あさと":"#2563a8","たけし":"#2d7a44"};
 const HOURS = Array.from({length:22}, (_,i) => { const h=Math.floor(i/2)+9, m=i%2===0?"00":"30"; return `${h}:${m}`; });
 
 const api = async (path, method="GET", body=null) => {
