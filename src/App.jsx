@@ -1086,37 +1086,38 @@ export default function App() {
         )}
 
         {/* 予約詳細モーダル */}
-        {selectedRes&&(()=>{
-          const c=custMap[selectedRes.customer_id];
-          const bike=c?.bikes?.[selectedRes.bike_index];
-          const statusLabel=selectedRes.status==="reserved"?"受付中":selectedRes.status==="in"?"入庫中":"出庫済";
-          const statusColor=selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898";
-          return <div className="mover" onClick={()=>setSelectedRes(null)}>
-            <div className="modal" onClick={e=>e.stopPropagation()}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
-                <h3 style={{marginBottom:0}}>{c?.name||"顧客不明"}</h3>
-                <button className="icobtn" onClick={()=>setSelectedRes(null)}><Ico.X/></button>
-              </div>
-              <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-                <span style={{background:statusColor+"20",color:statusColor,fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{statusLabel}</span>
-                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</span>}
-              </div>
-              <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
-              {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
-              <div style={S.infoRow}><span style={S.infoLabel}>出庫予定</span><span>{selectedRes.due_date?fmt(selectedRes.due_date,"mmdd"):"未定"}</span></div>
-              <div style={S.infoRow}><span style={S.infoLabel}>担当</span><span>{selectedRes.staff}</span></div>
-              {selectedRes.memo&&<div style={S.infoRow}><span style={S.infoLabel}>メモ</span><span>{selectedRes.memo}</span></div>}
-              <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
-                {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
-                {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
-                <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date})}><Ico.Edit/></button>
-                <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
-              </div>
+              {selectedRes&&<div className="mover" onClick={()=>setSelectedRes(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
+              <h3 style={{marginBottom:0}}>{custMap[selectedRes.customer_id]?.name||"顧客不明"}</h3>
+              <button className="icobtn" onClick={()=>setSelectedRes(null)}><Ico.X/></button>
             </div>
-          </div>;
-        })()}
+            <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+              <span style={{background:(selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898")+"20",color:selectedRes.status==="reserved"?"#2563a8":selectedRes.status==="in"?"#2d7a44":"#b0a898",fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>
+                {selectedRes.status==="reserved"?"受付中":selectedRes.status==="in"?"入庫中":"出庫済"}
+              </span>
+              {custMap[selectedRes.customer_id]?.bikes?.[selectedRes.bike_index]&&(
+                <span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>
+                  🚲 {custMap[selectedRes.customer_id].bikes[selectedRes.bike_index].maker}
+                  {custMap[selectedRes.customer_id].bikes[selectedRes.bike_index].color?" ("+custMap[selectedRes.customer_id].bikes[selectedRes.bike_index].color+")":""}
+                </span>
+              )}
+              <span style={{background:(STAFF_COLOR[selectedRes.staff]||"#9a6f3a")+"20",color:STAFF_COLOR[selectedRes.staff]||"#9a6f3a",fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{selectedRes.staff}</span>
+            </div>
+            <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
+            {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
+            <div style={S.infoRow}><span style={S.infoLabel}>出庫予定</span><span>{selectedRes.due_date?fmt(selectedRes.due_date,"mmdd"):"未定"}</span></div>
+            <div style={S.infoRow}><span style={S.infoLabel}>担当</span><span>{selectedRes.staff}</span></div>
+            {selectedRes.memo&&<div style={S.infoRow}><span style={S.infoLabel}>メモ</span><span>{selectedRes.memo}</span></div>}
+            <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
+              {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
+              {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
+              <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>{setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date});setSelectedRes(null);}}><Ico.Edit/></button>
+              <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
+            </div>
+          </div>
+        </div>}
       </div>
-    </div>
     );
   }
 
