@@ -1060,7 +1060,7 @@ export default function App() {
               {selectedResCust?.bikes?.length>0&&(
                 <div className="fg"><label>自転車</label>
                   <select value={resForm.bikeIdx} onChange={e=>setResForm(f=>({...f,bikeIdx:+e.target.value}))}>
-                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}
+                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?" ("+b.color+")":""}</option>)}
                   </select>
                 </div>
               )}
@@ -1099,7 +1099,7 @@ export default function App() {
               </div>
               <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
                 <span style={{background:statusColor+"20",color:statusColor,fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{statusLabel}</span>
-                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</span>}
+                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</span>}
               </div>
               <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
               {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
@@ -1137,7 +1137,7 @@ export default function App() {
         <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",alignItems:"center",gap:10}}>
           <button className="icobtn" onClick={()=>setBikeDetail(null)}><Ico.Back/></button>
           <div style={{flex:1}}>
-            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:15,color:"#2563a8"}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</div>
+            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:15,color:"#2563a8"}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</div>
             <div style={{fontSize:12,color:"#9a8f82"}}>{cust.name}</div>
           </div>
           <button className="pbtn" style={{fontSize:12,padding:"6px 14px"}} onClick={()=>openAddEst(cust.id,bikeIdx)}>+ 見積もり作成</button>
@@ -1409,7 +1409,7 @@ export default function App() {
             return filtered.map((r,i)=>(
               <div key={`${r.customer.id}-${r.bikeIdx}-${i}`} className="irow" style={{position:"relative"}}>
                 <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{setCustDetail(r.customer);setBikeDetail({cust:r.customer,bikeIdx:r.bikeIdx});}}>
-                  <div style={{fontWeight:800,color:"#2a2018",fontSize:14}}>{r.customer.name} <span style={{fontSize:12,color:"#2563a8"}}>🚲 {r.bike.maker}{r.bike.color?` (${r.bike.color})`:""}</span></div>
+                  <div style={{fontWeight:800,color:"#2a2018",fontSize:14}}>{r.customer.name} <span style={{fontSize:12,color:"#2563a8"}}>🚲 {r.bike.maker}{r.bike.color?" ("+r.bike.color+")":""}</span></div>
                   {r.customer.phone&&<div style={{color:"#9a8f82",fontSize:12}}>{r.customer.phone}</div>}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1637,7 +1637,7 @@ export default function App() {
               {selectedResCust?.bikes?.length>0&&(
                 <div className="fg"><label>自転車</label>
                   <select value={resForm.bikeIdx} onChange={e=>setResForm(f=>({...f,bikeIdx:+e.target.value}))}>
-                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}
+                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?" ("+b.color+")":""}</option>)}
                   </select>
                 </div>
               )}
@@ -1676,7 +1676,7 @@ export default function App() {
               </div>
               <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
                 <span style={{background:statusColor+"20",color:statusColor,fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{statusLabel}</span>
-                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</span>}
+                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</span>}
               </div>
               <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
               {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
