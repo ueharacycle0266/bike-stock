@@ -4,6 +4,7 @@ const SUPABASE_URL = "https://autpzeeprcyosyqegtai.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1dHB6ZWVwcmN5b3N5cWVndGFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTEwMDUsImV4cCI6MjA5MjgyNzAwNX0.YWH6PvFYu2n2BN5aWQZ8KaPKv4Ns4K_ObfyK28Gdq18";
 const PASSWORD = "0266";
 const STAFF = ["あさと", "たけし"];
+const STAFF_COLOR = {"あさと":"#2563a8","たけし":"#2d7a44"};
 const HOURS = Array.from({length:22}, (_,i) => { const h=Math.floor(i/2)+9, m=i%2===0?"00":"30"; return `${h}:${m}`; });
 
 const api = async (path, method="GET", body=null) => {
@@ -856,8 +857,8 @@ export default function App() {
                               const c=custMap[r.customer_id];
                               const staffColor=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
                         const color=r.status==="done"?"#b0a898":staffColor;
-                              return <div key={r.id} style={{background:color+"25",border:`1px solid ${color}60`,borderRadius:3,padding:"2px 3px",fontSize:9,color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%",boxSizing:"border-box",cursor:"pointer"}}
-                                onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                              return <div key={r.id} style={{background:color+"25",border:"1px solid "+color+"60",borderRadius:3,padding:"2px 3px",fontSize:9,color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%",boxSizing:"border-box",cursor:"pointer"}}
+                                onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>
                             })
                           }
                         </td>;
@@ -913,11 +914,11 @@ export default function App() {
                         {!isDayBlocked&&dayRes.slice(0,3).map(r=>{
                           const c=custMap[r.customer_id];
                           const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                          return <div key={r.id} style={{background:sc+"20",borderLeft:`2px solid ${sc}`,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
-                            onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                          return <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
+                            onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>
                         })}
                         {!isDayBlocked&&dayRes.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-3}</div>}
-                      </div>;
+                      </div>
                     })}
                   </div>
                 ));
@@ -935,7 +936,7 @@ export default function App() {
                   const c=custMap[r.customer_id];
                   const bike=c?.bikes?.[r.bike_index];
                   const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderLeft:`3px solid ${sc}`,borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
+                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderLeft:"3px solid "+sc,borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c?.name||"?"} {bike&&<span style={{fontSize:11,color:"#2563a8"}}>🚲{bike.maker}</span>}</div>
@@ -944,7 +945,7 @@ export default function App() {
                       </div>
                       {r.due_date?<span style={{background:"#fdf0ee",color:"#c0392b",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,flexShrink:0}}>{fmt(r.due_date,"mmdd")}出庫</span>:<span style={{background:"#f5f0e8",color:"#b0a898",fontSize:11,padding:"2px 7px",borderRadius:6}}>出庫日未定</span>}
                     </div>
-                  </div>;
+                  </div>
                 })}
               </div>
             )}
@@ -955,7 +956,7 @@ export default function App() {
                   const c=custMap[r.customer_id];
                   const bike=c?.bikes?.[r.bike_index];
                   const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderLeft:`3px solid ${sc}`,borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
+                  return <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderLeft:"3px solid "+sc,borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer"}} onClick={()=>setSelectedRes(r)}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c?.name||"?"} {bike&&<span style={{fontSize:11,color:"#2563a8"}}>🚲{bike.maker}</span>}</div>
@@ -964,7 +965,7 @@ export default function App() {
                       </div>
                       {r.due_date?<span style={{background:"#e8f0d6",color:"#2d7a44",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,flexShrink:0}}>{fmt(r.due_date,"mmdd")}出庫予定</span>:<span style={{background:"#f5f0e8",color:"#b0a898",fontSize:11,padding:"2px 7px",borderRadius:6}}>出庫日未定</span>}
                     </div>
-                  </div>;
+                  </div>
                 })}
               </div>
             )}
@@ -972,7 +973,7 @@ export default function App() {
               <div style={{marginBottom:20}}>
                 <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>📝 とりあえず ({tempNotes.filter(t=>!t.done).length}件)</div>
                 {tempNotes.filter(t=>!t.done).map(t=>(
-                  <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:`1px solid ${(t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:6}}>
+                  <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:"1px solid "+((t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"),borderRadius:10,padding:"12px 14px",marginBottom:6}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                       <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
@@ -1060,7 +1061,7 @@ export default function App() {
               {selectedResCust?.bikes?.length>0&&(
                 <div className="fg"><label>自転車</label>
                   <select value={resForm.bikeIdx} onChange={e=>setResForm(f=>({...f,bikeIdx:+e.target.value}))}>
-                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}
+                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?" ("+b.color+")":""}</option>)}
                   </select>
                 </div>
               )}
@@ -1099,7 +1100,7 @@ export default function App() {
               </div>
               <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
                 <span style={{background:statusColor+"20",color:statusColor,fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{statusLabel}</span>
-                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</span>}
+                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</span>}
               </div>
               <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
               {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
@@ -1136,7 +1137,7 @@ export default function App() {
         <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"10px 20px",display:"flex",alignItems:"center",gap:10}}>
           <button className="icobtn" onClick={()=>setBikeDetail(null)}><Ico.Back/></button>
           <div style={{flex:1}}>
-            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:15,color:"#2563a8"}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</div>
+            <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:15,color:"#2563a8"}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</div>
             <div style={{fontSize:12,color:"#9a8f82"}}>{cust.name}</div>
           </div>
           <button className="pbtn" style={{fontSize:12,padding:"6px 14px"}} onClick={()=>openAddEst(cust.id,bikeIdx)}>+ 見積もり作成</button>
@@ -1348,7 +1349,7 @@ export default function App() {
             <button className="pbtn" style={{width:"100%",marginBottom:14}} onClick={()=>{setNewTemp(n=>({...n,createdAt:new Date()}));setAddTempModal(true);}}>+ とりあえず追加</button>
             {tempNotes.length===0&&<p style={{color:"#b0a898",fontSize:13,textAlign:"center",padding:"20px 0"}}>とりあえずメモがありません</p>}
             {tempNotes.map(t=>(
-              <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:`1px solid ${(t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+              <div key={t.id} style={{background:(t.tags||[]).length>0?"#fdf0ee":"#fff",border:"1px solid "+((t.tags||[]).length>0?"#f0c8c4":"#e8e2d8"),borderRadius:10,padding:"12px 14px",marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setSelectedTemp(t)}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
@@ -1424,7 +1425,7 @@ export default function App() {
             <div style={{display:"flex",gap:6}}>
               <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
               <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
-              <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><Ico.Bike/></button>
+              <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><span style={{fontSize:11,fontWeight:700}}>一覧</span></button>
               <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
               {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
@@ -1491,8 +1492,8 @@ export default function App() {
                               const c=custMap[r.customer_id];
                               const staffColor=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
                         const color=r.status==="done"?"#b0a898":staffColor;
-                              return <div key={r.id} style={{background:color+"25",border:`1px solid ${color}60`,borderRadius:3,padding:"2px 3px",fontSize:9,color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%",boxSizing:"border-box",cursor:"pointer"}}
-                                onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                              return <div key={r.id} style={{background:color+"25",border:"1px solid "+color+"60",borderRadius:3,padding:"2px 3px",fontSize:9,color,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",width:"100%",boxSizing:"border-box",cursor:"pointer"}}
+                                onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>
                             })
                           }
                         </td>;
@@ -1548,11 +1549,11 @@ export default function App() {
                         {!isDayBlocked&&dayRes.slice(0,3).map(r=>{
                           const c=custMap[r.customer_id];
                           const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                          return <div key={r.id} style={{background:sc+"20",borderLeft:`2px solid ${sc}`,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
-                            onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>;
+                          return <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
+                            onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>
                         })}
                         {!isDayBlocked&&dayRes.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-3}</div>}
-                      </div>;
+                      </div>
                     })}
                   </div>
                 ));
@@ -1636,7 +1637,7 @@ export default function App() {
               {selectedResCust?.bikes?.length>0&&(
                 <div className="fg"><label>自転車</label>
                   <select value={resForm.bikeIdx} onChange={e=>setResForm(f=>({...f,bikeIdx:+e.target.value}))}>
-                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}
+                    {selectedResCust.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?" ("+b.color+")":""}</option>)}
                   </select>
                 </div>
               )}
@@ -1675,7 +1676,7 @@ export default function App() {
               </div>
               <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
                 <span style={{background:statusColor+"20",color:statusColor,fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:6}}>{statusLabel}</span>
-                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</span>}
+                {bike&&<span style={{background:"#d6e4f0",color:"#2563a8",fontSize:12,padding:"2px 8px",borderRadius:6}}>🚲 {bike.maker}{bike.color?" ("+bike.color+")":""}</span>}
               </div>
               <div style={S.infoRow}><span style={S.infoLabel}>入庫日</span><span>{fmt(selectedRes.checkin_date,"mmdd")}</span></div>
               {selectedRes.checkin_time&&<div style={S.infoRow}><span style={S.infoLabel}>時間</span><span>{selectedRes.checkin_time}</span></div>}
