@@ -928,62 +928,8 @@ export default function App() {
         )}
 
         {calView==="list" && (
-          <div style={{padding:"16px 20px"}}>
-            {inShop.length>0&&(
-              <div style={{marginBottom:20}}>
-                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>{"🏪 入庫中 ("+inShop.length+"台)"}</div>
-                {inShop.map(r=>(
-                  <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer",borderLeft:"3px solid "+(r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a")}} onClick={()=>setSelectedRes(r)}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{custMap[r.customer_id]?.name||"?"}</div>
-                        <div style={{fontSize:12,color:"#9a8f82",marginTop:2}}>{"入庫: "+fmt(r.checkin_date,"mmdd")+" ・ "+r.staff}</div>
-                        {r.memo&&<div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{r.memo}</div>}
-                      </div>
-                      <span style={{background:"#fdf0ee",color:"#c0392b",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,flexShrink:0}}>{r.due_date?fmt(r.due_date,"mmdd")+"出庫":"出庫日未定"}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {upcoming.length>0&&(
-              <div style={{marginBottom:20}}>
-                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>{"📅 作業予定 ("+upcoming.length+"件)"}</div>
-                {upcoming.map(r=>(
-                  <div key={r.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:6,cursor:"pointer",borderLeft:"3px solid "+(r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a")}} onClick={()=>setSelectedRes(r)}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{custMap[r.customer_id]?.name||"?"}</div>
-                        <div style={{fontSize:12,color:"#9a8f82",marginTop:2}}>{fmt(r.checkin_date,"mmdd")+" "+r.checkin_time+" ・ "+r.staff}</div>
-                        {r.memo&&<div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{r.memo}</div>}
-                      </div>
-                      <span style={{background:"#e8f0d6",color:"#2d7a44",fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:6,flexShrink:0}}>{r.due_date?fmt(r.due_date,"mmdd")+"出庫予定":"出庫日未定"}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {tempNotes.filter(t=>!t.done).length>0&&(
-              <div style={{marginBottom:20}}>
-                <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10}}>{"📝 とりあえず ("+tempNotes.filter(t=>!t.done).length+"件)"}</div>
-                {tempNotes.filter(t=>!t.done).map(t=>(
-                  <div key={t.id} style={{background:"#fff",border:"1px solid #e8e2d8",borderRadius:10,padding:"12px 14px",marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontWeight:700,fontSize:14,color:"#2a2018",marginBottom:4}}>{t.name||"名前未入力"}</div>
-                      {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
-                      {t.repairTotal>0&&<div style={{fontSize:11,color:"#2a7a5a"}}>{"見積: ¥"+(t.repairTotal||0).toLocaleString()}</div>}
-                    </div>
-                    <button style={{background:"#d6e4f0",color:"#2563a8",border:"none",borderRadius:6,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0}} onClick={()=>{setAddResModal({date:new Date(),time:"10:00"});setResForm(f=>({...f,custId:"",checkinDate:toLocalDateStr(new Date()),memo:t.memo||""}));setResCustSearch(t.name||"");}}>{"📅 作業へ"}</button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {inShop.length===0&&upcoming.length===0&&tempNotes.filter(t=>!t.done).length===0&&(
-              <div style={{textAlign:"center",padding:"64px 0"}}>
-                <div style={{fontSize:38}}>{"📋"}</div>
-                <p style={{color:"#9a8f82",marginTop:12}}>{"作業・入庫はありません"}</p>
-              </div>
-            )}
+          <div style={{padding:20}}>
+            <p style={{color:"#9a8f82"}}>一覧</p>
           </div>
         )}
 
