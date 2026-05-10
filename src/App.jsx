@@ -576,7 +576,7 @@ export default function App() {
     const upd = {...editResModal, due_date: dueDateUnknown?null:due_date||null};
     setReservations(p=>p.map(r=>r.id===id?upd:r));
     setEditResModal(null);
-    await api(`reservations?id=eq.${id}`,"PATCH",{checkin_date,checkin_time,due_date:dueDateUnknown?null:due_date||null,staff,memo:memo||null}).catch(()=>{});
+    await api(`reservations?id=eq.${id}`,"PATCH",{checkin_date,checkin_time,due_date:dueDateUnknown?null:due_date||null,staff,memo:memo||null,customer_id,bike_index}).catch(()=>{});
   };
 
   const blockDay = async (dateStr) => {
@@ -928,7 +928,54 @@ export default function App() {
           </div>
         )}
 
-        {calView==="list" && (
+        {        {calView==="pickup" && (
+          <div>
+            <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()-1);setCalMonthDate(d);}}><Ico.ChevLeft/></button>
+              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calMonthDate.getFullYear()}年{calMonthDate.getMonth()+1}月 🏁 出庫予定</span>
+              <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()+1);setCalMonthDate(d);}}><Ico.ChevRight/></button>
+            </div>
+            <div style={{padding:"6px 8px",minHeight:"calc(100vh - 140px)"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
+                {["月","火","水","木","金","土","日"].map((d,i)=>(
+                  <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,padding:"4px 0",color:i===5?"#2563a8":i===6?"#c0392b":"#9a8f82"}}>{d}</div>
+                ))}
+              </div>
+              {(()=>{
+                const y=calMonthDate.getFullYear(), mo=calMonthDate.getMonth();
+                const fd=new Date(y,mo,1).getDay(), off=fd===0?6:fd-1;
+                const dim=new Date(y,mo+1,0).getDate();
+                const cells=[]; for(let i=0;i<off;i++) cells.push(null); for(let i=1;i<=dim;i++) cells.push(i);
+                while(cells.length%7!==0) cells.push(null);
+                const weeks=[]; for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
+                const todayStr=toLocalDateStr(new Date());
+                return weeks.map((week,wi)=>(
+                  <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
+                    {week.map((day,di)=>{
+                      if(!day) return <div key={di} style={{minHeight:72}}/>;
+                      const ds=y+"-"+String(mo+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+                      const pickups=reservations.filter(r=>r.due_date===ds&&r.status!=="done");
+                      const isToday=ds===todayStr;
+                      const isSat=di===5, isSun=di===6;
+                      return (
+                        <div key={di} style={{minHeight:72,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isToday?"#f0ece4":"#fff",cursor:"pointer"}} onClick={()=>{if(pickups.length>0) setSelectedRes(pickups[0]);}}>
+                          <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}</div>
+                          {pickups.map(r=>(
+                            <div key={r.id} style={{background:(r.staff==="あさと"?"#2563a8":"#2d7a44")+"20",borderLeft:"2px solid "+(r.staff==="あさと"?"#2563a8":"#2d7a44"),borderRadius:3,padding:"1px 3px",fontSize:9,color:r.staff==="あさと"?"#2563a8":"#2d7a44",fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>
+                              {custMap[r.customer_id]?.name||"?"}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+
+calView==="list" && (
           <div style={{padding:20}}>
             <p style={{color:"#9a8f82"}}>一覧</p>
           </div>
