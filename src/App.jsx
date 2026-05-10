@@ -1041,7 +1041,6 @@ calView==="list" && (
             </div>
           </div>
         )}
-
         {/* 予約追加モーダル */}
         {addResModal&&(
           <div className="mover" onClick={()=>setAddResModal(null)}>
@@ -1440,6 +1439,7 @@ calView==="list" && (
               <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><Ico.Calendar/></button>
               <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><span style={{fontSize:11,fontWeight:700}}>一覧</span></button>
               <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
+              <button className={`icobtn ${calView==="pickup"?"icobtn-on":""}`} onClick={()=>setCalView("pickup")} title="出庫カレンダー"><span style={{fontSize:14}}>🏁</span></button>
               {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
             </div>
             <button className="pbtn" style={{fontSize:12,padding:"8px 12px"}} onClick={()=>{const d=new Date();setAddResModal({date:d,time:"12:00"});setResForm(f=>({...f,checkinDate:toLocalDateStr(d)}));}}>＋ 予約追加</button>
@@ -1657,7 +1657,6 @@ calView==="list" && (
             )}
           </div>
         )}
-
         {/* 予約追加モーダル */}
         {addResModal&&(
           <div className="mover" onClick={()=>setAddResModal(null)}>
@@ -1744,6 +1743,38 @@ calView==="list" && (
             </div>
           </div>;
         })()}
+
+        {/* 作業編集モーダル（顧客詳細内） */}
+        {editResModal&&(
+          <div className="mover" onClick={()=>setEditResModal(null)}>
+            <div className="modal" onClick={e=>e.stopPropagation()}>
+              <h3>✏️ 作業を編集</h3>
+              <div className="fg"><label>入庫日</label><input type="date" value={editResModal.checkin_date||""} onChange={e=>setEditResModal(n=>({...n,checkin_date:e.target.value}))}/></div>
+              <div className="fg"><label>時間</label>
+                <select value={editResModal.checkin_time||""} onChange={e=>setEditResModal(n=>({...n,checkin_time:e.target.value}))}>
+                  <option value="">未設定</option>
+                  {HOURS.map(h=><option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+              <div className="fg"><label>出庫予定日</label>
+                <input type="date" value={editResModal.due_date||""} onChange={e=>setEditResModal(n=>({...n,due_date:e.target.value,dueDateUnknown:false}))} disabled={editResModal.dueDateUnknown} style={{opacity:editResModal.dueDateUnknown?0.4:1,marginBottom:6}}/>
+                <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,color:"#7a6f63",cursor:"pointer"}}>
+                  <input type="checkbox" checked={!!editResModal.dueDateUnknown} onChange={e=>setEditResModal(n=>({...n,dueDateUnknown:e.target.checked,due_date:e.target.checked?"":n.due_date}))} style={{width:16,height:16}}/>出庫日未定
+                </label>
+              </div>
+              <div className="fg"><label>担当者</label>
+                <select value={editResModal.staff||"あさと"} onChange={e=>setEditResModal(n=>({...n,staff:e.target.value}))}>
+                  {STAFF.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="fg"><label>メモ</label><input value={editResModal.memo||""} onChange={e=>setEditResModal(n=>({...n,memo:e.target.value}))}/></div>
+              <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+                <button className="gbtn" onClick={()=>setEditResModal(null)}>キャンセル</button>
+                <button className="pbtn" onClick={doEditRes}>保存</button>
+              </div>
+            </div>
+          </div>
+        )}
         </div>)}
       </div>
 
