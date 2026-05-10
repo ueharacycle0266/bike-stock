@@ -931,9 +931,9 @@ export default function App() {
         {calView==="pickup" && (
           <div>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()-1);setCalMonthDate(d);}}><Ico.ChevLeft/></button>
-              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calMonthDate.getFullYear()}年{calMonthDate.getMonth()+1}月 🏁 出庫予定</span>
-              <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()+1);setCalMonthDate(d);}}><Ico.ChevRight/></button>
+              <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()-1);setCalMonthDate(d);}}><Ico.ChevLeft/></button>
+              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{monthCalDate.getFullYear()}年{monthCalDate.getMonth()+1}月 🏁 出庫予定</span>
+              <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()+1);setCalMonthDate(d);}}><Ico.ChevRight/></button>
             </div>
             <div style={{padding:"6px 8px",minHeight:"calc(100vh - 140px)"}}>
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
@@ -942,7 +942,7 @@ export default function App() {
                 ))}
               </div>
               {(()=>{
-                const y=calMonthDate.getFullYear(), mo=calMonthDate.getMonth();
+                const y=monthCalDate.getFullYear(), mo=monthCalDate.getMonth();
                 const fd=new Date(y,mo,1).getDay(), off=fd===0?6:fd-1;
                 const dim=new Date(y,mo+1,0).getDate();
                 const cells=[]; for(let i=0;i<off;i++) cells.push(null); for(let i=1;i<=dim;i++) cells.push(i);
@@ -976,8 +976,34 @@ export default function App() {
         )}
 
 calView==="list" && (
-          <div style={{padding:20}}>
-            <p style={{color:"#9a8f82"}}>一覧</p>
+          <div style={{padding:"8px 12px"}}>
+            {reservations.length===0&&<p style={{color:"#9a8f82",textAlign:"center",paddingTop:40}}>作業なし</p>}
+            {["reserved","in","done"].map(st=>{
+              const group=reservations.filter(r=>r.status===st);
+              if(group.length===0) return null;
+              const label=st==="reserved"?"受付中":st==="in"?"入庫中":"出庫済";
+              const col=st==="reserved"?"#2563a8":st==="in"?"#2d7a44":"#b0a898";
+              return <div key={st} style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:700,color:col,padding:"4px 8px",background:col+"18",borderRadius:6,marginBottom:6}}>{label} {group.length}件</div>
+                {group.map(r=>{
+                  const c=custMap[r.customer_id];
+                  const bike=c?.bikes?.[r.bike_index];
+                  return <div key={r.id} style={{background:"#fff",borderRadius:8,border:"1px solid #e8e0d5",padding:"8px 10px",marginBottom:6,display:"flex",alignItems:"center",gap:8}} onClick={()=>setSelectedRes(r)}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:13,color:"#2a2018",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c?.name||"顧客不明"}</div>
+                      <div style={{fontSize:11,color:"#9a8f82",marginTop:2}}>
+                        {bike&&<span style={{marginRight:6}}>🚲 {bike.maker}</span>}
+                        <span>入庫: {fmt(r.checkin_date,"mmdd")}</span>
+                        {r.due_date&&<span style={{marginLeft:6}}>出庫: {fmt(r.due_date,"mmdd")}</span>}
+                        {r.staff&&<span style={{marginLeft:6}}>担当: {r.staff}</span>}
+                      </div>
+                    </div>
+                    <button className="icobtn sedit" style={{flexShrink:0}} onClick={e=>{e.stopPropagation();setEditResModal({...r,dueDateUnknown:!r.due_date});}}><Ico.Edit/></button>
+                  </div>;
+                })}
+              </div>
+              </div>;
+            })}
           </div>
         )}
 
@@ -1549,9 +1575,9 @@ calView==="list" && (
         {calView==="pickup" && (
           <div>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()-1);setCalMonthDate(d);}}><Ico.ChevLeft/></button>
-              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calMonthDate.getFullYear()}年{calMonthDate.getMonth()+1}月 🏁 出庫予定</span>
-              <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()+1);setCalMonthDate(d);}}><Ico.ChevRight/></button>
+              <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()-1);setCalMonthDate(d);}}><Ico.ChevLeft/></button>
+              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{monthCalDate.getFullYear()}年{monthCalDate.getMonth()+1}月 🏁 出庫予定</span>
+              <button className="icobtn" onClick={()=>{const d=new Date(monthCalDate);d.setMonth(d.getMonth()+1);setCalMonthDate(d);}}><Ico.ChevRight/></button>
             </div>
             <div style={{padding:"6px 8px"}}>
               <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
@@ -1560,7 +1586,7 @@ calView==="list" && (
                 ))}
               </div>
               {(()=>{
-                const y=calMonthDate.getFullYear(), mo=calMonthDate.getMonth();
+                const y=monthCalDate.getFullYear(), mo=monthCalDate.getMonth();
                 const fd=new Date(y,mo,1).getDay(); const off=fd===0?6:fd-1;
                 const dim=new Date(y,mo+1,0).getDate();
                 const cells=[]; for(let i=0;i<off;i++) cells.push(null); for(let i=1;i<=dim;i++) cells.push(i);
