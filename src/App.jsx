@@ -928,7 +928,7 @@ export default function App() {
           </div>
         )}
 
-        {        {calView==="pickup" && (
+        {calView==="pickup" && (
           <div>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()-1);setCalMonthDate(d);}}><Ico.ChevLeft/></button>
