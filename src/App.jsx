@@ -626,9 +626,9 @@ export default function App() {
     const repairTotal = repairItems.reduce((s,it)=>{const m=repairMenus.find(m=>m.id===it.menuId);return s+(m?.price||0)*it.qty;},0);
     const obj = {id, ...newTemp, tags, repairItems, repairTotal, done:false, created_at:new Date().toISOString()};
     setTempNotes(p=>[obj,...p]);
-    setNewTemp({name:"",phone:"",memo:"",tags:[],repairItems:[]});
+    setNewTemp({name:"",furigana:"",phone:"",memo:"",tags:[],repairItems:[]});
     setAddTempModal(false);
-    await api("temp_notes","POST",{id,name:newTemp.name||null,phone:newTemp.phone||null,memo:newTemp.memo||null,tags:JSON.stringify(tags),repair_items:JSON.stringify(repairItems),repair_total:repairTotal,done:false});
+    await api("temp_notes","POST",{id,name:newTemp.name||null,furigana:newTemp.furigana||null,phone:newTemp.phone||null,memo:newTemp.memo||null,tags:JSON.stringify(tags),repair_items:JSON.stringify(repairItems),repair_total:repairTotal,done:false});
   };
 
   const doEditTemp = async () => {
@@ -792,6 +792,7 @@ export default function App() {
           <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
           <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><span style={{fontSize:11,fontWeight:700}}>週</span></button>
           <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
+          <button className={`icobtn ${calView==="pickup"?"icobtn-on":""}`} onClick={()=>setCalView("pickup")} title="出庫カレンダー"><span style={{fontSize:14}}>🏁</span></button>
           <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><span style={{fontSize:11,fontWeight:700}}>一覧</span></button>
           {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
         </Header>
@@ -1045,7 +1046,7 @@ export default function App() {
               <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
                 {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
                 {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
-                <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date})}><Ico.Edit/></button>
+                <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>{setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date});setSelectedRes(null);}}><Ico.Edit/></button>
                 <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
               </div>
             </div>
@@ -1291,6 +1292,7 @@ export default function App() {
                       {(t.tags||[]).map(tid=>{const tag=tempTags.find(tg=>tg.id===tid);return tag?<span key={tid} style={{background:"#fdf0ee",color:"#c0392b",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4}}>{tag.name}</span>:null;})}
                       <span style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{t.name||"名前未入力"}</span>
                     </div>
+                    {t.furigana&&<div style={{fontSize:11,color:"#b0a898"}}>{t.furigana}</div>}
                     {t.phone&&<div style={{fontSize:12,color:"#9a8f82"}}>{t.phone}</div>}
                     {t.memo&&<div style={{fontSize:12,color:"#b0a898",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.memo}</div>}
                     {(t.repairItems||[]).filter(it=>it.menuId).length>0&&<div style={{fontSize:11,color:"#2a7a5a",marginTop:2}}>見積: ¥{(t.repairTotal||0).toLocaleString()}</div>}
@@ -1497,6 +1499,57 @@ export default function App() {
           </div>
         )}
 
+        {calView==="pickup" && (
+          <div>
+            <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()-1);setCalMonthDate(d);}}><Ico.ChevLeft/></button>
+              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calMonthDate.getFullYear()}年{calMonthDate.getMonth()+1}月 🏁 出庫予定</span>
+              <button className="icobtn" onClick={()=>{const d=new Date(calMonthDate);d.setMonth(d.getMonth()+1);setCalMonthDate(d);}}><Ico.ChevRight/></button>
+            </div>
+            <div style={{padding:"6px 8px"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:4}}>
+                {["月","火","水","木","金","土","日"].map((d,i)=>(
+                  <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,padding:"4px 0",color:i===5?"#2563a8":i===6?"#c0392b":"#9a8f82"}}>{d}</div>
+                ))}
+              </div>
+              {(()=>{
+                const y=calMonthDate.getFullYear(), mo=calMonthDate.getMonth();
+                const fd=new Date(y,mo,1).getDay(); const off=fd===0?6:fd-1;
+                const dim=new Date(y,mo+1,0).getDate();
+                const cells=[]; for(let i=0;i<off;i++) cells.push(null); for(let i=1;i<=dim;i++) cells.push(i);
+                while(cells.length%7!==0) cells.push(null);
+                const weeks=[]; for(let i=0;i<cells.length;i+=7) weeks.push(cells.slice(i,i+7));
+                const todayStr=toLocalDateStr(new Date());
+                return weeks.map((week,wi)=>(
+                  <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
+                    {week.map((day,di)=>{
+                      if(!day) return <div key={di} style={{minHeight:72}}/>;
+                      const ds=y+"-"+String(mo+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+                      const pickups=reservations.filter(r=>r.due_date===ds&&r.status!=="done");
+                      const isToday=ds===todayStr;
+                      const isSat=di===5, isSun=di===6;
+                      return (
+                        <div key={di} style={{minHeight:72,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isToday?"#f0ece4":"#fff",cursor:pickups.length>0?"pointer":"default"}} onClick={()=>{if(pickups.length>0) setSelectedRes(pickups[0]);}}>
+                          <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}</div>
+                          {pickups.slice(0,3).map(r=>{
+                            const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                            return (
+                              <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>
+                                {custMap[r.customer_id]?.name||"?"}
+                              </div>
+                            );
+                          })}
+                          {pickups.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{pickups.length-3}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+
         {calView==="list" && (
           <div style={{padding:"16px 20px"}}>
             {reservations.filter(r=>r.status==="in").length>0&&(
@@ -1609,7 +1662,7 @@ export default function App() {
               <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
                 {selectedRes.status==="reserved"&&<button className="pbtn" style={{flex:1,fontSize:12}} onClick={()=>doCheckin(selectedRes.id)}>✅ 入庫確定</button>}
                 {selectedRes.status==="in"&&<button className="pbtn" style={{flex:1,fontSize:12,background:"#2d7a44"}} onClick={()=>doCheckout(selectedRes.id)}>🏁 出庫</button>}
-                <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date})}><Ico.Edit/></button>
+                <button className="icobtn sedit" style={{padding:"8px 12px"}} onClick={()=>{setEditResModal({...selectedRes,dueDateUnknown:!selectedRes.due_date});setSelectedRes(null);}}><Ico.Edit/></button>
                 <button className="gbtn" style={{fontSize:12}} onClick={()=>delRes(selectedRes.id)}>削除</button>
               </div>
             </div>
@@ -1643,6 +1696,7 @@ export default function App() {
               {newTemp.createdAt&&`${newTemp.createdAt.getMonth()+1}/${newTemp.createdAt.getDate()}（${["日","月","火","水","木","金","土"][newTemp.createdAt.getDay()]}） ${String(newTemp.createdAt.getHours()).padStart(2,"0")}:${String(newTemp.createdAt.getMinutes()).padStart(2,"0")}`}
             </div>
             <div className="fg"><label>お名前</label><input value={newTemp.name} onChange={e=>setNewTemp(n=>({...n,name:e.target.value}))} placeholder="山田さん" autoFocus/></div>
+            <div className="fg"><label>フリガナ</label><input value={newTemp.furigana||""} onChange={e=>setNewTemp(n=>({...n,furigana:e.target.value}))} placeholder="ヤマダさん"/></div>
             <div className="fg"><label>電話番号</label><input value={newTemp.phone} onChange={e=>setNewTemp(n=>({...n,phone:e.target.value}))} placeholder="090-0000-0000" type="tel"/></div>
             <div className="fg"><label>ご要件メモ</label><textarea value={newTemp.memo} onChange={e=>setNewTemp(n=>({...n,memo:e.target.value}))} placeholder="例: タイヤ交換希望" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"9px 11px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none",resize:"vertical",minHeight:60}}/></div>
             {tempTags.length>0&&<div className="fg"><label>チェック項目（複数選択可）</label>
@@ -1738,6 +1792,7 @@ export default function App() {
               </div>
               <button className="icobtn" onClick={()=>setSelectedTemp(null)}><Ico.X/></button>
             </div>
+            {selectedTemp.furigana&&<div style={S.infoRow}><span style={S.infoLabel}>フリガナ</span><span>{selectedTemp.furigana}</span></div>}
             {selectedTemp.phone&&<div style={S.infoRow}><span style={S.infoLabel}>電話番号</span><span>{selectedTemp.phone}</span></div>}
             {selectedTemp.memo&&<div style={S.infoRow}><span style={S.infoLabel}>要件</span><span style={{whiteSpace:"pre-wrap"}}>{selectedTemp.memo}</span></div>}
             {(selectedTemp.repairItems||[]).length>0&&<div style={{marginTop:10}}>
