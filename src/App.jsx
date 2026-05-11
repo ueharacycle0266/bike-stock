@@ -790,25 +790,24 @@ export default function App() {
         <style>{CSS}</style>
         <Header>
           <button className="icobtn" onClick={()=>{loadReservations();loadBlockedSlots();}}><Ico.Refresh/></button>
-          <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} onClick={()=>setCalView("week")}><span style={{fontSize:11,fontWeight:700}}>週</span></button>
-          <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} onClick={()=>setCalView("month")}><span style={{fontSize:11,fontWeight:700}}>月</span></button>
+          <button className={`icobtn ${(calView==="week"||calView==="month")?"icobtn-on":""}`} onClick={()=>setCalView(calView==="month"?"week":"week")}><Ico.Calendar/></button>
           <button className={`icobtn ${calView==="pickup"?"icobtn-on":""}`} onClick={()=>setCalView("pickup")} title="出庫カレンダー"><span style={{fontSize:14}}>🏁</span></button>
           <button className={`icobtn ${calView==="list"?"icobtn-on":""}`} onClick={()=>setCalView("list")}><span style={{fontSize:11,fontWeight:700}}>一覧</span></button>
-          {(calView==="week"||calView==="month")&&<button className="icobtn" onClick={()=>setCalBlockMode(v=>!v)} style={calBlockMode?{background:"#c0392b",color:"#fff"}:{}}><span style={{fontSize:11,fontWeight:700}}>×封鎖</span></button>}
         </Header>
 
         {calView==="week" && (
           <>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{display:"flex",gap:4}}>
-                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setMonth(d.getMonth()-1);setCalDate(d);}} style={{fontSize:10,padding:"5px 8px",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}}>月−</button>
-                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calDate.getFullYear()}年{calDate.getMonth()+1}月{calDate.getDate()}日〜</span>
+                <div style={{display:"flex",gap:4}}>
+                  <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} style={{fontSize:10,padding:"2px 8px"}} onClick={()=>setCalView("week")}>週</button>
+                  <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} style={{fontSize:10,padding:"2px 8px"}} onClick={()=>setCalView("month")}>月</button>
+                  <button className="icobtn" style={calBlockMode?{fontSize:10,padding:"2px 8px",background:"#c0392b",color:"#fff"}:{fontSize:10,padding:"2px 8px"}} onClick={()=>setCalBlockMode(v=>!v)}>{calBlockMode?"封鎖中":"×封鎖"}</button>
+                </div>
               </div>
-              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calDate.getFullYear()}年{calDate.getMonth()+1}月</span>
-              <div style={{display:"flex",gap:4}}>
-                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
-                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setMonth(d.getMonth()+1);setCalDate(d);}} style={{fontSize:10,padding:"5px 8px",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}}>月+</button>
-              </div>
+              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
             </div>
             <div style={{overflowY:"auto",maxHeight:"calc(100vh - 180px)"}}>
               <table style={{borderCollapse:"collapse",width:"100%",tableLayout:"fixed"}}>
@@ -899,26 +898,28 @@ export default function App() {
                 return weeks.map((week,wi)=>(
                   <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
                     {week.map((day,di)=>{
-                      if(!day) return <div key={di} style={{minHeight:64}}/>;
+                      if(!day) return <div key={di} style={{height:90}}/>;
                       const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                       const dayRes=reservations.filter(r=>r.checkin_date===dateStr&&r.status!=="done");
                       const isDayBlocked=HOURS.every(t=>!!blockedCells[dateStr+"_"+t]);
                       const isToday=dateStr===toLocalDateStr(new Date());
                       const isSat=di===5, isSun=di===6;
-                      return <div key={di} style={{minHeight:90,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",position:"relative"}}
+                      return <div key={di} style={{height:90,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column"}}
                         onClick={()=>{
                           if(calBlockMode){blockDay(dateStr);return;}
                           const d=new Date(dateStr+"T00:00:00");
                           setCalDate(d); setCalView("week");
                         }}>
-                        <div style={{fontSize:12,fontWeight:800,color:isDayBlocked?"#c0392b":isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}{isDayBlocked&&" ×"}</div>
-                        {!isDayBlocked&&dayRes.slice(0,3).map(r=>{
-                          const c=custMap[r.customer_id];
-                          const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                          return <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
-                            onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>
-                        })}
-                        {!isDayBlocked&&dayRes.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-3}</div>}
+                        <div style={{fontSize:11,fontWeight:800,color:isDayBlocked?"#c0392b":isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",lineHeight:"15px",flexShrink:0}}>{day}{isDayBlocked&&" ×"}</div>
+                        <div style={{flex:1,overflow:"hidden"}}>
+                          {!isDayBlocked&&dayRes.slice(0,3).map(r=>{
+                            const c=custMap[r.customer_id];
+                            const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                            return <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
+                              onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>
+                          })}
+                          {!isDayBlocked&&dayRes.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-3}</div>}
+                        </div>
                       </div>
                     })}
                   </div>
@@ -952,19 +953,22 @@ export default function App() {
                 return weeks.map((week,wi)=>(
                   <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
                     {week.map((day,di)=>{
-                      if(!day) return <div key={di} style={{minHeight:72}}/>;
+                      if(!day) return <div key={di} style={{height:90}}/>;
                       const ds=y+"-"+String(mo+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
                       const pickups=reservations.filter(r=>r.due_date===ds&&r.status!=="done");
                       const isToday=ds===todayStr;
                       const isSat=di===5, isSun=di===6;
                       return (
-                        <div key={di} style={{minHeight:72,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isToday?"#f0ece4":"#fff",cursor:"pointer"}} onClick={()=>{if(pickups.length>0) setSelectedRes(pickups[0]);}}>
-                          <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}</div>
-                          {pickups.map(r=>(
-                            <div key={r.id} style={{background:(r.staff==="あさと"?"#2563a8":"#2d7a44")+"20",borderLeft:"2px solid "+(r.staff==="あさと"?"#2563a8":"#2d7a44"),borderRadius:3,padding:"1px 3px",fontSize:9,color:r.staff==="あさと"?"#2563a8":"#2d7a44",fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>
-                              {custMap[r.customer_id]?.name||"?"}
-                            </div>
-                          ))}
+                        <div key={di} style={{height:90,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isToday?"#f0ece4":"#fff",cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column"}} onClick={()=>{if(pickups.length>0) setSelectedRes(pickups[0]);}}>
+                          <div style={{fontSize:11,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",lineHeight:"15px",flexShrink:0}}>{day}</div>
+                          <div style={{flex:1,overflow:"hidden"}}>
+                            {pickups.slice(0,3).map(r=>(
+                              <div key={r.id} style={{background:(r.staff==="あさと"?"#2563a8":"#2d7a44")+"20",borderLeft:"2px solid "+(r.staff==="あさと"?"#2563a8":"#2d7a44"),borderRadius:3,padding:"1px 3px",fontSize:9,color:r.staff==="あさと"?"#2563a8":"#2d7a44",fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>
+                                {custMap[r.customer_id]?.name||"?"}
+                              </div>
+                            ))}
+                            {pickups.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{pickups.length-3}</div>}
+                          </div>
                         </div>
                       );
                     })}
@@ -1447,15 +1451,16 @@ calView==="list" && (
         {calView==="week" && (
           <>
             <div style={{background:"#faf7f2",borderBottom:"1px solid #e0d9ce",padding:"8px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div style={{display:"flex",gap:4}}>
-                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setMonth(d.getMonth()-1);setCalDate(d);}} style={{fontSize:10,padding:"5px 8px",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}}>月−</button>
-                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()-7);setCalDate(d);}}><Ico.ChevLeft/></button>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calDate.getFullYear()}年{calDate.getMonth()+1}月{calDate.getDate()}日〜</span>
+                <div style={{display:"flex",gap:4}}>
+                  <button className={`icobtn ${calView==="week"?"icobtn-on":""}`} style={{fontSize:10,padding:"2px 8px"}} onClick={()=>setCalView("week")}>週</button>
+                  <button className={`icobtn ${calView==="month"?"icobtn-on":""}`} style={{fontSize:10,padding:"2px 8px"}} onClick={()=>setCalView("month")}>月</button>
+                  <button className="icobtn" style={calBlockMode?{fontSize:10,padding:"2px 8px",background:"#c0392b",color:"#fff"}:{fontSize:10,padding:"2px 8px"}} onClick={()=>setCalBlockMode(v=>!v)}>{calBlockMode?"封鎖中":"×封鎖"}</button>
+                </div>
               </div>
-              <span style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018"}}>{calDate.getFullYear()}年{calDate.getMonth()+1}月</span>
-              <div style={{display:"flex",gap:4}}>
-                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
-                <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setMonth(d.getMonth()+1);setCalDate(d);}} style={{fontSize:10,padding:"5px 8px",fontFamily:"Noto Sans JP,sans-serif",fontWeight:700}}>月+</button>
-              </div>
+              <button className="icobtn" onClick={()=>{const d=new Date(calDate);d.setDate(d.getDate()+7);setCalDate(d);}}><Ico.ChevRight/></button>
             </div>
             <div style={{overflowY:"auto",maxHeight:"calc(100vh - 180px)"}}>
               <table style={{borderCollapse:"collapse",width:"100%",tableLayout:"fixed"}}>
@@ -1546,26 +1551,28 @@ calView==="list" && (
                 return weeks.map((week,wi)=>(
                   <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
                     {week.map((day,di)=>{
-                      if(!day) return <div key={di} style={{minHeight:64}}/>;
+                      if(!day) return <div key={di} style={{height:90}}/>;
                       const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                       const dayRes=reservations.filter(r=>r.checkin_date===dateStr&&r.status!=="done");
                       const isDayBlocked=HOURS.every(t=>!!blockedCells[dateStr+"_"+t]);
                       const isToday=dateStr===toLocalDateStr(new Date());
                       const isSat=di===5, isSun=di===6;
-                      return <div key={di} style={{minHeight:90,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",position:"relative"}}
+                      return <div key={di} style={{height:90,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isDayBlocked?"#fdf0ee":isToday?"#f0ece4":"#fff",cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column"}}
                         onClick={()=>{
                           if(calBlockMode){blockDay(dateStr);return;}
                           const d=new Date(dateStr+"T00:00:00");
                           setCalDate(d); setCalView("week");
                         }}>
-                        <div style={{fontSize:12,fontWeight:800,color:isDayBlocked?"#c0392b":isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}{isDayBlocked&&" ×"}</div>
-                        {!isDayBlocked&&dayRes.slice(0,3).map(r=>{
-                          const c=custMap[r.customer_id];
-                          const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                          return <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
-                            onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>
-                        })}
-                        {!isDayBlocked&&dayRes.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-3}</div>}
+                        <div style={{fontSize:11,fontWeight:800,color:isDayBlocked?"#c0392b":isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",lineHeight:"15px",flexShrink:0}}>{day}{isDayBlocked&&" ×"}</div>
+                        <div style={{flex:1,overflow:"hidden"}}>
+                          {!isDayBlocked&&dayRes.slice(0,3).map(r=>{
+                            const c=custMap[r.customer_id];
+                            const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                            return <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1}}
+                              onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>{c?.name||"?"}</div>
+                          })}
+                          {!isDayBlocked&&dayRes.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{dayRes.length-3}</div>}
+                        </div>
                       </div>
                     })}
                   </div>
@@ -1599,23 +1606,25 @@ calView==="list" && (
                 return weeks.map((week,wi)=>(
                   <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
                     {week.map((day,di)=>{
-                      if(!day) return <div key={di} style={{minHeight:72}}/>;
+                      if(!day) return <div key={di} style={{height:90}}/>;
                       const ds=y+"-"+String(mo+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
                       const pickups=reservations.filter(r=>r.due_date===ds&&r.status!=="done");
                       const isToday=ds===todayStr;
                       const isSat=di===5, isSun=di===6;
                       return (
-                        <div key={di} style={{minHeight:72,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isToday?"#f0ece4":"#fff",cursor:pickups.length>0?"pointer":"default"}} onClick={()=>{if(pickups.length>0) setSelectedRes(pickups[0]);}}>
-                          <div style={{fontSize:12,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",marginBottom:2}}>{day}</div>
-                          {pickups.slice(0,3).map(r=>{
-                            const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
-                            return (
-                              <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>
-                                {custMap[r.customer_id]?.name||"?"}
-                              </div>
-                            );
-                          })}
-                          {pickups.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{pickups.length-3}</div>}
+                        <div key={di} style={{height:90,border:"1px solid #f0ece4",borderRadius:6,padding:"3px 4px",background:isToday?"#f0ece4":"#fff",cursor:pickups.length>0?"pointer":"default",overflow:"hidden",display:"flex",flexDirection:"column"}} onClick={()=>{if(pickups.length>0) setSelectedRes(pickups[0]);}}>
+                          <div style={{fontSize:11,fontWeight:800,color:isToday?"#2a2018":isSun?"#c0392b":isSat?"#2563a8":"#7a6f63",lineHeight:"15px",flexShrink:0}}>{day}</div>
+                          <div style={{flex:1,overflow:"hidden"}}>
+                            {pickups.slice(0,3).map(r=>{
+                              const sc=r.staff==="あさと"?"#2563a8":r.staff==="たけし"?"#2d7a44":"#9a6f3a";
+                              return (
+                                <div key={r.id} style={{background:sc+"20",borderLeft:"2px solid "+sc,borderRadius:3,padding:"1px 3px",fontSize:9,color:sc,fontWeight:700,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",marginBottom:1,cursor:"pointer"}} onClick={e=>{e.stopPropagation();setSelectedRes(r);}}>
+                                  {custMap[r.customer_id]?.name||"?"}
+                                </div>
+                              );
+                            })}
+                            {pickups.length>3&&<div style={{fontSize:9,color:"#b0a898"}}>+{pickups.length-3}</div>}
+                          </div>
                         </div>
                       );
                     })}
