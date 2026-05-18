@@ -169,7 +169,7 @@ export default function App() {
   // ── 修理メニュー ──
   const [repairMenus, setRepairMenus] = useState([]);
   const [editMenuOpen, setEditMenuOpen] = useState(false);
-  const [newMenuF, setNewMenuF] = useState({name:"",price:""});
+  const [newMenuF, setNewMenuF] = useState({name:"",price:"",group1:"",group2:""});
   const [showRepairMenuAdd, setShowRepairMenuAdd] = useState(false);
 
   // ── 見積もり ──
@@ -434,14 +434,16 @@ export default function App() {
     const name=newMenuF.name.trim();
     if(!name) return;
     const price=+newMenuF.price||0;
+    const group1=newMenuF.group1.trim();
+    const group2=newMenuF.group2.trim();
     const o=(repairMenus||[]).reduce((m,x)=>Math.max(m,x.order ?? 0),-1)+1;
     const id=uid();
     setSaving(true);
     try {
-      const saved=await api("repair_menus","POST",{id,name,price,order:o});
-      const row=Array.isArray(saved) ? (saved[0] || {id,name,price,order:o}) : {id,name,price,order:o};
+      const saved=await api("repair_menus","POST",{id,name,price,order:o,group1,group2});
+      const row=Array.isArray(saved) ? (saved[0] || {id,name,price,order:o,group1,group2}) : {id,name,price,order:o,group1,group2};
       setRepairMenus(p=>[...p,row].sort((a,b)=>a.name.localeCompare(b.name,'ja')));
-      setNewMenuF({name:"",price:""});
+      setNewMenuF({name:"",price:"",group1:"",group2:""});
     } catch(e) { console.error(e); alert("修理メニューの追加に失敗しました。"); }
     finally { setSaving(false); }
   };
@@ -452,6 +454,18 @@ export default function App() {
       await api(`repair_menus?id=eq.${id}`,"DELETE");
       setRepairMenus(p=>p.filter(m=>m.id!==id));
     } catch(e) { console.error(e); alert("修理メニューの削除に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const doEditMenu=async()=>{
+    if(!editRepairMenu) return;
+    const {id,name,price,group1,group2}=editRepairMenu;
+    if(!name.trim()) return;
+    setSaving(true);
+    try {
+      await api(`repair_menus?id=eq.${id}`,"PATCH",{name:name.trim(),price:+price||0,group1:(group1||"").trim(),group2:(group2||"").trim()});
+      setRepairMenus(p=>p.map(m=>m.id===id?{...m,name:name.trim(),price:+price||0,group1:(group1||"").trim(),group2:(group2||"").trim()}:m).sort((a,b)=>a.name.localeCompare(b.name,'ja')));
+      setEditRepairMenu(null);
+    } catch(e) { console.error(e); alert("修理メニューの更新に失敗しました。"); }
     finally { setSaving(false); }
   };
 
@@ -671,7 +685,20 @@ export default function App() {
           updateEstimateLine(i, menu ? {menuId:menu.id,name:menu.name,price:menu.price,qty:it.qty||1} : {menuId:"",name:"",price:"",qty:it.qty||1});
         }}>
           <option value="">修理メニュー</option>
-          {(repairMenus||[]).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+          {((()=>{
+              const _sorted=[...(repairMenus||[])].sort((a,b)=>{
+                const g1=(a.group1||"").localeCompare(b.group1||"","ja"); if(g1!==0) return g1;
+                const g2=(a.group2||"").localeCompare(b.group2||"","ja"); if(g2!==0) return g2;
+                return a.name.localeCompare(b.name,"ja");
+              });
+              const _grps={};
+              _sorted.forEach(m=>{const k=(m.group1||"_")+":::"+(m.group2||"_");if(!_grps[k])_grps[k]={g1:m.group1,g2:m.group2,items:[]};_grps[k].items.push(m);});
+              return Object.values(_grps).map(g=>(
+                <optgroup key={g.g1+"_"+g.g2} label={g.g1&&g.g2?g.g1+" › "+g.g2:g.g1||g.g2||"その他"}>
+                  {g.items.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
+                </optgroup>
+              ));
+            })()
         </select> : <input value={getEstItemName(it)} onChange={e=>updateEstimateLine(i,{name:e.target.value})} placeholder="修理内容" />}
         <input type="number" inputMode="numeric" min="1" value={it.qty ?? 1} onChange={e=>updateEstimateLine(i,{qty:e.target.value})} placeholder="数量" />
         {it.menuId ? <div className="line-total">¥{lineTotal.toLocaleString()}</div> : <input type="number" inputMode="numeric" min="0" value={it.price ?? ""} onChange={e=>updateEstimateLine(i,{price:e.target.value})} placeholder="金額" />}
@@ -706,7 +733,20 @@ export default function App() {
           updateResRepairLine(i, menu ? {menuId:menu.id,name:menu.name,price:menu.price,qty:it.qty||1} : {menuId:"",name:"",price:"",qty:it.qty||1});
         }}>
           <option value="">修理メニュー</option>
-          {(repairMenus||[]).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+          {((()=>{
+              const _sorted=[...(repairMenus||[])].sort((a,b)=>{
+                const g1=(a.group1||"").localeCompare(b.group1||"","ja"); if(g1!==0) return g1;
+                const g2=(a.group2||"").localeCompare(b.group2||"","ja"); if(g2!==0) return g2;
+                return a.name.localeCompare(b.name,"ja");
+              });
+              const _grps={};
+              _sorted.forEach(m=>{const k=(m.group1||"_")+":::"+(m.group2||"_");if(!_grps[k])_grps[k]={g1:m.group1,g2:m.group2,items:[]};_grps[k].items.push(m);});
+              return Object.values(_grps).map(g=>(
+                <optgroup key={g.g1+"_"+g.g2} label={g.g1&&g.g2?g.g1+" › "+g.g2:g.g1||g.g2||"その他"}>
+                  {g.items.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
+                </optgroup>
+              ));
+            })()
         </select> : <input value={getEstItemName(it)} onChange={e=>updateResRepairLine(i,{name:e.target.value})} placeholder="修理内容" />}
         <input type="number" inputMode="numeric" min="1" value={it.qty ?? 1} onChange={e=>updateResRepairLine(i,{qty:e.target.value})} placeholder="数量" />
         {it.menuId ? <div className="line-total">¥{lineTotal.toLocaleString()}</div> : <input type="number" inputMode="numeric" min="0" value={it.price ?? ""} onChange={e=>updateResRepairLine(i,{price:e.target.value})} placeholder="金額" />}
@@ -1307,28 +1347,63 @@ calView==="list" && (
               {(makerMaster||[]).map(m=><div key={m.id} className="strow compact-row"><span style={{flex:1,fontWeight:600,fontSize:13}}>{m.name}</span><button className="sico sedit" onClick={()=>{setRnMaker(m.id);setRnMakerV(m.name);}}><Ico.Edit/></button><button className="sico sdel" onClick={()=>delMaker(m.id)}><Ico.Trash/></button></div>)}
               <div className="compact-form"><input value={newMakerF} onChange={e=>setNewMakerF(e.target.value)} placeholder="例: GIANT" onKeyDown={e=>e.key==="Enter"&&doAddMaker()}/><button className="pbtn" onClick={doAddMaker}>追加</button></div>
               <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:8,marginTop:18}}>🔧 修理メニュー</div>
-              {(repairMenus||[]).map(m=>(
-                <div key={m.id} className="repair-menu-row">
-                  {editRepairMenu?.id===m.id?(
-                    <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,width:"100%"}}>
-                      <input value={editRepairMenu.name} onChange={e=>setEditRepairMenu(n=>({...n,name:e.target.value}))} style={{width:"100%",background:"#fff",border:"1.5px solid #2a2018",borderRadius:6,padding:"4px 8px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}/>
-                      <input type="number" value={editRepairMenu.price} onChange={e=>setEditRepairMenu(n=>({...n,price:e.target.value}))} style={{width:"100%",background:"#fff",border:"1.5px solid #2a2018",borderRadius:6,padding:"4px 8px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}} placeholder="金額"/>
-                      <div style={{display:"flex",gap:4}}>
-                        <button className="pbtn" style={{flex:1,padding:"5px",fontSize:12}} onClick={doEditMenu}>保存</button>
-                        <button className="gbtn" style={{flex:1,padding:"5px",fontSize:12}} onClick={()=>setEditRepairMenu(null)}>キャンセル</button>
+              <p style={{fontSize:11,color:"#b0a898",marginBottom:8}}>グループ１→グループ２→項目名 の階層で管理できます</p>
+              {(()=>{
+                const sorted=[...(repairMenus||[])].sort((a,b)=>{
+                  const g1=(a.group1||"zzz").localeCompare(b.group1||"zzz","ja");
+                  if(g1!==0) return g1;
+                  const g2=(a.group2||"zzz").localeCompare(b.group2||"zzz","ja");
+                  if(g2!==0) return g2;
+                  return a.name.localeCompare(b.name,"ja");
+                });
+                let lastG1="__", lastG2="__";
+                return sorted.map(m=>{
+                  const g1=m.group1||""; const g2=m.group2||"";
+                  const showG1=g1!==lastG1; const showG2=showG1||(g2!==lastG2);
+                  lastG1=g1; lastG2=g2;
+                  return (
+                    <div key={m.id}>
+                      {showG1&&g1&&<div style={{fontSize:11,fontWeight:700,color:"#2563a8",background:"#e8f0fb",borderRadius:5,padding:"2px 8px",margin:"8px 0 4px"}}>{g1}</div>}
+                      {showG2&&g2&&<div style={{fontSize:11,fontWeight:700,color:"#2d7a44",background:"#e8f5ee",borderRadius:5,padding:"2px 8px 2px 16px",marginBottom:4}}>{g2}</div>}
+                      <div className="repair-menu-row" style={{paddingLeft:g2?24:g1?12:0}}>
+                        {editRepairMenu?.id===m.id?(
+                          <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,width:"100%"}}>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+                              <input value={editRepairMenu.group1||""} onChange={e=>setEditRepairMenu(n=>({...n,group1:e.target.value}))} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}} placeholder="グループ１（例: タイヤ）"/>
+                              <input value={editRepairMenu.group2||""} onChange={e=>setEditRepairMenu(n=>({...n,group2:e.target.value}))} style={{padding:"4px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}} placeholder="グループ２（例: 前タイヤ）"/>
+                            </div>
+                            <input value={editRepairMenu.name} onChange={e=>setEditRepairMenu(n=>({...n,name:e.target.value}))} style={{width:"100%",padding:"4px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:13}} placeholder="項目名"/>
+                            <input type="number" value={editRepairMenu.price} onChange={e=>setEditRepairMenu(n=>({...n,price:e.target.value}))} style={{width:"100%",padding:"4px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:13}} placeholder="金額"/>
+                            <div style={{display:"flex",gap:4}}>
+                              <button className="pbtn" style={{flex:1,padding:"5px",fontSize:12}} onClick={doEditMenu}>保存</button>
+                              <button className="gbtn" style={{flex:1,padding:"5px",fontSize:12}} onClick={()=>setEditRepairMenu(null)}>キャンセル</button>
+                            </div>
+                          </div>
+                        ):(
+                          <>
+                            <span style={{flex:1,fontSize:13,fontWeight:600}}>{m.name}</span>
+                            {m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}
+                            <button className="sico sedit" onClick={()=>setEditRepairMenu({id:m.id,name:m.name,price:String(m.price||0),group1:m.group1||"",group2:m.group2||""})}><Ico.Edit/></button>
+                            <button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button>
+                          </>
+                        )}
                       </div>
                     </div>
-                  ):(
-                    <>
-                      <span style={{flex:1,fontSize:13,fontWeight:600}}>{m.name}</span>
-                      {m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}
-                      <button className="sico sedit" onClick={()=>setEditRepairMenu({id:m.id,name:m.name,price:String(m.price||0)})}><Ico.Edit/></button>
-                      <button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button>
-                    </>
-                  )}
+                  );
+                });
+              })()}
+              <div style={{marginTop:12,padding:"10px",background:"#f5f0e8",borderRadius:8,display:"flex",flexDirection:"column",gap:6}}>
+                <p style={{fontSize:11,color:"#b0a898",fontWeight:700}}>＋ 新規追加</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  <input value={newMenuF.group1} onChange={e=>setNewMenuF(n=>({...n,group1:e.target.value}))} placeholder="グループ１（例: タイヤ）" style={{padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}}/>
+                  <input value={newMenuF.group2} onChange={e=>setNewMenuF(n=>({...n,group2:e.target.value}))} placeholder="グループ２（例: 前タイヤ）" style={{padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}}/>
                 </div>
-              ))}
-              <div className="compact-form"><input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容"/><input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number"/><button className="pbtn" onClick={doAddMenu}>追加</button></div>
+                <div style={{display:"flex",gap:6}}>
+                  <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="項目名 *" style={{flex:2,padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:13}}/>
+                  <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" style={{flex:1,padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:13}}/>
+                  <button className="pbtn" style={{padding:"6px 12px",fontSize:12}} onClick={doAddMenu}>追加</button>
+                </div>
+              </div>
             </aside>
           </div>
         )}
@@ -1830,7 +1905,20 @@ calView==="list" && (
                 <div key={idx} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,background:"#f5f0e8",borderRadius:8,padding:"8px 10px"}}>
                   <select value={it.menuId} onChange={e=>setNewTemp(n=>{const r=[...n.repairItems];r[idx]={...r[idx],menuId:e.target.value};return {...n,repairItems:r};})} style={{flex:2,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 8px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}>
                     <option value="">メニュー選択</option>
-                    {repairMenus.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
+                    {(()=>{
+              const _sorted=[...(repairMenus||[])].sort((a,b)=>{
+                const g1=(a.group1||"").localeCompare(b.group1||"","ja"); if(g1!==0) return g1;
+                const g2=(a.group2||"").localeCompare(b.group2||"","ja"); if(g2!==0) return g2;
+                return a.name.localeCompare(b.name,"ja");
+              });
+              const _grps={};
+              _sorted.forEach(m=>{const k=(m.group1||"_")+":::"+(m.group2||"_");if(!_grps[k])_grps[k]={g1:m.group1,g2:m.group2,items:[]};_grps[k].items.push(m);});
+              return Object.values(_grps).map(g=>(
+                <optgroup key={g.g1+"_"+g.g2} label={g.g1&&g.g2?g.g1+" › "+g.g2:g.g1||g.g2||"その他"}>
+                  {g.items.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
+                </optgroup>
+              ));
+            })()
                   </select>
                   <select value={it.qty} onChange={e=>setNewTemp(n=>{const r=[...n.repairItems];r[idx]={...r[idx],qty:+e.target.value};return {...n,repairItems:r};})} style={{width:56,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 4px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none",textAlign:"center"}}>
                     {[1,2,3,4,5].map(n=><option key={n} value={n}>{n}個</option>)}
@@ -1876,7 +1964,20 @@ calView==="list" && (
                 <div key={idx} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,background:"#f5f0e8",borderRadius:8,padding:"8px 10px"}}>
                   <select value={it.menuId} onChange={e=>setEditTempModal(n=>{const r=[...n.repairItems];r[idx]={...r[idx],menuId:e.target.value};return {...n,repairItems:r};})} style={{flex:2,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 8px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}>
                     <option value="">メニュー選択</option>
-                    {repairMenus.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
+                    {(()=>{
+              const _sorted=[...(repairMenus||[])].sort((a,b)=>{
+                const g1=(a.group1||"").localeCompare(b.group1||"","ja"); if(g1!==0) return g1;
+                const g2=(a.group2||"").localeCompare(b.group2||"","ja"); if(g2!==0) return g2;
+                return a.name.localeCompare(b.name,"ja");
+              });
+              const _grps={};
+              _sorted.forEach(m=>{const k=(m.group1||"_")+":::"+(m.group2||"_");if(!_grps[k])_grps[k]={g1:m.group1,g2:m.group2,items:[]};_grps[k].items.push(m);});
+              return Object.values(_grps).map(g=>(
+                <optgroup key={g.g1+"_"+g.g2} label={g.g1&&g.g2?g.g1+" › "+g.g2:g.g1||g.g2||"その他"}>
+                  {g.items.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
+                </optgroup>
+              ));
+            })()
                   </select>
                   <select value={it.qty||1} onChange={e=>setEditTempModal(n=>{const r=[...n.repairItems];r[idx]={...r[idx],qty:+e.target.value};return {...n,repairItems:r};})} style={{width:56,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 4px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}>
                     {[1,2,3,4,5].map(n=><option key={n} value={n}>{n}個</option>)}
