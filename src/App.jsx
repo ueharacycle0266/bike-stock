@@ -721,8 +721,12 @@ export default function App() {
       <span style={{fontWeight:800,fontSize:12,color:"#2a2018"}}>修理メニュー追加</span>
       <button className="sico" onClick={()=>setShowRepairMenuAdd(false)}>×</button>
     </div>
+    <div style={{display:"flex",gap:4,marginBottom:4}}>
+      <input value={newMenuF.group1} onChange={e=>setNewMenuF(n=>({...n,group1:e.target.value}))} placeholder="グループ１（例: タイヤ）" style={{flex:1,padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}}/>
+      <input value={newMenuF.group2} onChange={e=>setNewMenuF(n=>({...n,group2:e.target.value}))} placeholder="グループ２（例: 前タイヤ）" style={{flex:1,padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}}/>
+    </div>
     <div className="quick-add-row">
-      <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" />
+      <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="項目名 *" />
       <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" inputMode="numeric" />
       <button className="pbtn" onClick={doAddMenu}>追加</button>
     </div>
@@ -760,8 +764,12 @@ export default function App() {
       <span style={{fontWeight:800,fontSize:12,color:"#2a2018"}}>修理メニュー追加</span>
       <button className="sico" onClick={()=>setShowRepairMenuAdd(false)}>×</button>
     </div>
+    <div style={{display:"flex",gap:4,marginBottom:4}}>
+      <input value={newMenuF.group1} onChange={e=>setNewMenuF(n=>({...n,group1:e.target.value}))} placeholder="グループ１（例: タイヤ）" style={{flex:1,padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}}/>
+      <input value={newMenuF.group2} onChange={e=>setNewMenuF(n=>({...n,group2:e.target.value}))} placeholder="グループ２（例: 前タイヤ）" style={{flex:1,padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}}/>
+    </div>
     <div className="quick-add-row">
-      <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" />
+      <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="項目名 *" />
       <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" inputMode="numeric" />
       <button className="pbtn" onClick={doAddMenu}>追加</button>
     </div>
