@@ -2049,17 +2049,54 @@ calView==="list" && (
             </div>
             <div style={{fontFamily:"Syne,sans-serif",fontWeight:800,fontSize:14,color:"#2a2018",marginBottom:10,marginTop:24}}>🔧 修理メニュー</div>
             {(repairMenus||[]).length===0&&<p style={{color:"#b0a898",fontSize:12,marginBottom:8}}>修理メニュー未登録です</p>}
-            {(repairMenus||[]).map(m=>(
-              <div key={m.id} className="repair-menu-row">
-                <span style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{m.name}</span>
-                {m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}
-                <button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button>
+            {(()=>{
+              let lastG1="__", lastG2="__";
+              return repairMenuGroups.flatMap(g=>g.items.map(m=>{
+                const g1=g.g1||""; const g2=g.g2||"";
+                const showG1=g1!==lastG1; const showG2=showG1||(g2!==lastG2);
+                lastG1=g1; lastG2=g2;
+                return (
+                  <div key={m.id}>
+                    {showG1&&g1&&<div style={{fontSize:11,fontWeight:700,color:"#2563a8",background:"#e8f0fb",borderRadius:5,padding:"2px 8px",margin:"6px 0 3px"}}>📁 {g1}</div>}
+                    {showG2&&g2&&<div style={{fontSize:11,fontWeight:700,color:"#2d7a44",background:"#e8f5ee",borderRadius:5,padding:"2px 8px 2px 14px",marginBottom:3}}>└ {g2}</div>}
+                    <div className="repair-menu-row" style={{paddingLeft:g2?20:g1?8:0}}>
+                      {editRepairMenu?.id===m.id?(
+                        <div style={{flex:1,display:"flex",flexDirection:"column",gap:4,width:"100%"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+                            <input value={editRepairMenu.group1||""} onChange={e=>setEditRepairMenu(n=>({...n,group1:e.target.value}))} style={{padding:"5px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}} placeholder="グループ１"/>
+                            <input value={editRepairMenu.group2||""} onChange={e=>setEditRepairMenu(n=>({...n,group2:e.target.value}))} style={{padding:"5px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}} placeholder="グループ２"/>
+                          </div>
+                          <input value={editRepairMenu.name} onChange={e=>setEditRepairMenu(n=>({...n,name:e.target.value}))} style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:13}} placeholder="項目名"/>
+                          <input type="number" value={editRepairMenu.price} onChange={e=>setEditRepairMenu(n=>({...n,price:e.target.value}))} style={{width:"100%",padding:"5px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:13}} placeholder="金額"/>
+                          <div style={{display:"flex",gap:4}}>
+                            <button className="pbtn" style={{flex:1,padding:"6px",fontSize:12}} onClick={doEditMenu}>保存</button>
+                            <button className="gbtn" style={{flex:1,padding:"6px",fontSize:12}} onClick={()=>setEditRepairMenu(null)}>キャンセル</button>
+                          </div>
+                        </div>
+                      ):(
+                        <>
+                          <span style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{m.name}</span>
+                          {m.price>0&&<span style={{fontSize:12,color:"#2a7a5a"}}>¥{m.price.toLocaleString()}</span>}
+                          <button className="sico sedit" onClick={()=>setEditRepairMenu({id:m.id,name:m.name,price:String(m.price||0),group1:m.group1||"",group2:m.group2||""})}><Ico.Edit/></button>
+                          <button className="sico sdel" onClick={()=>delMenu(m.id)}><Ico.Trash/></button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              }));
+            })()}
+            <div style={{marginTop:10,padding:"10px",background:"#f5f0e8",borderRadius:8,display:"flex",flexDirection:"column",gap:6}}>
+              <p style={{fontSize:11,color:"#b0a898",fontWeight:700}}>＋ 新規追加</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                <input value={newMenuF.group1} onChange={e=>setNewMenuF(n=>({...n,group1:e.target.value}))} placeholder="グループ１（例: タイヤ）" style={{padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}}/>
+                <input value={newMenuF.group2} onChange={e=>setNewMenuF(n=>({...n,group2:e.target.value}))} placeholder="グループ２（例: 前タイヤ）" style={{padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:12}}/>
               </div>
-            ))}
-            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
-              <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="修理内容" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}}/>
-              <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額（円）" type="number" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"Noto Sans JP,sans-serif",fontSize:16,color:"#2a2018",outline:"none"}}/>
-              <button className="pbtn" style={{width:"100%",padding:"10px",fontSize:13}} onClick={doAddMenu}>追加</button>
+              <div style={{display:"flex",gap:6}}>
+                <input value={newMenuF.name} onChange={e=>setNewMenuF(n=>({...n,name:e.target.value}))} placeholder="項目名 *" style={{flex:2,padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:13}}/>
+                <input value={newMenuF.price} onChange={e=>setNewMenuF(n=>({...n,price:e.target.value}))} placeholder="金額" type="number" style={{flex:1,padding:"6px 8px",borderRadius:6,border:"1px solid #ccc5ba",fontSize:13}}/>
+              </div>
+              <button className="pbtn" style={{width:"100%",padding:"8px",fontSize:13}} onClick={doAddMenu}>追加</button>
             </div>
           </aside>
         </div>
