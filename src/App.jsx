@@ -698,7 +698,7 @@ export default function App() {
                   {g.items.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
                 </optgroup>
               ));
-            })()
+            })()}
         </select> : <input value={getEstItemName(it)} onChange={e=>updateEstimateLine(i,{name:e.target.value})} placeholder="修理内容" />}
         <input type="number" inputMode="numeric" min="1" value={it.qty ?? 1} onChange={e=>updateEstimateLine(i,{qty:e.target.value})} placeholder="数量" />
         {it.menuId ? <div className="line-total">¥{lineTotal.toLocaleString()}</div> : <input type="number" inputMode="numeric" min="0" value={it.price ?? ""} onChange={e=>updateEstimateLine(i,{price:e.target.value})} placeholder="金額" />}
@@ -746,7 +746,7 @@ export default function App() {
                   {g.items.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
                 </optgroup>
               ));
-            })()
+            })()}
         </select> : <input value={getEstItemName(it)} onChange={e=>updateResRepairLine(i,{name:e.target.value})} placeholder="修理内容" />}
         <input type="number" inputMode="numeric" min="1" value={it.qty ?? 1} onChange={e=>updateResRepairLine(i,{qty:e.target.value})} placeholder="数量" />
         {it.menuId ? <div className="line-total">¥{lineTotal.toLocaleString()}</div> : <input type="number" inputMode="numeric" min="0" value={it.price ?? ""} onChange={e=>updateResRepairLine(i,{price:e.target.value})} placeholder="金額" />}
@@ -1918,7 +1918,7 @@ calView==="list" && (
                   {g.items.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
                 </optgroup>
               ));
-            })()
+            })()}
                   </select>
                   <select value={it.qty} onChange={e=>setNewTemp(n=>{const r=[...n.repairItems];r[idx]={...r[idx],qty:+e.target.value};return {...n,repairItems:r};})} style={{width:56,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 4px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none",textAlign:"center"}}>
                     {[1,2,3,4,5].map(n=><option key={n} value={n}>{n}個</option>)}
@@ -1977,7 +1977,7 @@ calView==="list" && (
                   {g.items.map(m=><option key={m.id} value={m.id}>{m.name}（¥{(m.price||0).toLocaleString()}）</option>)}
                 </optgroup>
               ));
-            })()
+            })()}
                   </select>
                   <select value={it.qty||1} onChange={e=>setEditTempModal(n=>{const r=[...n.repairItems];r[idx]={...r[idx],qty:+e.target.value};return {...n,repairItems:r};})} style={{width:56,background:"#fff",border:"1px solid #ccc5ba",borderRadius:6,padding:"6px 4px",fontFamily:"Noto Sans JP,sans-serif",fontSize:14,color:"#2a2018",outline:"none"}}>
                     {[1,2,3,4,5].map(n=><option key={n} value={n}>{n}個</option>)}
