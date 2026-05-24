@@ -78,6 +78,58 @@ const Ico = {
   Chart:()=>(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>),
 };
 
+// ── 共通UIコンポーネント（App外 = re-mount なし） ──
+const IcoX = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>);
+const Modal = ({open, onClose, title, children}) => {
+  if (!open) return null;
+  return (
+    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(42,32,24,.45)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <div style={{background:"#fff",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:500,maxHeight:"88dvh",overflowY:"auto",paddingBottom:"env(safe-area-inset-bottom,16px)",animation:"su .22s ease"}}>
+        <div style={{width:36,height:4,background:"#e0d8d0",borderRadius:2,margin:"12px auto 0"}}/>
+        <div style={{padding:"16px 18px 14px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:16,fontWeight:700,color:"#2a2018"}}>{title}</div>
+          <button onClick={onClose} style={{width:30,height:30,borderRadius:"50%",background:"#f0ece4",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><IcoX/></button>
+        </div>
+        <div style={{padding:18}}>{children}</div>
+      </div>
+    </div>
+  );
+};
+const FG = ({label, children}) => (<div style={{marginBottom:14}}><label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>{label}</label>{children}</div>);
+const CInput = ({value, onChange, placeholder, type="text", style:sx={}}) => (<input type={type} value={value==null?"":value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:16,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",...sx}}/>);
+const CSelect = ({value, onChange, children}) => (<select value={value==null?"":value} onChange={e=>onChange(e.target.value)} style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:16,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",WebkitAppearance:"none"}}>{children}</select>);
+const CTextarea = ({value, onChange, placeholder, rows=4}) => (<textarea value={value==null?"":value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:16,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",resize:"vertical"}}/>);
+const CBtn = ({onClick, children, variant="primary", size="md", style:sx={}}) => {
+  const base={display:"inline-flex",alignItems:"center",gap:5,border:"none",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,borderRadius:40,transition:"all .15s",...sx};
+  const sizes={sm:{padding:"7px 13px",fontSize:12},md:{padding:"10px 18px",fontSize:13}};
+  const variants={primary:{background:"#c0724a",color:"#fff"},outline:{background:"#fff",color:"#4a4038",border:"1.5px solid rgba(42,32,24,.12)"},dark:{background:"#2a2018",color:"#faf8f4"},green:{background:"#e6f2ec",color:"#3d7a56",border:"1.5px solid rgba(61,122,86,.2)"}};
+  return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant]||{}}}>{children}</button>;
+};
+const CTag = ({children, color="gray"}) => {
+  const m={gray:{bg:"#f0ece4",c:"#7a7060"},green:{bg:"#e6f2ec",c:"#3d7a56"},amber:{bg:"#fdf2d8",c:"#a06c10"},red:{bg:"#fae8e8",c:"#a83030"},blue:{bg:"#e4eef8",c:"#2e5f90"},accent:{bg:"#fdf0e8",c:"#c0724a"},purple:{bg:"#f0ecfa",c:"#6650a0"}};
+  const s=m[color]||m.gray;
+  return <span style={{display:"inline-flex",alignItems:"center",padding:"3px 9px",borderRadius:20,fontSize:11,fontWeight:700,background:s.bg,color:s.c}}>{children}</span>;
+};
+const PageHeaderOuter = ({title, sub, right}) => (
+  <div style={{padding:"18px 18px 14px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+    <div>
+      <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:22,fontWeight:700,color:"#2a2018",letterSpacing:"0.02em"}}>{title}</div>
+      {sub&&<div style={{fontSize:12,color:"#9a9088",marginTop:3}}>{sub}</div>}
+    </div>
+    {right&&<div>{right}</div>}
+  </div>
+);
+const SearchBarOuter = ({value, onChange, placeholder}) => (
+  <div style={{padding:"0 18px 14px"}}>
+    <div style={{background:"#fff",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:40,padding:"10px 16px",display:"flex",alignItems:"center",gap:8,boxShadow:"0 1px 6px rgba(42,32,24,.05)"}}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a9088" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input value={value==null?"":value} onChange={e=>onChange(e.target.value)} placeholder={placeholder||"検索…"} style={{flex:1,background:"none",border:"none",outline:"none",fontSize:16,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif"}}/>
+      {value&&<button onClick={()=>onChange("")} style={{background:"none",border:"none",cursor:"pointer",color:"#9a9088",display:"flex"}}><IcoX/></button>}
+    </div>
+  </div>
+);
+
+
 export default function App() {
   const [screen, setScreen] = useState("login");
   const [pwVal, setPwVal] = useState(""); const [pwErr, setPwErr] = useState(false);
@@ -428,70 +480,16 @@ export default function App() {
         <button onClick={()=>setEstItems(p=>[...(p||[]),{menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
       </div>
       <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018",marginBottom:12}}>合計 ¥{estTotal.toLocaleString()}</div>
-      <FG label="メモ"><Textarea value={estMemo} onChange={setEstMemo} placeholder="作業メモ・備考" rows={3}/></FG>
+      <FG label="メモ"><CTextarea value={estMemo} onChange={setEstMemo} placeholder="作業メモ・備考" rows={3}/></FG>
       <div style={{display:"flex",gap:8,marginTop:4}}>
-        <Btn onClick={onClose} variant="outline" style={{flex:1}}>キャンセル</Btn>
-        <Btn onClick={onSave} variant="primary" style={{flex:2}}>💾 保存する</Btn>
+        <CBtn onClick={onClose} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+        <CBtn onClick={onSave} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
       </div>
     </Modal>
   );
 
 
 
-  const SearchBar=({value,onChange,placeholder})=>(
-    <div style={{padding:"0 18px 14px"}}>
-      <div style={{background:"#fff",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:40,padding:"10px 16px",display:"flex",alignItems:"center",gap:8,boxShadow:"0 1px 6px rgba(42,32,24,.05)"}}>
-        <Ico.Search/>
-        <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder||"検索…"} style={{flex:1,background:"none",border:"none",outline:"none",fontSize:14,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif"}}/>
-        {value&&<button onClick={()=>onChange("")} style={{background:"none",border:"none",cursor:"pointer",color:"#9a9088",display:"flex"}}><Ico.X/></button>}
-      </div>
-    </div>
-  );
-
-  const PageHeader=({title,sub,right})=>(
-    <div style={{padding:"18px 18px 14px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-      <div>
-        <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:22,fontWeight:700,color:"#2a2018",letterSpacing:"0.02em"}}>{title}</div>
-        {sub&&<div style={{fontSize:12,color:"#9a9088",marginTop:3}}>{sub}</div>}
-      </div>
-      {right&&<div>{right}</div>}
-    </div>
-  );
-
-  const Tag=({children,color="gray"})=>{
-    const styles={gray:{bg:"#f0ece4",c:"#7a7060"},green:{bg:"#e6f2ec",c:"#3d7a56"},amber:{bg:"#fdf2d8",c:"#a06c10"},red:{bg:"#fae8e8",c:"#a83030"},blue:{bg:"#e4eef8",c:"#2e5f90"},accent:{bg:"#fdf0e8",c:"#c0724a"},purple:{bg:"#f0ecfa",c:"#6650a0"}};
-    const s=styles[color]||styles.gray;
-    return <span style={{display:"inline-flex",alignItems:"center",padding:"3px 9px",borderRadius:20,fontSize:11,fontWeight:700,background:s.bg,color:s.c}}>{children}</span>;
-  };
-
-  const Btn=({onClick,children,variant="primary",size="md",style:sx={}})=>{
-    const base={display:"inline-flex",alignItems:"center",gap:5,border:"none",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,borderRadius:40,transition:"all .15s",...sx};
-    const sizes={sm:{padding:"7px 13px",fontSize:12},md:{padding:"10px 18px",fontSize:13}};
-    const variants={primary:{background:"#c0724a",color:"#fff"},outline:{background:"#fff",color:"#4a4038",border:"1.5px solid rgba(42,32,24,.12)"},dark:{background:"#2a2018",color:"#faf8f4"},green:{background:"#e6f2ec",color:"#3d7a56",border:"1.5px solid rgba(61,122,86,.2)"}};
-    return <button onClick={onClick} style={{...base,...sizes[size],...variants[variant]||{}}}>{children}</button>;
-  };
-
-  // ── モーダル共通 ──
-  const Modal=({open,onClose,title,children})=>{
-    if(!open) return null;
-    return (
-      <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(42,32,24,.45)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-        <div style={{background:"#fff",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:500,maxHeight:"88dvh",overflowY:"auto",paddingBottom:"env(safe-area-inset-bottom,16px)",animation:"su .22s ease"}}>
-          <div style={{width:36,height:4,background:"#e0d8d0",borderRadius:2,margin:"12px auto 0"}}/>
-          <div style={{padding:"16px 18px 14px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:16,fontWeight:700,color:"#2a2018"}}>{title}</div>
-            <button onClick={onClose} style={{width:30,height:30,borderRadius:"50%",background:"#f0ece4",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.X/></button>
-          </div>
-          <div style={{padding:18}}>{children}</div>
-        </div>
-      </div>
-    );
-  };
-
-  const FG=({label,children})=>(<div style={{marginBottom:14}}><label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>{label}</label>{children}</div>);
-  const Input=({value,onChange,placeholder,type="text",style:sx={}})=>(<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:14,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",...sx}}/>);
-  const Select=({value,onChange,children})=>(<select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:14,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",WebkitAppearance:"none"}}>{children}</select>);
-  const Textarea=({value,onChange,placeholder,rows=4})=>(<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:14,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",resize:"vertical"}}/>);
 
 
   // ════════════════════════════════════════
@@ -535,7 +533,7 @@ export default function App() {
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
               <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>📅 今日の入庫予定</div>
-                <Btn onClick={()=>switchMode("kanban")} variant="outline" size="sm">作業管理へ</Btn>
+                <CBtn onClick={()=>switchMode("kanban")} variant="outline" size="sm">作業管理へ</CBtn>
               </div>
               {todayRes.map(r=>{ const c=customers.find(x=>x.id===r.customer_id); const b=c?.bikes?.[r.bike_index||0]; return (
                 <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderBottom:"1px solid rgba(42,32,24,.05)"}}>
@@ -544,7 +542,7 @@ export default function App() {
                     <div style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{c?.name||"未設定"}</div>
                     <div style={{fontSize:11,color:"#9a9088",marginTop:1}}>{b?`🚲 ${b.maker}`:""}{r.staff?` ／ ${r.staff}`:""}</div>
                   </div>
-                  <Tag color="blue">{r.staff||""}</Tag>
+                  <CTag color="blue">{r.staff||""}</CTag>
                 </div>
               );})}
             </div>
@@ -557,20 +555,20 @@ export default function App() {
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
               <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>📦 在庫アラート</div>
-                <Btn onClick={()=>switchMode("stock")} variant="outline" size="sm">在庫へ</Btn>
+                <CBtn onClick={()=>switchMode("stock")} variant="outline" size="sm">在庫へ</CBtn>
               </div>
               {critStock.slice(0,3).map(i=>(
                 <div key={i.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"1px solid rgba(42,32,24,.05)"}}>
                   <span style={{width:8,height:8,borderRadius:"50%",background:"#c0392b",flexShrink:0}}/>
                   <div style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{i.brandName} {i.name}</div>
-                  <Tag color="red">欠品</Tag>
+                  <CTag color="red">欠品</CTag>
                 </div>
               ))}
               {lowStock.slice(0,2).map(i=>(
                 <div key={i.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"1px solid rgba(42,32,24,.05)"}}>
                   <span style={{width:8,height:8,borderRadius:"50%",background:"#c87a00",flexShrink:0}}/>
                   <div style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{i.brandName} {i.name}</div>
-                  <Tag color="amber">残少 {i.stock}点</Tag>
+                  <CTag color="amber">残少 {i.stock}点</CTag>
                 </div>
               ))}
             </div>
@@ -583,7 +581,7 @@ export default function App() {
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
               <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>📞 メンテ期限切れ</div>
-                <Btn onClick={()=>switchMode("phone")} variant="outline" size="sm">電話帳へ</Btn>
+                <CBtn onClick={()=>switchMode("phone")} variant="outline" size="sm">電話帳へ</CBtn>
               </div>
               {mainteExpired.slice(0,4).map(c=>{ const eb=(c.bikes||[]).find(b=>b.nextMaintenanceDate&&new Date(b.nextMaintenanceDate)<today()); return (
                 <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px",borderBottom:"1px solid rgba(42,32,24,.05)"}}>
@@ -630,8 +628,8 @@ export default function App() {
 
     return (
       <PageWrap>
-        <PageHeader title="電話帳" sub={`${phList.length}名表示`}/>
-        <SearchBar value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
+        <PageHeaderOuter title="電話帳" sub={`${phList.length}名表示`}/>
+        <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
         <div style={{display:"flex",gap:7,overflowX:"auto",padding:"0 18px 13px",scrollbarWidth:"none"}}>
           {[{k:"all",l:"すべて"},{k:"expired",l:`期限切れ ${mainteExpired.length}名`},{k:"month",l:`今月期限 ${mainteThisMonth.length}名`}].map(f=>(
             <button key={f.k} onClick={()=>setPhoneFilter(f.k)} style={{padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700,whiteSpace:"nowrap",cursor:"pointer",flexShrink:0,border:"1.5px solid",background:phoneFilter===f.k?"#2a2018":"#fff",color:phoneFilter===f.k?"#faf8f4":"#7a7060",borderColor:phoneFilter===f.k?"#2a2018":"rgba(42,32,24,.12)"}}>{f.l}</button>
@@ -681,8 +679,8 @@ export default function App() {
               <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:19,fontWeight:700,color:"#2a2018"}}>{c.name}</div>
               <div style={{fontSize:11,color:"#9a9088",marginTop:2}}>{c.furigana||""}</div>
               <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
-                {c.customer_rank&&c.customer_rank!=="通常"&&<Tag color="amber">{c.customer_rank}</Tag>}
-                {(c.bikes||[]).length>0&&<Tag color="blue">{(c.bikes||[]).length}台登録</Tag>}
+                {c.customer_rank&&c.customer_rank!=="通常"&&<CTag color="amber">{c.customer_rank}</CTag>}
+                {(c.bikes||[]).length>0&&<CTag color="blue">{(c.bikes||[]).length}台登録</CTag>}
               </div>
             </div>
             <button onClick={()=>setEditCustModal({...c})} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Edit/></button>
@@ -718,7 +716,7 @@ export default function App() {
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
               <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>🚲 保有自転車</div>
-                <Btn onClick={()=>setAddBikeModal(true)} variant="outline" size="sm">＋ 追加</Btn>
+                <CBtn onClick={()=>setAddBikeModal(true)} variant="outline" size="sm">＋ 追加</CBtn>
               </div>
               {(c.bikes||[]).length===0&&<div style={{padding:"20px 16px",fontSize:13,color:"#c8bfb0",textAlign:"center"}}>自転車未登録</div>}
               {(c.bikes||[]).map((b,idx)=>{
@@ -732,7 +730,7 @@ export default function App() {
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5}}>
                         <span style={{fontSize:10,color:"#9a9088"}}>次回メンテ</span>
                         <input type="date" value={b.nextMaintenanceDate||""} onChange={e=>updateBikeMaintenance(idx,e.target.value)} style={{fontSize:12,border:"1px solid rgba(42,32,24,.12)",borderRadius:6,padding:"3px 8px",background:"#f3f0ea",color:isExpired?"#a83030":"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none"}}/>
-                        {isExpired&&<Tag color="red">期限切れ</Tag>}
+                        {isExpired&&<CTag color="red">期限切れ</CTag>}
                       </div>
                     </div>
                     <button onClick={()=>delBike(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",padding:4}}><Ico.Trash/></button>
@@ -755,7 +753,7 @@ export default function App() {
                     <div key={bikeIdx} style={{padding:"12px 16px",borderBottom:"1px solid rgba(42,32,24,.06)"}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:ests.length>0?10:0}}>
                         <div style={{fontSize:13,fontWeight:700,color:"#2563a8"}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>
-                        <Btn onClick={()=>{loadEstimates();setAddEstModal({custId:c.id,bikeIdx});setEstItems([]);setEstMemo("");}} variant="outline" size="sm"><Ico.Plus/>作成</Btn>
+                        <CBtn onClick={()=>{loadEstimates();setAddEstModal({custId:c.id,bikeIdx});setEstItems([]);setEstMemo("");}} variant="outline" size="sm"><Ico.Plus/>作成</CBtn>
                       </div>
                       {ests.map(e=>(
                         <div key={e.id} style={{background:"#faf8f4",borderRadius:9,padding:"10px 12px",marginTop:8,border:"1px solid rgba(42,32,24,.07)"}}>
@@ -795,16 +793,16 @@ export default function App() {
           <Modal open={!!editCustModal} onClose={()=>setEditCustModal(null)} title="顧客情報を編集">
             {editCustModal&&<>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-                <FG label="氏名"><Input value={editCustModal.name||""} onChange={v=>setEditCustModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
-                <FG label="フリガナ"><Input value={editCustModal.furigana||""} onChange={v=>setEditCustModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
+                <FG label="氏名"><CInput value={editCustModal.name||""} onChange={v=>setEditCustModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
+                <FG label="フリガナ"><CInput value={editCustModal.furigana||""} onChange={v=>setEditCustModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
               </div>
-              <FG label="電話番号"><Input value={editCustModal.phone||""} onChange={v=>setEditCustModal(p=>({...p,phone:v}))} type="tel" placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",fontSize:15,letterSpacing:"0.04em"}}/></FG>
-              <FG label="住所"><Input value={editCustModal.address||""} onChange={v=>setEditCustModal(p=>({...p,address:v}))} placeholder="諏訪市○○"/></FG>
-              <FG label="ランク"><Select value={editCustModal.customer_rank||"通常"} onChange={v=>setEditCustModal(p=>({...p,customer_rank:v}))}><option>通常</option><option>常連</option><option>VIP</option><option>見込み</option></Select></FG>
-              <FG label="メモ"><Textarea value={editCustModal.memo||""} onChange={v=>setEditCustModal(p=>({...p,memo:v}))} placeholder="メモ…" rows={3}/></FG>
+              <FG label="電話番号"><CInput value={editCustModal.phone||""} onChange={v=>setEditCustModal(p=>({...p,phone:v}))} type="tel" placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",fontSize:15,letterSpacing:"0.04em"}}/></FG>
+              <FG label="住所"><CInput value={editCustModal.address||""} onChange={v=>setEditCustModal(p=>({...p,address:v}))} placeholder="諏訪市○○"/></FG>
+              <FG label="ランク"><CSelect value={editCustModal.customer_rank||"通常"} onChange={v=>setEditCustModal(p=>({...p,customer_rank:v}))}><option>通常</option><option>常連</option><option>VIP</option><option>見込み</option></CSelect></FG>
+              <FG label="メモ"><CTextarea value={editCustModal.memo||""} onChange={v=>setEditCustModal(p=>({...p,memo:v}))} placeholder="メモ…" rows={3}/></FG>
               <div style={{display:"flex",gap:8,marginTop:4}}>
-                <Btn onClick={()=>setEditCustModal(null)} variant="outline" style={{flex:1}}>キャンセル</Btn>
-                <Btn onClick={doEditCust} variant="primary" style={{flex:2}}>💾 保存する</Btn>
+                <CBtn onClick={()=>setEditCustModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+                <CBtn onClick={doEditCust} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
               </div>
             </>}
           </Modal>
@@ -812,16 +810,16 @@ export default function App() {
           {/* 自転車追加モーダル */}
           <Modal open={addBikeModal} onClose={()=>setAddBikeModal(false)} title="自転車を追加">
             <FG label="メーカー">
-              <Select value={newBikeF.maker} onChange={v=>setNewBikeF(p=>({...p,maker:v}))}>
+              <CSelect value={newBikeF.maker} onChange={v=>setNewBikeF(p=>({...p,maker:v}))}>
                 <option value="">選択してください</option>
                 {makerMaster.map(m=><option key={m.id}>{m.name}</option>)}
-              </Select>
+              </CSelect>
             </FG>
-            <FG label="カラー"><Input value={newBikeF.color} onChange={v=>setNewBikeF(p=>({...p,color:v}))} placeholder="ブラック・シルバーなど"/></FG>
-            <FG label="次回メンテナンス日"><Input type="date" value={newBikeF.nextMaintenanceDate} onChange={v=>setNewBikeF(p=>({...p,nextMaintenanceDate:v}))}/></FG>
+            <FG label="カラー"><CInput value={newBikeF.color} onChange={v=>setNewBikeF(p=>({...p,color:v}))} placeholder="ブラック・シルバーなど"/></FG>
+            <FG label="次回メンテナンス日"><CInput type="date" value={newBikeF.nextMaintenanceDate} onChange={v=>setNewBikeF(p=>({...p,nextMaintenanceDate:v}))}/></FG>
             <div style={{display:"flex",gap:8,marginTop:4}}>
-              <Btn onClick={()=>setAddBikeModal(false)} variant="outline" style={{flex:1}}>キャンセル</Btn>
-              <Btn onClick={addBike} variant="primary" style={{flex:2}}>🚲 追加する</Btn>
+              <CBtn onClick={()=>setAddBikeModal(false)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+              <CBtn onClick={addBike} variant="primary" style={{flex:2}}>🚲 追加する</CBtn>
             </div>
           </Modal>
         </PageWrap>
@@ -831,8 +829,8 @@ export default function App() {
     // 顧客一覧
     return (
       <PageWrap>
-        <PageHeader title="顧客一覧" sub={`${filteredCustomers.length}名`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>{setStCustOpen(true);loadMasters();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><Btn onClick={()=>setAddCustModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</Btn></div>}/>
-        <SearchBar value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
+        <PageHeaderOuter title="顧客一覧" sub={`${filteredCustomers.length}名`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>{setStCustOpen(true);loadMasters();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><CBtn onClick={()=>setAddCustModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn></div>}/>
+        <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
 
         {/* フィルターチップ */}
         <div style={{display:"flex",gap:7,overflowX:"auto",padding:"0 18px 13px",scrollbarWidth:"none"}}>
@@ -856,8 +854,8 @@ export default function App() {
                       <div style={{fontSize:12,color:"#9a9088"}}>{(c.bikes||[]).length>0?`🚲 ${(c.bikes||[]).map(b=>b.maker).join("・")}`:c.phone||"電話番号未登録"}</div>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                      {c.customer_rank&&c.customer_rank!=="通常"&&<Tag color={c.customer_rank==="VIP"?"accent":c.customer_rank==="常連"?"amber":"gray"}>{c.customer_rank}</Tag>}
-                      {eb&&<Tag color="red">期限切れ</Tag>}
+                      {c.customer_rank&&c.customer_rank!=="通常"&&<CTag color={c.customer_rank==="VIP"?"accent":c.customer_rank==="常連"?"amber":"gray"}>{c.customer_rank}</CTag>}
+                      {eb&&<CTag color="red">期限切れ</CTag>}
                     </div>
                     <span style={{color:"#c8bfb0",fontSize:18}}>›</span>
                   </div>
@@ -870,16 +868,16 @@ export default function App() {
         {/* 顧客追加モーダル */}
         <Modal open={addCustModal} onClose={()=>setAddCustModal(false)} title="新規顧客登録">
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-            <FG label="氏名"><Input value={newCust.name} onChange={v=>setNewCust(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
-            <FG label="フリガナ"><Input value={newCust.furigana} onChange={v=>setNewCust(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
+            <FG label="氏名"><CInput value={newCust.name} onChange={v=>setNewCust(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
+            <FG label="フリガナ"><CInput value={newCust.furigana} onChange={v=>setNewCust(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
           </div>
-          <FG label="電話番号"><Input value={newCust.phone} onChange={v=>setNewCust(p=>({...p,phone:v}))} type="tel" placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",fontSize:15,letterSpacing:"0.04em"}}/></FG>
-          <FG label="住所"><Input value={newCust.address} onChange={v=>setNewCust(p=>({...p,address:v}))} placeholder="諏訪市○○"/></FG>
-          <FG label="ランク"><Select value={newCust.customer_rank} onChange={v=>setNewCust(p=>({...p,customer_rank:v}))}><option>通常</option><option>常連</option><option>VIP</option><option>見込み</option></Select></FG>
-          <FG label="メモ"><Textarea value={newCust.memo} onChange={v=>setNewCust(p=>({...p,memo:v}))} placeholder="初回来店時のメモなど" rows={3}/></FG>
+          <FG label="電話番号"><CInput value={newCust.phone} onChange={v=>setNewCust(p=>({...p,phone:v}))} type="tel" placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",fontSize:15,letterSpacing:"0.04em"}}/></FG>
+          <FG label="住所"><CInput value={newCust.address} onChange={v=>setNewCust(p=>({...p,address:v}))} placeholder="諏訪市○○"/></FG>
+          <FG label="ランク"><CSelect value={newCust.customer_rank} onChange={v=>setNewCust(p=>({...p,customer_rank:v}))}><option>通常</option><option>常連</option><option>VIP</option><option>見込み</option></CSelect></FG>
+          <FG label="メモ"><CTextarea value={newCust.memo} onChange={v=>setNewCust(p=>({...p,memo:v}))} placeholder="初回来店時のメモなど" rows={3}/></FG>
           <div style={{display:"flex",gap:8,marginTop:4}}>
-            <Btn onClick={()=>setAddCustModal(false)} variant="outline" style={{flex:1}}>キャンセル</Btn>
-            <Btn onClick={doAddCust} variant="primary" style={{flex:2}}>💾 登録する</Btn>
+            <CBtn onClick={()=>setAddCustModal(false)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+            <CBtn onClick={doAddCust} variant="primary" style={{flex:2}}>💾 登録する</CBtn>
           </div>
         </Modal>
 
@@ -889,7 +887,7 @@ export default function App() {
             <div style={{background:"#faf8f4",width:"min(300px,92vw)",height:"100%",overflowY:"auto",padding:"20px 16px",boxShadow:"-4px 0 28px rgba(42,32,24,.13)",animation:"sin .22s cubic-bezier(.22,1,.36,1)"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
                 <span style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:16,color:"#2a2018"}}>⚙️ 設定</span>
-                <button onClick={()=>setStCustOpen(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.X/></button>
+                <button onClick={()=>setStCustOpen(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><IcoX/></button>
               </div>
               <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018",marginBottom:8}}>🚲 メーカー</div>
               <div className="compact-form" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:6,marginBottom:10}}>
@@ -925,11 +923,11 @@ export default function App() {
         {/* 修理メニュー編集モーダル */}
         <Modal open={!!editRepairMenu} onClose={()=>setEditRepairMenu(null)} title="修理メニューを編集">
           {editRepairMenu&&<>
-            <FG label="メニュー名"><Input value={editRepairMenu.name||""} onChange={v=>setEditRepairMenu(p=>({...p,name:v}))}/></FG>
-            <FG label="金額（円）"><Input type="number" value={String(editRepairMenu.price||"")} onChange={v=>setEditRepairMenu(p=>({...p,price:v}))}/></FG>
+            <FG label="メニュー名"><CInput value={editRepairMenu.name||""} onChange={v=>setEditRepairMenu(p=>({...p,name:v}))}/></FG>
+            <FG label="金額（円）"><CInput type="number" value={String(editRepairMenu.price||"")} onChange={v=>setEditRepairMenu(p=>({...p,price:v}))}/></FG>
             <div style={{display:"flex",gap:8,marginTop:4}}>
-              <Btn onClick={()=>setEditRepairMenu(null)} variant="outline" style={{flex:1}}>キャンセル</Btn>
-              <Btn onClick={doEditMenu} variant="primary" style={{flex:2}}>💾 保存</Btn>
+              <CBtn onClick={()=>setEditRepairMenu(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+              <CBtn onClick={doEditMenu} variant="primary" style={{flex:2}}>💾 保存</CBtn>
             </div>
           </>}
         </Modal>
@@ -943,6 +941,7 @@ export default function App() {
   // ════════════════════════════════════════
   if (mode==="kanban") {
     const custMap=Object.fromEntries(customers.map(c=>[c.id,c]));
+    const activeReservations=reservations.filter(r=>r.status!=="archived");
     const cols=[
       {key:"reserved",label:"受付済み",color:"#9a9088",bg:"#f3f0ea"},
       {key:"in",label:"作業中",color:"#a06c10",bg:"#fdf2d8"},
@@ -963,14 +962,14 @@ export default function App() {
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>loadReservations()} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#2a2018"}}><Ico.Refresh/></button>
-            <Btn onClick={()=>setAddResModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</Btn>
+            <CBtn onClick={()=>setAddResModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn>
           </div>
         </div>
 
         {/* カンバン横スクロール */}
         <div style={{display:"flex",gap:10,overflowX:"auto",padding:"0 18px 14px",scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
           {cols.map(col=>{
-            const items=reservations.filter(r=>r.status===col.key).sort((a,b)=>new Date(a.due_date||"9999")-new Date(b.due_date||"9999"));
+            const items=activeReservations.filter(r=>r.status===col.key).sort((a,b)=>new Date(a.due_date||"9999")-new Date(b.due_date||"9999"));
             return (
               <div key={col.key} style={{minWidth:200,background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",flexShrink:0,scrollSnapAlign:"start",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
                 <div style={{padding:"11px 14px",background:col.bg,borderBottom:"1px solid rgba(42,32,24,.07)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -986,7 +985,7 @@ export default function App() {
                         <div style={{fontSize:13,fontWeight:700,color:"#2a2018",marginBottom:2}}>{cust?.name||r.memo||"未設定"}</div>
                         <div style={{fontSize:11,color:"#9a9088",marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bike?`🚲 ${bike.maker}`:r.memo||""}</div>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                          <Tag color={r.staff==="あさと"?"blue":"green"}>{r.staff||""}</Tag>
+                          <CTag color={r.staff==="あさと"?"blue":"green"}>{r.staff||""}</CTag>
                           <span style={{fontSize:10,color:isOverdue?"#a83030":"#9a9088",fontFamily:"'DM Mono',monospace",fontWeight:isOverdue?700:400}}>
                             {r.due_date?fmt(r.due_date,"short"):"期日未定"}
                           </span>
@@ -1020,12 +1019,34 @@ export default function App() {
                 ))}
               </div>
               {selectedRes.memo&&<div style={{background:"#faf8f4",borderRadius:9,padding:"10px 12px",marginBottom:14,fontSize:13,color:"#4a4038",lineHeight:1.6}}>{selectedRes.memo}</div>}
+              {/* 関連見積もり表示 */}
+              {selectedRes.customer_id&&(()=>{
+                const ests=estimates.filter(e=>e.customer_id===selectedRes.customer_id&&e.bike_index===(selectedRes.bike_index||0));
+                return ests.length>0?(
+                  <div style={{marginBottom:14}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#9a9088",letterSpacing:".08em",textTransform:"uppercase",marginBottom:7}}>見積もり・修理履歴</div>
+                    {ests.slice(0,2).map(e=>(
+                      <div key={e.id} style={{background:"#faf8f4",borderRadius:9,padding:"9px 12px",marginBottom:6,border:"1px solid rgba(42,32,24,.07)"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:500,color:"#c0724a"}}>¥{(e.total||0).toLocaleString()}</span>
+                          <span style={{fontSize:10,color:"#9a9088"}}>{e.created_at?fmt(e.created_at,"short"):""}</span>
+                        </div>
+                        {(e.items||[]).map((it,i)=><div key={i} style={{fontSize:11,color:"#7a7060"}}>{it.name} ×{it.qty}</div>)}
+                      </div>
+                    ))}
+                  </div>
+                ):null;
+              })()}
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+                {selectedRes.customer_id&&<CBtn onClick={()=>{const c=customers.find(x=>x.id===selectedRes.customer_id);if(c){setAddEstModal({custId:c.id,bikeIdx:selectedRes.bike_index||0});setEstItems([]);setEstMemo("");setSelectedRes(null);}}} variant="outline" style={{flex:1}}>🔧 見積もり作成</CBtn>}
+              </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {selectedRes.status==="reserved"&&<Btn onClick={()=>updateResStatus(selectedRes.id,"in")} variant="primary" style={{flex:1}}>🔧 作業開始</Btn>}
-                {selectedRes.status==="in"&&<Btn onClick={()=>updateResStatus(selectedRes.id,"done")} variant="dark" style={{flex:1}}>✅ 完了にする</Btn>}
-                {selectedRes.status==="done"&&<Btn onClick={()=>updateResStatus(selectedRes.id,"in")} variant="outline" style={{flex:1}}>↩ 作業中に戻す</Btn>}
-                <Btn onClick={()=>{setEditResModal({...selectedRes});setSelectedRes(null);}} variant="outline"><Ico.Edit/></Btn>
-                <Btn onClick={()=>delRes(selectedRes.id)} variant="outline" style={{color:"#a83030"}}><Ico.Trash/></Btn>
+                {selectedRes.status==="reserved"&&<CBtn onClick={()=>updateResStatus(selectedRes.id,"in")} variant="primary" style={{flex:1}}>🔧 作業開始</CBtn>}
+                {selectedRes.status==="in"&&<CBtn onClick={()=>updateResStatus(selectedRes.id,"done")} variant="dark" style={{flex:1}}>✅ 完了にする</CBtn>}
+                {selectedRes.status==="done"&&<CBtn onClick={()=>updateResStatus(selectedRes.id,"in")} variant="outline" style={{flex:1}}>↩ 作業中に戻す</CBtn>}
+                {selectedRes.status==="done"&&<CBtn onClick={()=>{if(window.confirm("出庫しますか？完了リストから消えます"))updateResStatus(selectedRes.id,"archived");}} variant="green" style={{flex:1}}>🚲 出庫</CBtn>}
+                <CBtn onClick={()=>{setEditResModal({...selectedRes});setSelectedRes(null);}} variant="outline"><Ico.Edit/></CBtn>
+                <CBtn onClick={()=>delRes(selectedRes.id)} variant="outline" style={{color:"#a83030"}}><Ico.Trash/></CBtn>
               </div>
             </>;
           })()}
@@ -1051,38 +1072,42 @@ export default function App() {
             })()}
           </FG>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-            <FG label="入庫日"><Input type="date" value={resForm.checkinDate} onChange={v=>setResForm(p=>({...p,checkinDate:v}))}/></FG>
-            <FG label="完了予定日"><Input type="date" value={resForm.dueDate} onChange={v=>setResForm(p=>({...p,dueDate:v}))} style={{opacity:resForm.dueDateUnknown?0.3:1}}/></FG>
+            <FG label="入庫日"><CInput type="date" value={resForm.checkinDate} onChange={v=>setResForm(p=>({...p,checkinDate:v}))}/></FG>
+            <FG label="完了予定日"><CInput type="date" value={resForm.dueDate} onChange={v=>setResForm(p=>({...p,dueDate:v}))} style={{opacity:resForm.dueDateUnknown?0.3:1}}/></FG>
           </div>
           <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,fontSize:13,color:"#4a4038",cursor:"pointer"}}>
             <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(p=>({...p,dueDateUnknown:e.target.checked}))} style={{width:16,height:16,accentColor:"#c0724a"}}/>
             完了日未定
           </label>
           <FG label="担当">
-            <Select value={resForm.staff} onChange={v=>setResForm(p=>({...p,staff:v}))}>
+            <CSelect value={resForm.staff} onChange={v=>setResForm(p=>({...p,staff:v}))}>
               {STAFF.map(s=><option key={s}>{s}</option>)}
-            </Select>
+            </CSelect>
           </FG>
-          <FG label="メモ"><Textarea value={resForm.memo} onChange={v=>setResForm(p=>({...p,memo:v}))} placeholder="作業内容・部品番号など" rows={3}/></FG>
+          <FG label="メモ"><CTextarea value={resForm.memo} onChange={v=>setResForm(p=>({...p,memo:v}))} placeholder="作業内容・部品番号など" rows={3}/></FG>
           <div style={{display:"flex",gap:8,marginTop:4}}>
-            <Btn onClick={()=>{setAddResModal(false);setResForm({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:""});setResCustSearch("");}} variant="outline" style={{flex:1}}>キャンセル</Btn>
-            <Btn onClick={doAddRes} variant="primary" style={{flex:2}}>💾 追加する</Btn>
+            <CBtn onClick={()=>{setAddResModal(false);setResForm({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:""});setResCustSearch("");}} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+            <CBtn onClick={doAddRes} variant="primary" style={{flex:2}}>💾 追加する</CBtn>
           </div>
         </Modal>
+
+        {/* 見積もり作成（作業管理から起動） */}
+        <EstModal open={!!addEstModal} onClose={()=>setAddEstModal(null)} onSave={doSaveEst} title="見積もりを作成"/>
+        <EstModal open={!!editEstModal} onClose={()=>setEditEstModal(null)} onSave={doUpdateEst} title="見積もりを編集"/>
 
         {/* 作業編集モーダル */}
         <Modal open={!!editResModal} onClose={()=>setEditResModal(null)} title="作業を編集">
           {editResModal&&<>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <FG label="入庫日"><Input type="date" value={editResModal.checkin_date||""} onChange={v=>setEditResModal(p=>({...p,checkin_date:v}))}/></FG>
-              <FG label="完了予定日"><Input type="date" value={editResModal.due_date||""} onChange={v=>setEditResModal(p=>({...p,due_date:v}))}/></FG>
+              <FG label="入庫日"><CInput type="date" value={editResModal.checkin_date||""} onChange={v=>setEditResModal(p=>({...p,checkin_date:v}))}/></FG>
+              <FG label="完了予定日"><CInput type="date" value={editResModal.due_date||""} onChange={v=>setEditResModal(p=>({...p,due_date:v}))}/></FG>
             </div>
-            <FG label="担当"><Select value={editResModal.staff||"あさと"} onChange={v=>setEditResModal(p=>({...p,staff:v}))}>{STAFF.map(s=><option key={s}>{s}</option>)}</Select></FG>
-            <FG label="ステータス"><Select value={editResModal.status||"reserved"} onChange={v=>setEditResModal(p=>({...p,status:v}))}><option value="reserved">受付済み</option><option value="in">作業中</option><option value="done">完了</option></Select></FG>
-            <FG label="メモ"><Textarea value={editResModal.memo||""} onChange={v=>setEditResModal(p=>({...p,memo:v}))} rows={3}/></FG>
+            <FG label="担当"><CSelect value={editResModal.staff||"あさと"} onChange={v=>setEditResModal(p=>({...p,staff:v}))}>{STAFF.map(s=><option key={s}>{s}</option>)}</CSelect></FG>
+            <FG label="ステータス"><CSelect value={editResModal.status||"reserved"} onChange={v=>setEditResModal(p=>({...p,status:v}))}><option value="reserved">受付済み</option><option value="in">作業中</option><option value="done">完了</option></CSelect></FG>
+            <FG label="メモ"><CTextarea value={editResModal.memo||""} onChange={v=>setEditResModal(p=>({...p,memo:v}))} rows={3}/></FG>
             <div style={{display:"flex",gap:8,marginTop:4}}>
-              <Btn onClick={()=>setEditResModal(null)} variant="outline" style={{flex:1}}>キャンセル</Btn>
-              <Btn onClick={doEditRes} variant="primary" style={{flex:2}}>💾 保存する</Btn>
+              <CBtn onClick={()=>setEditResModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+              <CBtn onClick={doEditRes} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
             </div>
           </>}
         </Modal>
@@ -1247,7 +1272,7 @@ export default function App() {
         {showSummary&&(
           <div style={{position:"fixed",inset:0,background:"rgba(42,32,24,.42)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,backdropFilter:"blur(4px)"}}>
             <div style={{background:"#faf7f2",border:"1px solid #ddd6ca",borderRadius:16,padding:"20px 16px",width:"calc(100vw - 32px)",maxWidth:420,maxHeight:"80vh",overflowY:"auto"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><h3 style={{fontFamily:"'Shippori Mincho',serif",fontSize:17,fontWeight:700,color:"#2a2018"}}>在庫サマリー</h3><button onClick={()=>setShowSummary(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.X/></button></div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><h3 style={{fontFamily:"'Shippori Mincho',serif",fontSize:17,fontWeight:700,color:"#2a2018"}}>在庫サマリー</h3><button onClick={()=>setShowSummary(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><IcoX/></button></div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
                 <div style={{background:"#f5f0e8",borderRadius:10,padding:"12px"}}><div style={{fontSize:11,color:"#9a8f82",marginBottom:4}}>定価合計</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018"}}>¥{summary.total.retail.toLocaleString()}</div></div>
                 <div style={{background:"#f5f0e8",borderRadius:10,padding:"12px"}}><div style={{fontSize:11,color:"#9a8f82",marginBottom:4}}>仕入合計</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018"}}>¥{summary.total.cost.toLocaleString()}</div></div>
@@ -1285,7 +1310,7 @@ export default function App() {
             <div style={{background:"#faf7f2",width:"min(300px,92vw)",height:"100%",overflowY:"auto",padding:"20px 16px",boxShadow:"-4px 0 28px rgba(42,32,24,.13)",animation:"sin .22s cubic-bezier(.22,1,.36,1)"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
                 <span style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:16,color:"#2a2018"}}>⚙️ 設定</span>
-                <button onClick={()=>setStOpen(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.X/></button>
+                <button onClick={()=>setStOpen(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><IcoX/></button>
               </div>
               <div style={{display:"flex",background:"#f0ece4",borderRadius:9,padding:3,marginBottom:14}}>
                 {["cats","brands","items"].map(t=><button key={t} className={`sttab ${stTab===t?"sttabon":""}`} onClick={()=>{setStTab(t);setRnCat(null);setRnBrand(null);setRnItem(null);}}>{t==="cats"?"カテゴリ":t==="brands"?"ブランド":"商品"}</button>)}
