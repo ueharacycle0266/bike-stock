@@ -129,6 +129,104 @@ const SearchBarOuter = ({value, onChange, placeholder}) => (
   </div>
 );
 
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700&family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #faf8f4; font-family: 'Noto Sans JP', sans-serif; color: #2a2018; -webkit-font-smoothing: antialiased; }
+  input, select, textarea { font-size: 16px !important; }
+  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #ede8df; } ::-webkit-scrollbar-thumb { background: #c8bfb0; border-radius: 2px; }
+  .hide-scroll::-webkit-scrollbar { display: none; }
+  .spin { width: 36px; height: 36px; border: 3px solid #e0d9ce; border-top-color: #2a2018; border-radius: 50%; animation: rot .7s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  @keyframes su { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes sin { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .pbtn { background: #2a2018; color: #faf8f4; font-weight: 700; padding: 9px 22px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
+  .gbtn { background: #e8e2d8; color: #7a6f63; font-weight: 600; padding: 9px 18px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
+  .gbtn:hover { background: #ddd6ca; color: #2a2018; }
+  .cat-tab { background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 20px; color: #c8bfb0; transition: all .15s; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+  .cat-tab:hover { color: #7a6f63; background: #f0ece4; }
+  .cat-tab-on { background: #2a2018; color: #faf8f4 !important; }
+  .cat-tab-order { background: #fdf0ee; color: #c0392b !important; border: 1px solid #f0c8c4; }
+  .add-chip { background: #f5f0e8; border: 1.5px solid #e0d9ce; border-radius: 20px; padding: 7px 16px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; font-weight: 700; color: #2a2018; cursor: pointer; }
+  .add-chip:hover { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
+  .irow { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid #e8e2d8; margin-bottom: 6px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+  .irow:hover { border-color: #c8bfb0; box-shadow: 0 2px 10px rgba(42,32,24,.09); }
+  .snum { font-family: 'DM Mono', monospace; font-weight: 700; font-size: 22px; }
+  .sok { color: #2d7a44; } .slow { color: #c87a00; } .scrit { color: #c0392b; }
+  .tag { font-size: 10px; padding: 2px 7px; border-radius: 5px; font-family: 'Noto Sans JP', sans-serif; font-weight: 700; flex-shrink: 0; }
+  .tlow { background: #c87a0015; color: #c87a00; border: 1px solid #c87a0040; }
+  .tcrit { background: #c0392b15; color: #c0392b; border: 1px solid #c0392b40; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; display: inline-block; animation: pulse 1.5s infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .big-adj { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: 'Noto Sans JP', sans-serif; }
+  .big-adj.dec { background: #f0d9d6; color: #c0392b; }
+  .big-adj.inc { background: #d6ead9; color: #2d7a44; }
+  .fg { margin-bottom: 13px; }
+  .fg label { display: block; font-size: 11px; color: #9a8f82; margin-bottom: 5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .fg input, .fg select, .fg textarea { width: 100%; max-width: 100%; box-sizing: border-box; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; display: block; }
+  .stover { position: fixed; inset: 0; background: rgba(42,32,24,.28); z-index: 900; display: flex; justify-content: flex-end; }
+  .stpanel { background: #faf7f2; width: min(300px, 92vw); max-width: 92vw; height: 100%; overflow-y: auto; padding: 20px 16px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
+  .sttab { flex: 1; background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 0; border-radius: 7px; color: #9a8f82; }
+  .sttabon { background: #faf7f2; color: #2a2018; box-shadow: 0 1px 4px rgba(42,32,24,.09); }
+  .strow { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border-radius: 9px; background: #f5f0e8; border: 1px solid #e8e2d8; margin-bottom: 6px; min-height: 48px; }
+  .sico { background: #f0ece4; border: 1px solid #e0d9ce; cursor: pointer; border-radius: 6px; padding: 5px; display: flex; align-items: center; justify-content: center; color: #9a8f82; font-size: 13px; flex-shrink: 0; }
+  .sico:hover { background: #e8e2d8; color: #2a2018; }
+  .sico:disabled { opacity: .22; cursor: not-allowed; }
+  .sedit:hover { background: #d6e4f0; color: #2563a8; }
+  .sdel:hover { background: #f0d9d6; color: #c0392b; }
+  .rninput { flex: 1; background: #fff; border: 1.5px solid #2a2018; border-radius: 6px; padding: 5px 9px; font-family: 'Noto Sans JP', sans-serif; color: #2a2018; outline: none; }
+  .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 700; color: #7a6f63; cursor: pointer; }
+  .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
+  @media (max-width: 520px) {
+    .fg input, .fg select, .fg textarea { min-width: 0; }
+  }
+`;
+
+const BottomNav=({mode, switchMode})=>(
+  <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:500,background:"#fff",borderTop:"1px solid rgba(42,32,24,.1)",display:"flex",alignItems:"stretch",zIndex:500,paddingBottom:"env(safe-area-inset-bottom,0px)",boxShadow:"0 -2px 12px rgba(42,32,24,.07)"}}>
+    {[
+      {id:"stock",icon:<Ico.Box/>,label:"在庫管理"},
+      {id:"customers",icon:<Ico.Users/>,label:"顧客管理"},
+      {id:"phone",icon:<Ico.Phone/>,label:"電話帳"},
+    ].map(t=>(
+      <button key={t.id} onClick={()=>switchMode(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 2px 9px",cursor:"pointer",border:"none",background:"none",color:mode===t.id?"#c0724a":"#9a9088",fontSize:10,fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,letterSpacing:"0.04em",transition:"color .15s"}}>
+        {t.icon}
+        {t.label}
+      </button>
+    ))}
+  </nav>
+);
+
+const PageWrap=({children, mode, switchMode})=>(<div style={{background:"#faf8f4",minHeight:"100dvh",paddingBottom:72}}><style>{CSS}</style>{children}<BottomNav mode={mode} switchMode={switchMode}/></div>);
+
+const EstModal=({open,onClose,onSave,title,addEstModal,editEstModal,customers,repairMenus,estItems,setEstItems,estMemo,setEstMemo,estTotal})=>(
+  <Modal open={open} onClose={onClose} title={title||"見積もり"}>
+    {(addEstModal||editEstModal)&&(()=>{
+      const custId=addEstModal?.custId||editEstModal?.customer_id;
+      const bikeIdx=addEstModal?.bikeIdx??editEstModal?.bike_index??0;
+      const c=customers.find(x=>x.id===custId);
+      const b=c?.bikes?.[bikeIdx];
+      return c?(<div style={{background:"#faf8f4",borderRadius:10,padding:"10px 14px",marginBottom:14}}><div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c.name}</div>{b&&<div style={{fontSize:12,color:"#9a9088",marginTop:2}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>}</div>):null;
+    })()}
+    <div style={{marginBottom:10}}>
+      {(estItems||[]).map((it,idx)=>(
+        <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 70px 60px 30px",gap:6,alignItems:"center",marginBottom:7}}>
+          <select value={it.menuId||""} onChange={e=>{ const m=repairMenus.find(x=>x.id===e.target.value); setEstItems(p=>p.map((x,i)=>i===idx?{...x,menuId:e.target.value,name:m?.name||"",price:m?.price||x.price}:x)); }} style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 9px",fontSize:13,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none"}}><option value="">メニュー選択</option>{repairMenus.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
+          <input type="number" value={it.price||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,price:e.target.value}:x))} placeholder="金額" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",fontFamily:"'DM Mono',monospace"}}/>
+          <input type="number" value={it.qty||1} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,qty:+e.target.value}:x))} min={1} style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none"}}/>
+          <button onClick={()=>setEstItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
+        </div>
+      ))}
+      <button onClick={()=>setEstItems(p=>[...(p||[]),{menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
+    </div>
+    <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018",marginBottom:12}}>合計 ¥{estTotal.toLocaleString()}</div>
+    <FG label="メモ"><CTextarea value={estMemo} onChange={setEstMemo} placeholder="作業メモ・備考" rows={3}/></FG>
+    <div style={{display:"flex",gap:8,marginTop:4}}>
+      <CBtn onClick={onClose} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+      <CBtn onClick={onSave} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
+    </div>
+  </Modal>
+);
 
 export default function App() {
   const [mode, setMode] = useState("stock");
@@ -379,54 +477,6 @@ export default function App() {
     return list;
   },[customers,custSearch,custRankFilter,mainteExpired,mainteThisMonth]);
 
-  // ── 共通コンポーネント ──
-  const BottomNav=()=>(
-    <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:500,background:"#fff",borderTop:"1px solid rgba(42,32,24,.1)",display:"flex",alignItems:"stretch",zIndex:500,paddingBottom:"env(safe-area-inset-bottom,0px)",boxShadow:"0 -2px 12px rgba(42,32,24,.07)"}}>
-      {[
-        {id:"stock",icon:<Ico.Box/>,label:"在庫管理"},
-        {id:"customers",icon:<Ico.Users/>,label:"顧客管理"},
-        {id:"phone",icon:<Ico.Phone/>,label:"電話帳"},
-      ].map(t=>(
-        <button key={t.id} onClick={()=>switchMode(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 2px 9px",cursor:"pointer",border:"none",background:"none",color:mode===t.id?"#c0724a":"#9a9088",fontSize:10,fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,letterSpacing:"0.04em",transition:"color .15s"}}>
-          {t.icon}
-          {t.label}
-        </button>
-      ))}
-    </nav>
-  );
-
-  const PageWrap=({children})=>(<div style={{background:"#faf8f4",minHeight:"100dvh",paddingBottom:72}}><style>{CSS}</style>{children}<BottomNav/></div>);
-
-  const EstModal=({open,onClose,onSave,title})=>(
-    <Modal open={open} onClose={onClose} title={title||"見積もり"}>
-      {(addEstModal||editEstModal)&&(()=>{
-        const custId=addEstModal?.custId||editEstModal?.customer_id;
-        const bikeIdx=addEstModal?.bikeIdx??editEstModal?.bike_index??0;
-        const c=customers.find(x=>x.id===custId);
-        const b=c?.bikes?.[bikeIdx];
-        return c?(<div style={{background:"#faf8f4",borderRadius:10,padding:"10px 14px",marginBottom:14}}><div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c.name}</div>{b&&<div style={{fontSize:12,color:"#9a9088",marginTop:2}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>}</div>):null;
-      })()}
-      <div style={{marginBottom:10}}>
-        {(estItems||[]).map((it,idx)=>(
-          <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 70px 60px 30px",gap:6,alignItems:"center",marginBottom:7}}>
-            <select value={it.menuId||""} onChange={e=>{ const m=repairMenus.find(x=>x.id===e.target.value); setEstItems(p=>p.map((x,i)=>i===idx?{...x,menuId:e.target.value,name:m?.name||"",price:m?.price||x.price}:x)); }} style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 9px",fontSize:13,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none"}}><option value="">メニュー選択</option>{repairMenus.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
-            <input type="number" value={it.price||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,price:e.target.value}:x))} placeholder="金額" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",fontFamily:"'DM Mono',monospace"}}/>
-            <input type="number" value={it.qty||1} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,qty:+e.target.value}:x))} min={1} style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none"}}/>
-            <button onClick={()=>setEstItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
-          </div>
-        ))}
-        <button onClick={()=>setEstItems(p=>[...(p||[]),{menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
-      </div>
-      <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018",marginBottom:12}}>合計 ¥{estTotal.toLocaleString()}</div>
-      <FG label="メモ"><CTextarea value={estMemo} onChange={setEstMemo} placeholder="作業メモ・備考" rows={3}/></FG>
-      <div style={{display:"flex",gap:8,marginTop:4}}>
-        <CBtn onClick={onClose} variant="outline" style={{flex:1}}>キャンセル</CBtn>
-        <CBtn onClick={onSave} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
-      </div>
-    </Modal>
-  );
-
-
 
 
 
@@ -438,7 +488,7 @@ export default function App() {
     const phList=custSearch?phFilter.filter(c=>searchCustomerMatch(c,custSearch)):phFilter;
 
     return (
-      <PageWrap>
+      <PageWrap mode={mode} switchMode={switchMode}>
         <PageHeaderOuter title="電話帳" sub={`${phList.length}名表示`}/>
         <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
         <div style={{display:"flex",gap:7,overflowX:"auto",padding:"0 18px 13px",scrollbarWidth:"none"}}>
@@ -481,7 +531,7 @@ export default function App() {
     if (custDetail) {
       const c=custDetail;
       return (
-        <PageWrap>
+        <PageWrap mode={mode} switchMode={switchMode}>
           {/* プロフィールヘッダー */}
           <div style={{background:"#fff",borderBottom:"1px solid rgba(42,32,24,.09)",padding:"16px 18px 16px",display:"flex",alignItems:"center",gap:12}}>
             <button onClick={()=>setCustDetail(null)} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"#2a2018"}}><Ico.Back/></button>
@@ -596,9 +646,9 @@ export default function App() {
           </div>
 
           {/* 見積もり作成モーダル */}
-          <EstModal open={!!addEstModal} onClose={()=>setAddEstModal(null)} onSave={doSaveEst} title="見積もりを作成"/>
+          <EstModal open={!!addEstModal} onClose={()=>setAddEstModal(null)} onSave={doSaveEst} title="見積もりを作成" addEstModal={addEstModal} editEstModal={editEstModal} customers={customers} repairMenus={repairMenus} estItems={estItems} setEstItems={setEstItems} estMemo={estMemo} setEstMemo={setEstMemo} estTotal={estTotal}/>
           {/* 見積もり編集モーダル */}
-          <EstModal open={!!editEstModal} onClose={()=>setEditEstModal(null)} onSave={doUpdateEst} title="見積もりを編集"/>
+          <EstModal open={!!editEstModal} onClose={()=>setEditEstModal(null)} onSave={doUpdateEst} title="見積もりを編集" addEstModal={addEstModal} editEstModal={editEstModal} customers={customers} repairMenus={repairMenus} estItems={estItems} setEstItems={setEstItems} estMemo={estMemo} setEstMemo={setEstMemo} estTotal={estTotal}/>
 
           {/* 顧客編集モーダル */}
           <Modal open={!!editCustModal} onClose={()=>setEditCustModal(null)} title="顧客情報を編集">
@@ -639,7 +689,7 @@ export default function App() {
 
     // 顧客一覧
     return (
-      <PageWrap>
+      <PageWrap mode={mode} switchMode={switchMode}>
         <PageHeaderOuter title="顧客一覧" sub={`${filteredCustomers.length}名`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>{setStCustOpen(true);loadMasters();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><CBtn onClick={()=>setAddCustModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn></div>}/>
         <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
 
@@ -953,7 +1003,7 @@ export default function App() {
           </div>
         )}
 
-        <BottomNav/>
+        <BottomNav mode={mode} switchMode={switchMode}/>
       </div>
     );
   }
@@ -961,57 +1011,3 @@ export default function App() {
   // ── フォールバック（homeへ） ──
   return null;
 }
-
-
-const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700&family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #faf8f4; font-family: 'Noto Sans JP', sans-serif; color: #2a2018; -webkit-font-smoothing: antialiased; }
-  input, select, textarea { font-size: 16px !important; }
-  ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #ede8df; } ::-webkit-scrollbar-thumb { background: #c8bfb0; border-radius: 2px; }
-  .hide-scroll::-webkit-scrollbar { display: none; }
-  .spin { width: 36px; height: 36px; border: 3px solid #e0d9ce; border-top-color: #2a2018; border-radius: 50%; animation: rot .7s linear infinite; }
-  @keyframes rot { to { transform: rotate(360deg); } }
-  @keyframes su { from { transform: translateY(100%); } to { transform: translateY(0); } }
-  @keyframes sin { from { transform: translateX(100%); } to { transform: translateX(0); } }
-  .pbtn { background: #2a2018; color: #faf8f4; font-weight: 700; padding: 9px 22px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
-  .gbtn { background: #e8e2d8; color: #7a6f63; font-weight: 600; padding: 9px 18px; font-size: 13px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; }
-  .gbtn:hover { background: #ddd6ca; color: #2a2018; }
-  .cat-tab { background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 20px; color: #c8bfb0; transition: all .15s; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
-  .cat-tab:hover { color: #7a6f63; background: #f0ece4; }
-  .cat-tab-on { background: #2a2018; color: #faf8f4 !important; }
-  .cat-tab-order { background: #fdf0ee; color: #c0392b !important; border: 1px solid #f0c8c4; }
-  .add-chip { background: #f5f0e8; border: 1.5px solid #e0d9ce; border-radius: 20px; padding: 7px 16px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; font-weight: 700; color: #2a2018; cursor: pointer; }
-  .add-chip:hover { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
-  .irow { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid #e8e2d8; margin-bottom: 6px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
-  .irow:hover { border-color: #c8bfb0; box-shadow: 0 2px 10px rgba(42,32,24,.09); }
-  .snum { font-family: 'DM Mono', monospace; font-weight: 700; font-size: 22px; }
-  .sok { color: #2d7a44; } .slow { color: #c87a00; } .scrit { color: #c0392b; }
-  .tag { font-size: 10px; padding: 2px 7px; border-radius: 5px; font-family: 'Noto Sans JP', sans-serif; font-weight: 700; flex-shrink: 0; }
-  .tlow { background: #c87a0015; color: #c87a00; border: 1px solid #c87a0040; }
-  .tcrit { background: #c0392b15; color: #c0392b; border: 1px solid #c0392b40; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; display: inline-block; animation: pulse 1.5s infinite; flex-shrink: 0; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-  .big-adj { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: 'Noto Sans JP', sans-serif; }
-  .big-adj.dec { background: #f0d9d6; color: #c0392b; }
-  .big-adj.inc { background: #d6ead9; color: #2d7a44; }
-  .fg { margin-bottom: 13px; }
-  .fg label { display: block; font-size: 11px; color: #9a8f82; margin-bottom: 5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-  .fg input, .fg select, .fg textarea { width: 100%; max-width: 100%; box-sizing: border-box; background: #f5f0e8; border: 1px solid #ccc5ba; border-radius: 8px; padding: 9px 11px; color: #2a2018; font-family: 'Noto Sans JP', sans-serif; outline: none; display: block; }
-  .stover { position: fixed; inset: 0; background: rgba(42,32,24,.28); z-index: 900; display: flex; justify-content: flex-end; }
-  .stpanel { background: #faf7f2; width: min(300px, 92vw); max-width: 92vw; height: 100%; overflow-y: auto; padding: 20px 16px; box-shadow: -4px 0 28px rgba(42,32,24,.13); animation: sin .22s cubic-bezier(.22,1,.36,1); }
-  .sttab { flex: 1; background: none; border: none; cursor: pointer; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 0; border-radius: 7px; color: #9a8f82; }
-  .sttabon { background: #faf7f2; color: #2a2018; box-shadow: 0 1px 4px rgba(42,32,24,.09); }
-  .strow { display: flex; align-items: center; gap: 7px; padding: 9px 11px; border-radius: 9px; background: #f5f0e8; border: 1px solid #e8e2d8; margin-bottom: 6px; min-height: 48px; }
-  .sico { background: #f0ece4; border: 1px solid #e0d9ce; cursor: pointer; border-radius: 6px; padding: 5px; display: flex; align-items: center; justify-content: center; color: #9a8f82; font-size: 13px; flex-shrink: 0; }
-  .sico:hover { background: #e8e2d8; color: #2a2018; }
-  .sico:disabled { opacity: .22; cursor: not-allowed; }
-  .sedit:hover { background: #d6e4f0; color: #2563a8; }
-  .sdel:hover { background: #f0d9d6; color: #c0392b; }
-  .rninput { flex: 1; background: #fff; border: 1.5px solid #2a2018; border-radius: 6px; padding: 5px 9px; font-family: 'Noto Sans JP', sans-serif; color: #2a2018; outline: none; }
-  .chip { background: #e8e2d8; border: 1.5px solid transparent; border-radius: 20px; padding: 5px 13px; font-family: 'Noto Sans JP', sans-serif; font-size: 12px; font-weight: 700; color: #7a6f63; cursor: pointer; }
-  .chipon { background: #2a2018; color: #f5f0e8; border-color: #2a2018; }
-  @media (max-width: 520px) {
-    .fg input, .fg select, .fg textarea { min-width: 0; }
-  }
-`;
