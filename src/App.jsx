@@ -206,35 +206,36 @@ const EstModal=({open,onClose,onSave,title,addEstModal,editEstModal,customers,re
   const bikeIdx=addEstModal?.bikeIdx??editEstModal?.bike_index??0;
   const c=customers.find(x=>x.id===custId);
   const b=c?.bikes?.[bikeIdx];
+  const noGroup=(repairMenus||[]).filter(m=>!m.group1);
   return (
     <Modal open={open} onClose={onClose} title={title||"見積もり"}>
       {c&&<div style={{background:"#faf8f4",borderRadius:10,padding:"10px 14px",marginBottom:14}}><div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c.name}</div>{b&&<div style={{fontSize:12,color:"#9a9088",marginTop:2}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>}</div>}
       <div style={{marginBottom:10}}>
-        {(estItems||[]).map((it,idx)=>{
-          const itemGroup=it._group!==undefined?it._group:(repairMenus.find(m=>m.id===it.menuId)?.group1||"");
-          const filteredMenus=itemGroup?(repairMenus||[]).filter(m=>(m.group1||"")===itemGroup):(repairMenus||[]);
-          return (
-            <div key={idx} style={{background:"#f5f0e8",borderRadius:10,padding:"9px 10px",marginBottom:8,border:"1px solid rgba(42,32,24,.08)"}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
-                <select value={itemGroup} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,_group:e.target.value,menuId:"",name:"",price:""}:x))} style={selStyle}>
-                  <option value="">グループ選択</option>
-                  {groups.map(g=><option key={g} value={g}>{g}</option>)}
-                  {groups.length>0&&<option value="__all__">すべて表示</option>}
-                </select>
-                <select value={it.menuId||""} onChange={e=>{ const m=repairMenus.find(x=>x.id===e.target.value); setEstItems(p=>p.map((x,i)=>i===idx?{...x,menuId:e.target.value,name:m?.name||"",price:m?.price??x.price}:x)); }} style={selStyle}>
-                  <option value="">メニュー選択</option>
-                  {(itemGroup==="__all__"?(repairMenus||[]):filteredMenus).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-                </select>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 58px 30px",gap:6,alignItems:"center"}}>
-                <input type="number" value={it.price||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,price:e.target.value}:x))} placeholder="金額（円）" style={{background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:8,padding:"8px 10px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",fontFamily:"'DM Mono',monospace",width:"100%"}}/>
-                <input type="number" value={it.qty||1} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,qty:+e.target.value}:x))} min={1} style={{background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",width:"100%"}}/>
-                <button onClick={()=>setEstItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
-              </div>
+        {(estItems||[]).map((it,idx)=>(
+          <div key={idx} style={{background:"#f5f0e8",borderRadius:10,padding:"9px 10px",marginBottom:8,border:"1px solid rgba(42,32,24,.08)"}}>
+            <div style={{marginBottom:6}}>
+              <select value={it.menuId||""} onChange={e=>{ const m=repairMenus.find(x=>x.id===e.target.value); setEstItems(p=>p.map((x,i)=>i===idx?{...x,menuId:e.target.value,name:m?.name||"",price:m?.price??x.price}:x)); }} style={selStyle}>
+                <option value="">メニュー選択</option>
+                {groups.map(g=>(
+                  <optgroup key={g} label={g}>
+                    {(repairMenus||[]).filter(m=>(m.group1||"")===g).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                  </optgroup>
+                ))}
+                {noGroup.length>0&&(
+                  <optgroup label="グループなし">
+                    {noGroup.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                  </optgroup>
+                )}
+              </select>
             </div>
-          );
-        })}
-        <button onClick={()=>setEstItems(p=>[...(p||[]),{_group:"",menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 58px 30px",gap:6,alignItems:"center"}}>
+              <input type="number" value={it.price||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,price:e.target.value}:x))} placeholder="金額（円）" style={{background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:8,padding:"8px 10px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",fontFamily:"'DM Mono',monospace",width:"100%"}}/>
+              <input type="number" value={it.qty||1} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,qty:+e.target.value}:x))} min={1} style={{background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",width:"100%"}}/>
+              <button onClick={()=>setEstItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
+            </div>
+          </div>
+        ))}
+        <button onClick={()=>setEstItems(p=>[...(p||[]),{menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
       </div>
       <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018",marginBottom:12}}>合計 ¥{estTotal.toLocaleString()}</div>
       <FG label="作業日"><CInput type="date" value={estDate||""} onChange={setEstDate}/></FG>
