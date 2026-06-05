@@ -81,10 +81,10 @@ const Ico = {
 // ── 共通UIコンポーネント（App外 = re-mount なし） ──
 const IcoX = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>);
 const Modal = ({open, onClose, title, children}) => {
-  if (!open) return null;
+  // open=falseでもDOMに残す → inputがunmountされずキーボードが閉じない
   return (
-    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(42,32,24,.45)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-      <div style={{background:"#fff",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:500,maxHeight:"88dvh",overflowY:"auto",paddingBottom:"env(safe-area-inset-bottom,16px)",animation:"su .22s ease"}}>
+    <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(42,32,24,.45)",zIndex:1000,display:open?"flex":"none",alignItems:"flex-end",justifyContent:"center"}}>
+      <div style={{background:"#fff",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:500,maxHeight:"88dvh",overflowY:"auto",paddingBottom:"env(safe-area-inset-bottom,16px)"}}>
         <div style={{width:36,height:4,background:"#e0d8d0",borderRadius:2,margin:"12px auto 0"}}/>
         <div style={{padding:"16px 18px 14px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:16,fontWeight:700,color:"#2a2018"}}>{title}</div>
@@ -131,9 +131,7 @@ const SearchBarOuter = ({value, onChange, placeholder}) => (
 
 
 export default function App() {
-  const [screen, setScreen] = useState("login");
-  const [pwVal, setPwVal] = useState(""); const [pwErr, setPwErr] = useState(false);
-  const [mode, setMode] = useState("home");
+  const [mode, setMode] = useState("stock");
   const [saving, setSaving] = useState(false);
 
   // 在庫 state
@@ -181,12 +179,6 @@ export default function App() {
   const [editRepairMenu, setEditRepairMenu] = useState(null);
 
   // 作業（予約）state
-  const [reservations, setReservations] = useState([]);
-  const [addResModal, setAddResModal] = useState(false);
-  const [resForm, setResForm] = useState({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:""});
-  const [resCustSearch, setResCustSearch] = useState("");
-  const [editResModal, setEditResModal] = useState(null);
-  const [selectedRes, setSelectedRes] = useState(null);
 
   // 電話帳 state
   const [phoneFilter, setPhoneFilter] = useState("all");
@@ -205,8 +197,12 @@ export default function App() {
       setCats(cD.map(c=>({...c,brands:bD.filter(b=>b.category_id===c.id).map(b=>({...b,items:iD.filter(i=>i.brand_id===b.id).map(i=>({id:i.id,name:i.name,stock:i.stock,minStock:i.min_stock,retailPrice:i.retail_price,costPrice:i.cost_price,order:i.order})).sort((a,b)=>a.order-b.order)})).sort((a,b)=>a.order-b.order)})));
       loadCustomers({silent:true}).catch(()=>{});
     } catch(e){console.error(e);}
-    setScreen("main");
+    
   };
+
+  // 初回自動ロード
+  React.useEffect(()=>{ loadStock(); },[]);
+
 
   const loadCustomers = async ({ silent=false } = {}) => {
     const reqNo = ++customerRequestNo.current;
@@ -234,17 +230,9 @@ export default function App() {
     } catch(e){ console.error(e); }
   };
 
-  const loadReservations = async () => {
-    try {
-      const data = await api("reservations?select=*&order=checkin_date.asc").catch(()=>[]);
-      setReservations(data||[]);
-    } catch(e){console.error(e);}
-  };
 
-  const handleLogin = () => {
-    if (pwVal===PASSWORD) { setScreen("loading"); loadStock(); }
-    else { setPwErr(true); setPwVal(""); setTimeout(()=>setPwErr(false),2000); }
-  };
+
+
 
   const loadEstimates=async()=>{ try { const d=await api("estimates?select=*&order=created_at.desc").catch(()=>[]); setEstimates((d||[]).map(normalizeEstimate)); } catch(e){console.error(e);} };
   const getEstItemName=(it)=>it?.name||repairMenus.find(m=>m.id===it?.menuId)?.name||"";
@@ -258,10 +246,11 @@ export default function App() {
 
     const switchMode = async (m) => {
     setMode(m);
-    if (m==="customers"||m==="phone") { await loadCustomers({silent:custLoaded}); await loadMasters(); }
-    if (m==="customers") { loadEstimates(); }
-    if (m==="kanban") { await loadReservations(); if(!custLoaded) await loadCustomers({silent:false}); await loadMasters(); }
-    if (m==="home") { if(!custLoaded) loadCustomers({silent:false}); loadReservations(); }
+    if (m==="customers"||m==="phone") {
+      await loadCustomers({silent:custLoaded});
+      await loadMasters();
+      loadEstimates();
+    }
   };
 
   // ── 在庫 派生 ──
@@ -373,37 +362,15 @@ export default function App() {
   const doEditMenu=async()=>{ if(!editRepairMenu) return; const{id,name,price,group1,group2}=editRepairMenu; if(!name.trim()) return; setSaving(true); try { await api(`repair_menus?id=eq.${id}`,"PATCH",{name:name.trim(),price:+price||0,group1:(group1||"").trim(),group2:(group2||"").trim()}); setRepairMenus(p=>p.map(m=>m.id===id?{...m,name:name.trim(),price:+price||0}:m).sort((a,b)=>a.name.localeCompare(b.name,"ja"))); setEditRepairMenu(null); } catch(e){console.error(e);} finally{setSaving(false);} };
 
   // ── 作業ハンドラ ──
-  const doAddRes=async()=>{
-    if(!resForm.checkinDate) return;
-    const id=uid();
-    setSaving(true);
-    try {
-      await api("reservations","POST",{id,customer_id:resForm.custId||null,bike_index:resForm.bikeIdx,checkin_date:resForm.checkinDate,due_date:resForm.dueDateUnknown?null:resForm.dueDate||null,staff:resForm.staff,memo:resForm.memo||null,status:"reserved"});
-      await loadReservations();
-      setAddResModal(false);
-      setResForm({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:""});
-      setResCustSearch("");
-    } catch(e){ console.error(e); alert("作業の保存に失敗しました。"); }
-    finally { setSaving(false); }
-  };
-  const doEditRes=async()=>{
-    if(!editResModal) return;
+
     const upd={...editResModal,due_date:editResModal.dueDateUnknown?null:editResModal.due_date||null};
     setReservations(p=>p.map(r=>r.id===upd.id?upd:r));
-    setEditResModal(null);
-    await api(`reservations?id=eq.${upd.id}`,"PATCH",{checkin_date:upd.checkin_date,due_date:upd.due_date,staff:upd.staff,memo:upd.memo||null}).catch(()=>{});
-  };
-  const updateResStatus=async(id,status)=>{
-    setReservations(p=>p.map(r=>r.id===id?{...r,status}:r));
-    setSelectedRes(null);
-    await api(`reservations?id=eq.${id}`,"PATCH",{status}).catch(()=>{});
-  };
-  const delRes=async(id)=>{ if(!window.confirm("削除しますか？")) return; setReservations(p=>p.filter(r=>r.id!==id)); setSelectedRes(null); await api(`reservations?id=eq.${id}`,"DELETE").catch(()=>{}); };
+
+
 
   // ── 顧客検索 ──
   const searchCustomerMatch=(c,raw)=>{ const terms=raw.trim().toLowerCase().split(/\s+/).filter(Boolean); if(!terms.length) return true; const phone=(c.phone||"").replace(/[-\s]/g,""); const hay=[c.name||"",c.furigana||"",phone,(c.bikes||[]).map(b=>`${b.maker||""} ${b.color||""}`).join(" ")].join(" ").toLowerCase(); return terms.every(t=>{ const nt=t.replace(/[-\s]/g,""); return hay.includes(t)||(nt&&phone.includes(nt)); }); };
-  const resCusts=useMemo(()=>customers.filter(c=>searchCustomerMatch(c,resCustSearch)).slice(0,8),[resCustSearch,customers]);
-  const selectedResCust=customers.find(c=>c.id===resForm.custId);
+
 
   // ── メンテ期限チェック ──
   const mainteExpired=useMemo(()=>customers.filter(c=>(c.bikes||[]).some(b=>b.nextMaintenanceDate&&new Date(b.nextMaintenanceDate)<today())),[customers]);
@@ -420,18 +387,7 @@ export default function App() {
   },[customers,custSearch,custRankFilter,mainteExpired,mainteThisMonth]);
 
   // ── ログイン画面 ──
-  if (screen==="login") return (
-    <div style={{background:"#faf8f4",minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}}>
-      <style>{CSS}</style>
-      <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:26,color:"#2a2018",marginBottom:6,letterSpacing:"0.02em"}}>ウエハラ<span style={{color:"#c0724a"}}>サイクル</span></div>
-      <div style={{fontSize:11,color:"#9a9088",letterSpacing:".14em",textTransform:"uppercase",marginBottom:40}}>Management System</div>
-      <input type="password" value={pwVal} onChange={e=>setPwVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="パスワード" style={{width:"100%",maxWidth:280,background:pwErr?"#fae8e8":"#f3f0ea",border:`1.5px solid ${pwErr?"#c0392b":"#e0d9ce"}`,borderRadius:12,padding:"14px 18px",color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",fontSize:16,outline:"none",textAlign:"center",letterSpacing:"0.2em",marginBottom:10}} autoFocus/>
-      {pwErr&&<div style={{fontSize:12,color:"#c0392b",marginBottom:10}}>パスワードが違います</div>}
-      <button onClick={handleLogin} style={{width:"100%",maxWidth:280,background:"#2a2018",color:"#faf8f4",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif"}}>ログイン</button>
-    </div>
-  );
-
-  if (screen==="loading") return (
+ return (
     <div style={{background:"#faf8f4",minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",gap:14,flexDirection:"column"}}>
       <style>{CSS}</style>
       <div className="spin"/><p style={{color:"#9a9088",fontSize:14,fontFamily:"'Noto Sans JP',sans-serif"}}>読み込み中...</p>
@@ -442,16 +398,13 @@ export default function App() {
   const BottomNav=()=>(
     <nav style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:500,background:"#fff",borderTop:"1px solid rgba(42,32,24,.1)",display:"flex",alignItems:"stretch",zIndex:500,paddingBottom:"env(safe-area-inset-bottom,0px)",boxShadow:"0 -2px 12px rgba(42,32,24,.07)"}}>
       {[
-        {id:"home",icon:<Ico.Home/>,label:"ホーム"},
-        {id:"stock",icon:<Ico.Box/>,label:"在庫"},
-        {id:"customers",icon:<Ico.Users/>,label:"顧客"},
-        {id:"kanban",icon:<Ico.Kanban/>,label:"作業"},
+        {id:"stock",icon:<Ico.Box/>,label:"在庫管理"},
+        {id:"customers",icon:<Ico.Users/>,label:"顧客管理"},
         {id:"phone",icon:<Ico.Phone/>,label:"電話帳"},
       ].map(t=>(
-        <button key={t.id} onClick={()=>switchMode(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"9px 2px 8px",cursor:"pointer",border:"none",background:"none",color:mode===t.id?"#c0724a":"#9a9088",fontSize:9,fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,letterSpacing:"0.04em",transition:"color .15s",position:"relative"}}>
+        <button key={t.id} onClick={()=>switchMode(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 2px 9px",cursor:"pointer",border:"none",background:"none",color:mode===t.id?"#c0724a":"#9a9088",fontSize:10,fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,letterSpacing:"0.04em",transition:"color .15s"}}>
           {t.icon}
           {t.label}
-          {t.id==="kanban"&&reservations.filter(r=>r.status==="in").length>0&&<span style={{position:"absolute",top:6,right:"calc(50% - 14px)",width:7,height:7,background:"#c0724a",borderRadius:"50%",border:"1.5px solid #fff"}}/>}
         </button>
       ))}
     </nav>
@@ -491,133 +444,6 @@ export default function App() {
 
 
 
-
-  // ════════════════════════════════════════
-  // HOME 画面
-  // ════════════════════════════════════════
-  if (mode==="home") {
-    const totalStock=cats.reduce((s,c)=>s+c.brands.reduce((s2,b)=>s2+b.items.reduce((s3,i)=>s3+i.stock,0),0),0);
-    const critStock=cats.reduce((acc,c)=>[...acc,...c.brands.reduce((a2,b)=>[...a2,...b.items.filter(i=>i.stock===0).map(i=>({...i,brandName:b.name}))],[])],[]);
-    const lowStock=cats.reduce((acc,c)=>[...acc,...c.brands.reduce((a2,b)=>[...a2,...b.items.filter(i=>i.stock>0&&i.stock<=i.minStock).map(i=>({...i,brandName:b.name}))],[])],[]);
-    const inShop=reservations.filter(r=>r.status==="in");
-    const todayStr=fmt(today());
-    const todayRes=reservations.filter(r=>r.status==="reserved"&&r.checkin_date===todayStr);
-
-    return (
-      <PageWrap>
-        <div style={{padding:"20px 18px 14px"}}>
-          <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:24,color:"#2a2018",marginBottom:2}}>ウエハラ<span style={{color:"#c0724a"}}>サイクル</span></div>
-          <div style={{fontSize:12,color:"#9a9088"}}>{new Date().getFullYear()}年{new Date().getMonth()+1}月{new Date().getDate()}日</div>
-        </div>
-
-        {/* KPI */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,padding:"0 18px",marginBottom:16}}>
-          {[
-            {label:"在庫台数",val:totalStock,unit:"点",color:"#c0724a",alert:critStock.length>0?`欠品 ${critStock.length}点`:lowStock.length>0?`残少 ${lowStock.length}点`:"問題なし",alertColor:critStock.length>0?"#a83030":lowStock.length>0?"#a06c10":"#3d7a56"},
-            {label:"入庫中",val:inShop.length,unit:"台",color:"#3d7a56",alert:"作業対応中",alertColor:"#3d7a56"},
-            {label:"今日の予約",val:todayRes.length,unit:"件",color:"#2e5f90",alert:"入庫予定",alertColor:"#2e5f90"},
-            {label:"メンテ期限切れ",val:mainteExpired.length,unit:"名",color:"#a06c10",alert:"要電話",alertColor:"#a83030"},
-          ].map((s,i)=>(
-            <div key={i} style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",padding:"14px 14px 12px",boxShadow:"0 1px 8px rgba(42,32,24,.06)",position:"relative",overflow:"hidden"}}>
-              <div style={{position:"absolute",bottom:0,left:0,right:0,height:3,background:s.color,borderRadius:"0 0 14px 14px"}}/>
-              <div style={{fontSize:11,color:"#9a9088",fontWeight:600,marginBottom:6}}>{s.label}</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:500,color:"#2a2018",lineHeight:1}}>{s.val}<span style={{fontSize:12,color:"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:500,marginLeft:2}}>{s.unit}</span></div>
-              <div style={{fontSize:10,marginTop:5,color:s.alertColor,fontWeight:700}}>{s.alert}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* 今日の予約 */}
-        {todayRes.length>0&&(
-          <div style={{padding:"0 18px",marginBottom:14}}>
-            <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-              <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>📅 今日の入庫予定</div>
-                <CBtn onClick={()=>switchMode("kanban")} variant="outline" size="sm">作業管理へ</CBtn>
-              </div>
-              {todayRes.map(r=>{ const c=customers.find(x=>x.id===r.customer_id); const b=c?.bikes?.[r.bike_index||0]; return (
-                <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderBottom:"1px solid rgba(42,32,24,.05)"}}>
-                  <div style={{width:38,height:38,borderRadius:"50%",background:"#f0ece4",color:"#7a7060",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:15,flexShrink:0}}>{(c?.name||"?")[0]}</div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{c?.name||"未設定"}</div>
-                    <div style={{fontSize:11,color:"#9a9088",marginTop:1}}>{b?`🚲 ${b.maker}`:""}{r.staff?` ／ ${r.staff}`:""}</div>
-                  </div>
-                  <CTag color="blue">{r.staff||""}</CTag>
-                </div>
-              );})}
-            </div>
-          </div>
-        )}
-
-        {/* 在庫アラート */}
-        {(critStock.length>0||lowStock.length>0)&&(
-          <div style={{padding:"0 18px",marginBottom:14}}>
-            <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-              <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>📦 在庫アラート</div>
-                <CBtn onClick={()=>switchMode("stock")} variant="outline" size="sm">在庫へ</CBtn>
-              </div>
-              {critStock.slice(0,3).map(i=>(
-                <div key={i.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"1px solid rgba(42,32,24,.05)"}}>
-                  <span style={{width:8,height:8,borderRadius:"50%",background:"#c0392b",flexShrink:0}}/>
-                  <div style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{i.brandName} {i.name}</div>
-                  <CTag color="red">欠品</CTag>
-                </div>
-              ))}
-              {lowStock.slice(0,2).map(i=>(
-                <div key={i.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"1px solid rgba(42,32,24,.05)"}}>
-                  <span style={{width:8,height:8,borderRadius:"50%",background:"#c87a00",flexShrink:0}}/>
-                  <div style={{flex:1,fontSize:13,fontWeight:600,color:"#2a2018"}}>{i.brandName} {i.name}</div>
-                  <CTag color="amber">残少 {i.stock}点</CTag>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* メンテ期限切れ */}
-        {mainteExpired.length>0&&(
-          <div style={{padding:"0 18px",marginBottom:14}}>
-            <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-              <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>📞 メンテ期限切れ</div>
-                <CBtn onClick={()=>switchMode("phone")} variant="outline" size="sm">電話帳へ</CBtn>
-              </div>
-              {mainteExpired.slice(0,4).map(c=>{ const eb=(c.bikes||[]).find(b=>b.nextMaintenanceDate&&new Date(b.nextMaintenanceDate)<today()); return (
-                <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px",borderBottom:"1px solid rgba(42,32,24,.05)"}}>
-                  <div style={{width:38,height:38,borderRadius:"50%",background:"#fae8e8",color:"#a83030",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:15,flexShrink:0}}>{(c.name||"?")[0]}</div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{c.name}</div>
-                    <div style={{fontSize:11,color:"#a06c10",marginTop:1}}>⚠ {eb?.maker} — {eb?.nextMaintenanceDate}</div>
-                  </div>
-                  {c.phone&&<a href={`tel:${(c.phone||"").replace(/-/g,"")}`} style={{width:40,height:40,borderRadius:"50%",background:"#e6f2ec",border:"1.5px solid rgba(61,122,86,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,textDecoration:"none",flexShrink:0}}>📞</a>}
-                </div>
-              );})}
-              {mainteExpired.length>4&&<div style={{padding:"8px 16px",fontSize:11,color:"#9a9088",textAlign:"center"}}>他 {mainteExpired.length-4}名</div>}
-            </div>
-          </div>
-        )}
-
-        {/* ショートカット */}
-        <div style={{padding:"0 18px",marginBottom:18}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            {[
-              {icon:"📦",label:"在庫管理",sub:"在庫確認・発注",id:"stock",color:"#c0724a"},
-              {icon:"👥",label:"顧客管理",sub:"カルテ・自転車",id:"customers",color:"#2563a8"},
-              {icon:"📋",label:"作業管理",sub:"カンバン・進捗",id:"kanban",color:"#3d7a56"},
-              {icon:"📞",label:"電話帳",sub:"ワンタップ発信",id:"phone",color:"#6650a0"},
-            ].map(s=>(
-              <button key={s.id} onClick={()=>switchMode(s.id)} style={{background:"#fff",border:"1px solid rgba(42,32,24,.09)",borderRadius:14,padding:"14px 12px",cursor:"pointer",textAlign:"left",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-                <div style={{fontSize:24,marginBottom:6}}>{s.icon}</div>
-                <div style={{fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,fontSize:13,color:"#2a2018",marginBottom:2}}>{s.label}</div>
-                <div style={{fontSize:10,color:"#9a9088"}}>{s.sub}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </PageWrap>
-    );
-  }
 
   // ════════════════════════════════════════
   // 電話帳
@@ -791,20 +617,20 @@ export default function App() {
 
           {/* 顧客編集モーダル */}
           <Modal open={!!editCustModal} onClose={()=>setEditCustModal(null)} title="顧客情報を編集">
-            {editCustModal&&<>
+            <div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-                <FG label="氏名"><CInput value={editCustModal.name||""} onChange={v=>setEditCustModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
-                <FG label="フリガナ"><CInput value={editCustModal.furigana||""} onChange={v=>setEditCustModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
+                <FG label="氏名"><CInput value={editCustModal?.name||""} onChange={v=>setEditCustModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
+                <FG label="フリガナ"><CInput value={editCustModal?.furigana||""} onChange={v=>setEditCustModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
               </div>
-              <FG label="電話番号"><CInput value={editCustModal.phone||""} onChange={v=>setEditCustModal(p=>({...p,phone:v}))} type="tel" placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",fontSize:15,letterSpacing:"0.04em"}}/></FG>
-              <FG label="住所"><CInput value={editCustModal.address||""} onChange={v=>setEditCustModal(p=>({...p,address:v}))} placeholder="諏訪市○○"/></FG>
-              <FG label="ランク"><CSelect value={editCustModal.customer_rank||"通常"} onChange={v=>setEditCustModal(p=>({...p,customer_rank:v}))}><option>通常</option><option>常連</option><option>VIP</option><option>見込み</option></CSelect></FG>
-              <FG label="メモ"><CTextarea value={editCustModal.memo||""} onChange={v=>setEditCustModal(p=>({...p,memo:v}))} placeholder="メモ…" rows={3}/></FG>
+              <FG label="電話番号"><CInput value={editCustModal?.phone||""} onChange={v=>setEditCustModal(p=>({...p,phone:v}))} type="tel" placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",fontSize:15,letterSpacing:"0.04em"}}/></FG>
+              <FG label="住所"><CInput value={editCustModal?.address||""} onChange={v=>setEditCustModal(p=>({...p,address:v}))} placeholder="諏訪市○○"/></FG>
+              <FG label="ランク"><CSelect value={editCustModal?.customer_rank||"通常"} onChange={v=>setEditCustModal(p=>({...p,customer_rank:v}))}><option>通常</option><option>常連</option><option>VIP</option><option>見込み</option></CSelect></FG>
+              <FG label="メモ"><CTextarea value={editCustModal?.memo||""} onChange={v=>setEditCustModal(p=>({...p,memo:v}))} placeholder="メモ…" rows={3}/></FG>
               <div style={{display:"flex",gap:8,marginTop:4}}>
                 <CBtn onClick={()=>setEditCustModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
                 <CBtn onClick={doEditCust} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
               </div>
-            </>}
+            </div>
           </Modal>
 
           {/* 自転車追加モーダル */}
@@ -922,194 +748,14 @@ export default function App() {
 
         {/* 修理メニュー編集モーダル */}
         <Modal open={!!editRepairMenu} onClose={()=>setEditRepairMenu(null)} title="修理メニューを編集">
-          {editRepairMenu&&<>
-            <FG label="メニュー名"><CInput value={editRepairMenu.name||""} onChange={v=>setEditRepairMenu(p=>({...p,name:v}))}/></FG>
-            <FG label="金額（円）"><CInput type="number" value={String(editRepairMenu.price||"")} onChange={v=>setEditRepairMenu(p=>({...p,price:v}))}/></FG>
+          <div>
+            <FG label="メニュー名"><CInput value={editRepairMenu?.name||""} onChange={v=>setEditRepairMenu(p=>({...p,name:v}))}/></FG>
+            <FG label="金額（円）"><CInput type="number" value={String(editRepairMenu?.price||"")} onChange={v=>setEditRepairMenu(p=>({...p,price:v}))}/></FG>
             <div style={{display:"flex",gap:8,marginTop:4}}>
               <CBtn onClick={()=>setEditRepairMenu(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
               <CBtn onClick={doEditMenu} variant="primary" style={{flex:2}}>💾 保存</CBtn>
             </div>
-          </>}
-        </Modal>
-      </PageWrap>
-    );
-  }
-
-
-  // ════════════════════════════════════════
-  // 作業管理（カンバン）
-  // ════════════════════════════════════════
-  if (mode==="kanban") {
-    const custMap=Object.fromEntries(customers.map(c=>[c.id,c]));
-    const activeReservations=reservations.filter(r=>r.status!=="archived");
-    const cols=[
-      {key:"reserved",label:"受付済み",color:"#9a9088",bg:"#f3f0ea"},
-      {key:"in",label:"作業中",color:"#a06c10",bg:"#fdf2d8"},
-      {key:"done",label:"完了",color:"#3d7a56",bg:"#e6f2ec"},
-    ];
-    const getResCard=(r)=>{
-      const c=custMap[r.customer_id];
-      const b=c?.bikes?.[r.bike_index||0];
-      return {cust:c,bike:b};
-    };
-
-    return (
-      <PageWrap>
-        <div style={{padding:"18px 18px 10px",display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
-          <div>
-            <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:22,fontWeight:700,color:"#2a2018"}}>作業管理</div>
-            <div style={{fontSize:12,color:"#9a9088",marginTop:3}}>進行中 {reservations.filter(r=>r.status==="in").length}件</div>
           </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>loadReservations()} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#2a2018"}}><Ico.Refresh/></button>
-            <CBtn onClick={()=>setAddResModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn>
-          </div>
-        </div>
-
-        {/* カンバン横スクロール */}
-        <div style={{display:"flex",gap:10,overflowX:"auto",padding:"0 18px 14px",scrollSnapType:"x mandatory",WebkitOverflowScrolling:"touch",scrollbarWidth:"none"}}>
-          {cols.map(col=>{
-            const items=activeReservations.filter(r=>r.status===col.key).sort((a,b)=>new Date(a.due_date||"9999")-new Date(b.due_date||"9999"));
-            return (
-              <div key={col.key} style={{minWidth:200,background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",flexShrink:0,scrollSnapAlign:"start",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-                <div style={{padding:"11px 14px",background:col.bg,borderBottom:"1px solid rgba(42,32,24,.07)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <span style={{fontSize:12,fontWeight:700,color:col.color,letterSpacing:"0.04em"}}>{col.label}</span>
-                  <span style={{background:col.color,color:"#fff",borderRadius:10,padding:"1px 8px",fontSize:11,fontWeight:700}}>{items.length}</span>
-                </div>
-                <div style={{padding:10,display:"flex",flexDirection:"column",gap:8,minHeight:200}}>
-                  {items.map(r=>{
-                    const{cust,bike}=getResCard(r);
-                    const isOverdue=r.due_date&&new Date(r.due_date)<today()&&r.status!=="done";
-                    return (
-                      <div key={r.id} onClick={()=>setSelectedRes(r)} style={{background:"#faf8f4",borderRadius:10,padding:"11px 12px",border:`1px solid ${isOverdue?"rgba(168,48,48,.25)":"rgba(42,32,24,.09)"}`,cursor:"pointer"}}>
-                        <div style={{fontSize:13,fontWeight:700,color:"#2a2018",marginBottom:2}}>{cust?.name||r.memo||"未設定"}</div>
-                        <div style={{fontSize:11,color:"#9a9088",marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bike?`🚲 ${bike.maker}`:r.memo||""}</div>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                          <CTag color={r.staff==="あさと"?"blue":"green"}>{r.staff||""}</CTag>
-                          <span style={{fontSize:10,color:isOverdue?"#a83030":"#9a9088",fontFamily:"'DM Mono',monospace",fontWeight:isOverdue?700:400}}>
-                            {r.due_date?fmt(r.due_date,"short"):"期日未定"}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {items.length===0&&<div style={{padding:"20px 10px",textAlign:"center",color:"#c8bfb0",fontSize:12}}>なし</div>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 作業詳細モーダル */}
-        <Modal open={!!selectedRes} onClose={()=>setSelectedRes(null)} title="作業詳細">
-          {selectedRes&&(()=>{
-            const{cust,bike}=getResCard(selectedRes);
-            return <>
-              <div style={{background:"#faf8f4",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
-                <div style={{fontWeight:700,fontSize:15,color:"#2a2018",marginBottom:4}}>{cust?.name||"未設定"}</div>
-                {bike&&<div style={{fontSize:13,color:"#9a9088",marginBottom:4}}>🚲 {bike.maker}{bike.color?` (${bike.color})`:""}</div>}
-                {cust?.phone&&<a href={`tel:${(cust.phone||"").replace(/-/g,"")}`} style={{display:"inline-flex",alignItems:"center",gap:5,padding:"8px 14px",borderRadius:30,background:"#e6f2ec",border:"1.5px solid rgba(61,122,86,.2)",color:"#3d7a56",fontSize:13,fontWeight:700,textDecoration:"none",fontFamily:"'Noto Sans JP',sans-serif",marginTop:4}}>📞 電話する</a>}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                {[["入庫日",selectedRes.checkin_date?fmt(selectedRes.checkin_date,"short"):"—"],["完了予定",selectedRes.due_date?fmt(selectedRes.due_date,"short"):"未定"],["担当",selectedRes.staff||"—"],["ステータス",selectedRes.status==="reserved"?"受付済み":selectedRes.status==="in"?"作業中":"完了"]].map(([k,v])=>(
-                  <div key={k} style={{background:"#f3f0ea",borderRadius:9,padding:"10px 12px"}}>
-                    <div style={{fontSize:10,color:"#9a9088",fontWeight:600,marginBottom:3}}>{k}</div>
-                    <div style={{fontSize:13,fontWeight:700,color:"#2a2018"}}>{v}</div>
-                  </div>
-                ))}
-              </div>
-              {selectedRes.memo&&<div style={{background:"#faf8f4",borderRadius:9,padding:"10px 12px",marginBottom:14,fontSize:13,color:"#4a4038",lineHeight:1.6}}>{selectedRes.memo}</div>}
-              {/* 関連見積もり表示 */}
-              {selectedRes.customer_id&&(()=>{
-                const ests=estimates.filter(e=>e.customer_id===selectedRes.customer_id&&e.bike_index===(selectedRes.bike_index||0));
-                return ests.length>0?(
-                  <div style={{marginBottom:14}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#9a9088",letterSpacing:".08em",textTransform:"uppercase",marginBottom:7}}>見積もり・修理履歴</div>
-                    {ests.slice(0,2).map(e=>(
-                      <div key={e.id} style={{background:"#faf8f4",borderRadius:9,padding:"9px 12px",marginBottom:6,border:"1px solid rgba(42,32,24,.07)"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:500,color:"#c0724a"}}>¥{(e.total||0).toLocaleString()}</span>
-                          <span style={{fontSize:10,color:"#9a9088"}}>{e.created_at?fmt(e.created_at,"short"):""}</span>
-                        </div>
-                        {(e.items||[]).map((it,i)=><div key={i} style={{fontSize:11,color:"#7a7060"}}>{it.name} ×{it.qty}</div>)}
-                      </div>
-                    ))}
-                  </div>
-                ):null;
-              })()}
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
-                {selectedRes.customer_id&&<CBtn onClick={()=>{const c=customers.find(x=>x.id===selectedRes.customer_id);if(c){setAddEstModal({custId:c.id,bikeIdx:selectedRes.bike_index||0});setEstItems([]);setEstMemo("");setSelectedRes(null);}}} variant="outline" style={{flex:1}}>🔧 見積もり作成</CBtn>}
-              </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {selectedRes.status==="reserved"&&<CBtn onClick={()=>updateResStatus(selectedRes.id,"in")} variant="primary" style={{flex:1}}>🔧 作業開始</CBtn>}
-                {selectedRes.status==="in"&&<CBtn onClick={()=>updateResStatus(selectedRes.id,"done")} variant="dark" style={{flex:1}}>✅ 完了にする</CBtn>}
-                {selectedRes.status==="done"&&<CBtn onClick={()=>updateResStatus(selectedRes.id,"in")} variant="outline" style={{flex:1}}>↩ 作業中に戻す</CBtn>}
-                {selectedRes.status==="done"&&<CBtn onClick={()=>{if(window.confirm("出庫しますか？完了リストから消えます"))updateResStatus(selectedRes.id,"archived");}} variant="green" style={{flex:1}}>🚲 出庫</CBtn>}
-                <CBtn onClick={()=>{setEditResModal({...selectedRes});setSelectedRes(null);}} variant="outline"><Ico.Edit/></CBtn>
-                <CBtn onClick={()=>delRes(selectedRes.id)} variant="outline" style={{color:"#a83030"}}><Ico.Trash/></CBtn>
-              </div>
-            </>;
-          })()}
-        </Modal>
-
-        {/* 作業追加モーダル */}
-        <Modal open={addResModal} onClose={()=>{setAddResModal(false);setResForm({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:""});setResCustSearch("");}} title="作業を追加">
-          <FG label="顧客検索">
-            <input value={resCustSearch} onChange={e=>setResCustSearch(e.target.value)} placeholder="名前・フリガナ・電話番号" style={{width:"100%",padding:"10px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:14,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",marginBottom:6}}/>
-            {resCustSearch&&resCusts.map(c=>(
-              <div key={c.id} onClick={()=>{setResForm(p=>({...p,custId:c.id,bikeIdx:0}));setResCustSearch("");}} style={{padding:"9px 12px",borderRadius:8,background:resForm.custId===c.id?"#fdf0e8":"#faf8f4",border:`1px solid ${resForm.custId===c.id?"#c0724a":"rgba(42,32,24,.09)"}`,marginBottom:4,cursor:"pointer"}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#2a2018"}}>{c.name}</div>
-                <div style={{fontSize:11,color:"#9a9088"}}>{c.phone||""} {(c.bikes||[]).map(b=>b.maker).join("・")}</div>
-              </div>
-            ))}
-            {resForm.custId&&(()=>{
-              const c=customers.find(x=>x.id===resForm.custId);
-              if(!c) return null;
-              return <div style={{padding:"8px 12px",borderRadius:8,background:"#fdf0e8",border:"1px solid #c0724a",marginBottom:6}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#c0724a"}}>✓ {c.name}</div>
-                {(c.bikes||[]).length>0&&<select value={resForm.bikeIdx} onChange={e=>setResForm(p=>({...p,bikeIdx:+e.target.value}))} style={{marginTop:5,width:"100%",padding:"7px 10px",background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:7,fontSize:13,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none"}}>{c.bikes.map((b,i)=><option key={i} value={i}>{b.maker}{b.color?` (${b.color})`:""}</option>)}</select>}
-              </div>;
-            })()}
-          </FG>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-            <FG label="入庫日"><CInput type="date" value={resForm.checkinDate} onChange={v=>setResForm(p=>({...p,checkinDate:v}))}/></FG>
-            <FG label="完了予定日"><CInput type="date" value={resForm.dueDate} onChange={v=>setResForm(p=>({...p,dueDate:v}))} style={{opacity:resForm.dueDateUnknown?0.3:1}}/></FG>
-          </div>
-          <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,fontSize:13,color:"#4a4038",cursor:"pointer"}}>
-            <input type="checkbox" checked={resForm.dueDateUnknown} onChange={e=>setResForm(p=>({...p,dueDateUnknown:e.target.checked}))} style={{width:16,height:16,accentColor:"#c0724a"}}/>
-            完了日未定
-          </label>
-          <FG label="担当">
-            <CSelect value={resForm.staff} onChange={v=>setResForm(p=>({...p,staff:v}))}>
-              {STAFF.map(s=><option key={s}>{s}</option>)}
-            </CSelect>
-          </FG>
-          <FG label="メモ"><CTextarea value={resForm.memo} onChange={v=>setResForm(p=>({...p,memo:v}))} placeholder="作業内容・部品番号など" rows={3}/></FG>
-          <div style={{display:"flex",gap:8,marginTop:4}}>
-            <CBtn onClick={()=>{setAddResModal(false);setResForm({custId:"",bikeIdx:0,checkinDate:"",dueDate:"",dueDateUnknown:false,staff:"あさと",memo:""});setResCustSearch("");}} variant="outline" style={{flex:1}}>キャンセル</CBtn>
-            <CBtn onClick={doAddRes} variant="primary" style={{flex:2}}>💾 追加する</CBtn>
-          </div>
-        </Modal>
-
-        {/* 見積もり作成（作業管理から起動） */}
-        <EstModal open={!!addEstModal} onClose={()=>setAddEstModal(null)} onSave={doSaveEst} title="見積もりを作成"/>
-        <EstModal open={!!editEstModal} onClose={()=>setEditEstModal(null)} onSave={doUpdateEst} title="見積もりを編集"/>
-
-        {/* 作業編集モーダル */}
-        <Modal open={!!editResModal} onClose={()=>setEditResModal(null)} title="作業を編集">
-          {editResModal&&<>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <FG label="入庫日"><CInput type="date" value={editResModal.checkin_date||""} onChange={v=>setEditResModal(p=>({...p,checkin_date:v}))}/></FG>
-              <FG label="完了予定日"><CInput type="date" value={editResModal.due_date||""} onChange={v=>setEditResModal(p=>({...p,due_date:v}))}/></FG>
-            </div>
-            <FG label="担当"><CSelect value={editResModal.staff||"あさと"} onChange={v=>setEditResModal(p=>({...p,staff:v}))}>{STAFF.map(s=><option key={s}>{s}</option>)}</CSelect></FG>
-            <FG label="ステータス"><CSelect value={editResModal.status||"reserved"} onChange={v=>setEditResModal(p=>({...p,status:v}))}><option value="reserved">受付済み</option><option value="in">作業中</option><option value="done">完了</option></CSelect></FG>
-            <FG label="メモ"><CTextarea value={editResModal.memo||""} onChange={v=>setEditResModal(p=>({...p,memo:v}))} rows={3}/></FG>
-            <div style={{display:"flex",gap:8,marginTop:4}}>
-              <CBtn onClick={()=>setEditResModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
-              <CBtn onClick={doEditRes} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
-            </div>
-          </>}
         </Modal>
       </PageWrap>
     );
@@ -1132,7 +778,7 @@ export default function App() {
             {saving&&<div style={{fontSize:10,color:"#9a9088"}}>保存中...</div>}
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            <button onClick={()=>{setScreen("loading");loadStock();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Refresh/></button>
+            <button onClick={()=>{loadStock();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Refresh/></button>
             <button onClick={()=>{setSearchOpen(true);setSearchQ("");}} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Search/></button>
             <button onClick={()=>setShowSummary(true)} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Chart/></button>
             <button onClick={()=>exportCSV(cats)} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Download/></button>
