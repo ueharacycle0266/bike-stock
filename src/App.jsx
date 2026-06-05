@@ -199,35 +199,53 @@ const BottomNav=({mode, switchMode})=>(
 
 const PageWrap=({children, mode, switchMode})=>(<div style={{background:"#faf8f4",minHeight:"100dvh",paddingBottom:72}}><style>{CSS}</style>{children}<BottomNav mode={mode} switchMode={switchMode}/></div>);
 
-const EstModal=({open,onClose,onSave,title,addEstModal,editEstModal,customers,repairMenus,estItems,setEstItems,estMemo,setEstMemo,estTotal,estDate,setEstDate})=>(
-  <Modal open={open} onClose={onClose} title={title||"見積もり"}>
-    {(addEstModal||editEstModal)&&(()=>{
-      const custId=addEstModal?.custId||editEstModal?.customer_id;
-      const bikeIdx=addEstModal?.bikeIdx??editEstModal?.bike_index??0;
-      const c=customers.find(x=>x.id===custId);
-      const b=c?.bikes?.[bikeIdx];
-      return c?(<div style={{background:"#faf8f4",borderRadius:10,padding:"10px 14px",marginBottom:14}}><div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c.name}</div>{b&&<div style={{fontSize:12,color:"#9a9088",marginTop:2}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>}</div>):null;
-    })()}
-    <div style={{marginBottom:10}}>
-      {(estItems||[]).map((it,idx)=>(
-        <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 70px 60px 30px",gap:6,alignItems:"center",marginBottom:7}}>
-          <select value={it.menuId||""} onChange={e=>{ const m=repairMenus.find(x=>x.id===e.target.value); setEstItems(p=>p.map((x,i)=>i===idx?{...x,menuId:e.target.value,name:m?.name||"",price:m?.price||x.price}:x)); }} style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 9px",fontSize:13,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none"}}><option value="">メニュー選択</option>{repairMenus.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
-          <input type="number" value={it.price||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,price:e.target.value}:x))} placeholder="金額" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",fontFamily:"'DM Mono',monospace"}}/>
-          <input type="number" value={it.qty||1} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,qty:+e.target.value}:x))} min={1} style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none"}}/>
-          <button onClick={()=>setEstItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
-        </div>
-      ))}
-      <button onClick={()=>setEstItems(p=>[...(p||[]),{menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
-    </div>
-    <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018",marginBottom:12}}>合計 ¥{estTotal.toLocaleString()}</div>
-    <FG label="作業日"><CInput type="date" value={estDate||""} onChange={setEstDate}/></FG>
-    <FG label="メモ"><CTextarea value={estMemo} onChange={setEstMemo} placeholder="作業メモ・備考" rows={3}/></FG>
-    <div style={{display:"flex",gap:8,marginTop:4}}>
-      <CBtn onClick={onClose} variant="outline" style={{flex:1}}>キャンセル</CBtn>
-      <CBtn onClick={onSave} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
-    </div>
-  </Modal>
-);
+const EstModal=({open,onClose,onSave,title,addEstModal,editEstModal,customers,repairMenus,estItems,setEstItems,estMemo,setEstMemo,estTotal,estDate,setEstDate})=>{
+  const groups=[...new Set((repairMenus||[]).map(m=>m.group1||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja"));
+  const selStyle={width:"100%",background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:8,padding:"9px 10px",fontSize:14,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",WebkitAppearance:"none"};
+  const custId=addEstModal?.custId||editEstModal?.customer_id;
+  const bikeIdx=addEstModal?.bikeIdx??editEstModal?.bike_index??0;
+  const c=customers.find(x=>x.id===custId);
+  const b=c?.bikes?.[bikeIdx];
+  return (
+    <Modal open={open} onClose={onClose} title={title||"見積もり"}>
+      {c&&<div style={{background:"#faf8f4",borderRadius:10,padding:"10px 14px",marginBottom:14}}><div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c.name}</div>{b&&<div style={{fontSize:12,color:"#9a9088",marginTop:2}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>}</div>}
+      <div style={{marginBottom:10}}>
+        {(estItems||[]).map((it,idx)=>{
+          const itemGroup=it._group!==undefined?it._group:(repairMenus.find(m=>m.id===it.menuId)?.group1||"");
+          const filteredMenus=itemGroup?(repairMenus||[]).filter(m=>(m.group1||"")===itemGroup):(repairMenus||[]);
+          return (
+            <div key={idx} style={{background:"#f5f0e8",borderRadius:10,padding:"9px 10px",marginBottom:8,border:"1px solid rgba(42,32,24,.08)"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                <select value={itemGroup} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,_group:e.target.value,menuId:"",name:"",price:""}:x))} style={selStyle}>
+                  <option value="">グループ選択</option>
+                  {groups.map(g=><option key={g} value={g}>{g}</option>)}
+                  {groups.length>0&&<option value="__all__">すべて表示</option>}
+                </select>
+                <select value={it.menuId||""} onChange={e=>{ const m=repairMenus.find(x=>x.id===e.target.value); setEstItems(p=>p.map((x,i)=>i===idx?{...x,menuId:e.target.value,name:m?.name||"",price:m?.price??x.price}:x)); }} style={selStyle}>
+                  <option value="">メニュー選択</option>
+                  {(itemGroup==="__all__"?(repairMenus||[]):filteredMenus).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 58px 30px",gap:6,alignItems:"center"}}>
+                <input type="number" value={it.price||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,price:e.target.value}:x))} placeholder="金額（円）" style={{background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:8,padding:"8px 10px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",fontFamily:"'DM Mono',monospace",width:"100%"}}/>
+                <input type="number" value={it.qty||1} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,qty:+e.target.value}:x))} min={1} style={{background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",width:"100%"}}/>
+                <button onClick={()=>setEstItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
+              </div>
+            </div>
+          );
+        })}
+        <button onClick={()=>setEstItems(p=>[...(p||[]),{_group:"",menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
+      </div>
+      <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018",marginBottom:12}}>合計 ¥{estTotal.toLocaleString()}</div>
+      <FG label="作業日"><CInput type="date" value={estDate||""} onChange={setEstDate}/></FG>
+      <FG label="メモ"><CTextarea value={estMemo} onChange={setEstMemo} placeholder="作業メモ・備考" rows={3}/></FG>
+      <div style={{display:"flex",gap:8,marginTop:4}}>
+        <CBtn onClick={onClose} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+        <CBtn onClick={onSave} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
+      </div>
+    </Modal>
+  );
+};
 
 export default function App() {
   const [mode, setMode] = useState("stock");
@@ -775,19 +793,16 @@ export default function App() {
                   <input value={newMenuF.price} onChange={e=>setNewMenuF(p=>({...p,price:e.target.value}))} placeholder="金額" type="number" style={{width:"100%",minWidth:0,background:"#fff",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:14}}/>
                   <button onClick={doAddMenu} style={{background:"#2a2018",color:"#f5f0e8",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontSize:13,fontWeight:700}}>追加</button>
                 </div>
-                <select value={newMenuF.group1} onChange={e=>setNewMenuF(p=>({...p,group1:e.target.value}))} style={{width:"100%",background:"#fff",border:"1px solid #ccc5ba",borderRadius:8,padding:"7px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:13,WebkitAppearance:"none"}}>
-                  <option value="">大項目なし</option>
-                  {repairGroups.map(g=><option key={g} value={g}>{g}</option>)}
-                </select>
+                <input
+                  value={newMenuF.group1}
+                  onChange={e=>setNewMenuF(p=>({...p,group1:e.target.value}))}
+                  placeholder="グループ名（既存を選ぶか新規入力）"
+                  list="repair-groups-add"
+                  style={{width:"100%",boxSizing:"border-box",background:"#fff",border:"1px solid #ccc5ba",borderRadius:8,padding:"7px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:13}}
+                />
+                <datalist id="repair-groups-add">{repairGroups.map(g=><option key={g} value={g}/>)}</datalist>
               </div>
-              {/* 新しい大項目を作成 */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6,width:"100%",marginBottom:12}}>
-                <input placeholder="＋ 新しい大項目名" style={{width:"100%",minWidth:0,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"7px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:13}}
-                  onKeyDown={e=>{ if(e.key==="Enter"&&e.target.value.trim()&&!repairGroups.includes(e.target.value.trim())){ setNewMenuF(p=>({...p,group1:e.target.value.trim()})); e.target.value=""; } }}/>
-                <button style={{background:"#e8e2d8",color:"#2a2018",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}
-                  onClick={e=>{ const inp=e.currentTarget.previousSibling; const v=inp.value.trim(); if(v&&!repairGroups.includes(v)){setNewMenuF(p=>({...p,group1:v}));inp.value="";} }}>作成</button>
-              </div>
-              {/* 大項目別リスト */}
+              {/* グループ名別リスト */}
               {[...repairGroups,""].map(grp=>{
                 const items=[...repairMenus].filter(m=>(m.group1||"")===grp).sort((a,b)=>a.name.localeCompare(b.name,"ja"));
                 if(items.length===0) return null;
@@ -801,7 +816,7 @@ export default function App() {
                           style={{flex:1,background:"#fff",border:"1.5px solid #2a2018",borderRadius:6,padding:"3px 8px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:12,fontWeight:700}}/>
                       ):(
                         <>
-                          <span style={{fontSize:11,fontWeight:700,color:"#7a7060",textTransform:"uppercase",letterSpacing:".06em"}}>{grp||"大項目なし"}</span>
+                          <span style={{fontSize:11,fontWeight:700,color:"#7a7060",textTransform:"uppercase",letterSpacing:".06em"}}>{grp||"グループなし"}</span>
                           {grp!==""&&<button onClick={()=>{setRnGroup(grp);setRnGroupV(grp);}} style={{background:"none",border:"none",cursor:"pointer",color:"#b0a898",padding:2,display:"flex"}}><Ico.Edit/></button>}
                         </>
                       )}
@@ -829,11 +844,17 @@ export default function App() {
           <div>
             <FG label="メニュー名"><CInput value={editRepairMenu?.name||""} onChange={v=>setEditRepairMenu(p=>({...p,name:v}))}/></FG>
             <FG label="金額（円）"><CInput type="number" value={String(editRepairMenu?.price||"")} onChange={v=>setEditRepairMenu(p=>({...p,price:v}))}/></FG>
-            <FG label="大項目">
-              <select value={editRepairMenu?.group1||""} onChange={e=>setEditRepairMenu(p=>({...p,group1:e.target.value}))} style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:16,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",WebkitAppearance:"none"}}>
-                <option value="">大項目なし</option>
-                {repairGroups.map(g=><option key={g} value={g}>{g}</option>)}
-              </select>
+            <FG label="グループ名">
+              <input
+                value={editRepairMenu?.group1||""}
+                onChange={e=>setEditRepairMenu(p=>({...p,group1:e.target.value}))}
+                placeholder="グループなし"
+                list="repair-groups-edit"
+                style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:16,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",boxSizing:"border-box"}}
+              />
+              <datalist id="repair-groups-edit">
+                {repairGroups.map(g=><option key={g} value={g}/>)}
+              </datalist>
             </FG>
             <div style={{display:"flex",gap:8,marginTop:4}}>
               <CBtn onClick={()=>setEditRepairMenu(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
