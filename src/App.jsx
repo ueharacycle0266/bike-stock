@@ -199,7 +199,7 @@ const BottomNav=({mode, switchMode})=>(
 
 const PageWrap=({children, mode, switchMode})=>(<div style={{background:"#faf8f4",minHeight:"100dvh",paddingBottom:72}}><style>{CSS}</style>{children}<BottomNav mode={mode} switchMode={switchMode}/></div>);
 
-const EstModal=({open,onClose,onSave,title,addEstModal,editEstModal,customers,repairMenus,estItems,setEstItems,estMemo,setEstMemo,estTotal})=>(
+const EstModal=({open,onClose,onSave,title,addEstModal,editEstModal,customers,repairMenus,estItems,setEstItems,estMemo,setEstMemo,estTotal,estDate,setEstDate})=>(
   <Modal open={open} onClose={onClose} title={title||"見積もり"}>
     {(addEstModal||editEstModal)&&(()=>{
       const custId=addEstModal?.custId||editEstModal?.customer_id;
@@ -220,6 +220,7 @@ const EstModal=({open,onClose,onSave,title,addEstModal,editEstModal,customers,re
       <button onClick={()=>setEstItems(p=>[...(p||[]),{menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
     </div>
     <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:"#2a2018",marginBottom:12}}>合計 ¥{estTotal.toLocaleString()}</div>
+    <FG label="作業日"><CInput type="date" value={estDate||""} onChange={setEstDate}/></FG>
     <FG label="メモ"><CTextarea value={estMemo} onChange={setEstMemo} placeholder="作業メモ・備考" rows={3}/></FG>
     <div style={{display:"flex",gap:8,marginTop:4}}>
       <CBtn onClick={onClose} variant="outline" style={{flex:1}}>キャンセル</CBtn>
@@ -275,6 +276,7 @@ export default function App() {
   const [editMenuOpen, setEditMenuOpen] = useState(false);
   const [newMenuF, setNewMenuF] = useState({name:"",price:"",group1:"",group2:""});
   const [editRepairMenu, setEditRepairMenu] = useState(null);
+  const [rnGroup, setRnGroup] = useState(null); const [rnGroupV, setRnGroupV] = useState("");
 
   // 作業（予約）state
 
@@ -287,6 +289,7 @@ export default function App() {
   const [editEstModal, setEditEstModal] = useState(null);
   const [estItems, setEstItems] = useState([]);
   const [estMemo, setEstMemo] = useState("");
+  const [estDate, setEstDate] = useState(fmt(new Date()));
 
   // ── データ取得 ──
   const loadStock = async () => {
@@ -337,8 +340,9 @@ export default function App() {
   const getEstItemPrice=(it)=>Number(it?.price??repairMenus.find(m=>m.id===it?.menuId)?.price??0);
   const cleanEstItems=(items)=>(items||[]).filter(it=>String(getEstItemName(it)||"").trim()||Number(it.price||0)>0).map(it=>({name:String(getEstItemName(it)||"").trim(),price:Number(getEstItemPrice(it)||0),qty:Number(it.qty||1)}));
   const estTotal=useMemo(()=>(estItems||[]).reduce((s,it)=>s+getEstItemPrice(it)*(Number(it.qty)||0),0),[estItems,repairMenus]);
-  const doSaveEst=async()=>{ if(!addEstModal) return; const items=cleanEstItems(estItems); const total=items.reduce((s,it)=>s+(Number(it.price||0)*Number(it.qty||0)),0); const id=uid(); const obj={id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total,created_at:new Date().toISOString()}; setSaving(true); try { const saved=await api("estimates","POST",{id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total}); const row=normalizeEstimate(Array.isArray(saved)?(saved[0]||obj):obj); setEstimates(p=>[row,...p]); setAddEstModal(null); } catch(e){console.error(e);alert("見積もりの保存に失敗しました。");} finally{setSaving(false);} };
-  const doUpdateEst=async()=>{ if(!editEstModal) return; const items=cleanEstItems(estItems); const total=items.reduce((s,it)=>s+(Number(it.price||0)*Number(it.qty||0)),0); const upd={...editEstModal,items,memo:estMemo,total}; setSaving(true); try { await api(`estimates?id=eq.${upd.id}`,"PATCH",{items,memo:estMemo,total}); setEstimates(p=>p.map(e=>e.id===upd.id?upd:e)); setEditEstModal(null); } catch(e){console.error(e);alert("見積もりの更新に失敗しました。");} finally{setSaving(false);} };
+  const repairGroups=useMemo(()=>[...new Set((repairMenus||[]).map(m=>m.group1||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja")),[repairMenus]);
+  const doSaveEst=async()=>{ if(!addEstModal) return; const items=cleanEstItems(estItems); const total=items.reduce((s,it)=>s+(Number(it.price||0)*Number(it.qty||0)),0); const id=uid(); const wd=estDate||fmt(new Date()); const obj={id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total,work_date:wd,created_at:new Date().toISOString()}; setSaving(true); try { const saved=await api("estimates","POST",{id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total,work_date:wd}); const row=normalizeEstimate(Array.isArray(saved)?(saved[0]||obj):obj); setEstimates(p=>[row,...p]); setAddEstModal(null); } catch(e){console.error(e);alert("見積もりの保存に失敗しました。");} finally{setSaving(false);} };
+  const doUpdateEst=async()=>{ if(!editEstModal) return; const items=cleanEstItems(estItems); const total=items.reduce((s,it)=>s+(Number(it.price||0)*Number(it.qty||0)),0); const wd=estDate||fmt(new Date()); const upd={...editEstModal,items,memo:estMemo,total,work_date:wd}; setSaving(true); try { await api(`estimates?id=eq.${upd.id}`,"PATCH",{items,memo:estMemo,total,work_date:wd}); setEstimates(p=>p.map(e=>e.id===upd.id?upd:e)); setEditEstModal(null); } catch(e){console.error(e);alert("見積もりの更新に失敗しました。");} finally{setSaving(false);} };
   const delEst=async(id)=>{ if(!window.confirm("削除しますか？")) return; setEstimates(p=>p.filter(e=>e.id!==id)); await api(`estimates?id=eq.${id}`,"DELETE").catch(()=>{}); };
   const custEstimates=(custId,bikeIdx)=>estimates.filter(e=>e.customer_id===custId&&e.bike_index===bikeIdx);
 
@@ -457,7 +461,9 @@ export default function App() {
   const delMaker=async(id)=>{ if(!window.confirm("削除しますか？")) return; setSaving(true); try { await api(`maker_master?id=eq.${id}`,"DELETE"); setMakerMaster(p=>p.filter(m=>m.id!==id)); } catch(e){console.error(e);} finally{setSaving(false);} };
   const doAddMenu=async()=>{ const name=newMenuF.name.trim(); if(!name) return; const price=+newMenuF.price||0; const id=uid(); setSaving(true); try { const saved=await api("repair_menus","POST",{id,name,price,order:(repairMenus||[]).length,group1:newMenuF.group1||"",group2:newMenuF.group2||""}); const row=Array.isArray(saved)?(saved[0]||{id,name,price}):{id,name,price}; setRepairMenus(p=>[...p,row].sort((a,b)=>a.name.localeCompare(b.name,"ja"))); setNewMenuF({name:"",price:"",group1:"",group2:""}); } catch(e){console.error(e);} finally{setSaving(false);} };
   const delMenu=async(id)=>{ if(!window.confirm("削除しますか？")) return; setSaving(true); try { await api(`repair_menus?id=eq.${id}`,"DELETE"); setRepairMenus(p=>p.filter(m=>m.id!==id)); } catch(e){console.error(e);} finally{setSaving(false);} };
-  const doEditMenu=async()=>{ if(!editRepairMenu) return; const{id,name,price,group1,group2}=editRepairMenu; if(!name.trim()) return; setSaving(true); try { await api(`repair_menus?id=eq.${id}`,"PATCH",{name:name.trim(),price:+price||0,group1:(group1||"").trim(),group2:(group2||"").trim()}); setRepairMenus(p=>p.map(m=>m.id===id?{...m,name:name.trim(),price:+price||0}:m).sort((a,b)=>a.name.localeCompare(b.name,"ja"))); setEditRepairMenu(null); } catch(e){console.error(e);} finally{setSaving(false);} };
+  const doEditMenu=async()=>{ if(!editRepairMenu) return; const{id,name,price,group1,group2}=editRepairMenu; if(!name.trim()) return; setSaving(true); try { await api(`repair_menus?id=eq.${id}`,"PATCH",{name:name.trim(),price:+price||0,group1:(group1||"").trim(),group2:(group2||"").trim()}); setRepairMenus(p=>p.map(m=>m.id===id?{...m,name:name.trim(),price:+price||0,group1:(group1||"").trim()}:m).sort((a,b)=>a.name.localeCompare(b.name,"ja"))); setEditRepairMenu(null); } catch(e){console.error(e);} finally{setSaving(false);} };
+  const commitRnGroup=async(oldName)=>{ const newName=rnGroupV.trim(); if(!newName||newName===oldName){setRnGroup(null);return;} setSaving(true); try { await Promise.all(repairMenus.filter(m=>(m.group1||"")===oldName).map(m=>api(`repair_menus?id=eq.${m.id}`,"PATCH",{group1:newName}))); setRepairMenus(p=>p.map(m=>(m.group1||"")===oldName?{...m,group1:newName}:m)); setRnGroup(null); } catch(e){console.error(e);} finally{setSaving(false);} };
+  const moveMenuToGroup=async(menuId,grp)=>{ setRepairMenus(p=>p.map(m=>m.id===menuId?{...m,group1:grp}:m)); setSaving(true); try { await api(`repair_menus?id=eq.${menuId}`,"PATCH",{group1:grp}); } catch(e){console.error(e);} finally{setSaving(false);} };
 
   // ── 顧客検索 ──
   const searchCustomerMatch=(c,raw)=>{ const terms=raw.trim().toLowerCase().split(/\s+/).filter(Boolean); if(!terms.length) return true; const phone=(c.phone||"").replace(/[-\s]/g,""); const hay=[c.name||"",c.furigana||"",phone,(c.bikes||[]).map(b=>`${b.maker||""} ${b.color||""}`).join(" ")].join(" ").toLowerCase(); return terms.every(t=>{ const nt=t.replace(/[-\s]/g,""); return hay.includes(t)||(nt&&phone.includes(nt)); }); };
@@ -614,18 +620,18 @@ export default function App() {
                     <div key={bikeIdx} style={{padding:"12px 16px",borderBottom:"1px solid rgba(42,32,24,.06)"}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:ests.length>0?10:0}}>
                         <div style={{fontSize:13,fontWeight:700,color:"#2563a8"}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>
-                        <CBtn onClick={()=>{loadEstimates();setAddEstModal({custId:c.id,bikeIdx});setEstItems([]);setEstMemo("");}} variant="outline" size="sm"><Ico.Plus/>作成</CBtn>
+                        <CBtn onClick={()=>{loadEstimates();setAddEstModal({custId:c.id,bikeIdx});setEstItems([]);setEstMemo("");setEstDate(fmt(new Date()));}} variant="outline" size="sm"><Ico.Plus/>作成</CBtn>
                       </div>
                       {ests.map(e=>(
                         <div key={e.id} style={{background:"#faf8f4",borderRadius:9,padding:"10px 12px",marginTop:8,border:"1px solid rgba(42,32,24,.07)"}}>
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
                             <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:500,color:"#c0724a"}}>¥{(e.total||0).toLocaleString()}</div>
-                            <div style={{fontSize:10,color:"#9a9088"}}>{e.created_at?fmt(e.created_at,"short"):""}</div>
+                            <div style={{fontSize:10,color:"#9a9088"}}>{e.work_date?fmt(e.work_date,"short"):e.created_at?fmt(e.created_at,"short"):""}</div>
                           </div>
                           {(e.items||[]).map((it,i)=><div key={i} style={{fontSize:11,color:"#7a7060",marginBottom:1}}>{it.name} × {it.qty} = ¥{((it.price||0)*(it.qty||1)).toLocaleString()}</div>)}
                           {e.memo&&<div style={{fontSize:11,color:"#9a9088",marginTop:4,borderTop:"1px solid rgba(42,32,24,.06)",paddingTop:4}}>{e.memo}</div>}
                           <div style={{display:"flex",gap:6,marginTop:8}}>
-                            <button onClick={()=>{setEditEstModal(e);setEstItems(e.items||[]);setEstMemo(e.memo||"");}} style={{background:"#e4eef8",border:"none",cursor:"pointer",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#2e5f90",fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif"}}>✏ 編集</button>
+                            <button onClick={()=>{setEditEstModal(e);setEstItems(e.items||[]);setEstMemo(e.memo||"");setEstDate(e.work_date||fmt(new Date()));}} style={{background:"#e4eef8",border:"none",cursor:"pointer",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#2e5f90",fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif"}}>✏ 編集</button>
                             <button onClick={()=>delEst(e.id)} style={{background:"#fae8e8",border:"none",cursor:"pointer",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#a83030",fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif"}}>🗑 削除</button>
                           </div>
                         </div>
@@ -646,9 +652,9 @@ export default function App() {
           </div>
 
           {/* 見積もり作成モーダル */}
-          <EstModal open={!!addEstModal} onClose={()=>setAddEstModal(null)} onSave={doSaveEst} title="見積もりを作成" addEstModal={addEstModal} editEstModal={editEstModal} customers={customers} repairMenus={repairMenus} estItems={estItems} setEstItems={setEstItems} estMemo={estMemo} setEstMemo={setEstMemo} estTotal={estTotal}/>
+          <EstModal open={!!addEstModal} onClose={()=>setAddEstModal(null)} onSave={doSaveEst} title="見積もりを作成" addEstModal={addEstModal} editEstModal={editEstModal} customers={customers} repairMenus={repairMenus} estItems={estItems} setEstItems={setEstItems} estMemo={estMemo} setEstMemo={setEstMemo} estTotal={estTotal} estDate={estDate} setEstDate={setEstDate}/>
           {/* 見積もり編集モーダル */}
-          <EstModal open={!!editEstModal} onClose={()=>setEditEstModal(null)} onSave={doUpdateEst} title="見積もりを編集" addEstModal={addEstModal} editEstModal={editEstModal} customers={customers} repairMenus={repairMenus} estItems={estItems} setEstItems={setEstItems} estMemo={estMemo} setEstMemo={setEstMemo} estTotal={estTotal}/>
+          <EstModal open={!!editEstModal} onClose={()=>setEditEstModal(null)} onSave={doUpdateEst} title="見積もりを編集" addEstModal={addEstModal} editEstModal={editEstModal} customers={customers} repairMenus={repairMenus} estItems={estItems} setEstItems={setEstItems} estMemo={estMemo} setEstMemo={setEstMemo} estTotal={estTotal} estDate={estDate} setEstDate={setEstDate}/>
 
           {/* 顧客編集モーダル */}
           <Modal open={!!editCustModal} onClose={()=>setEditCustModal(null)} title="顧客情報を編集">
@@ -763,20 +769,57 @@ export default function App() {
                 </div>
               ))}
               <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018",marginTop:18,marginBottom:8}}>🔧 修理メニュー</div>
-              <div style={{marginBottom:10}}>
-                <input value={newMenuF.name} onChange={e=>setNewMenuF(p=>({...p,name:e.target.value}))} placeholder="メニュー名" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",marginBottom:5,fontSize:14}}/>
-                <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6,width:"100%"}}>
-                  <input value={newMenuF.price} onChange={e=>setNewMenuF(p=>({...p,price:e.target.value}))} placeholder="金額" type="number" style={{width:"100%",minWidth:0,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:14}}/>
+              <div style={{marginBottom:12,background:"#f0ece4",borderRadius:10,padding:"10px"}}>
+                <input value={newMenuF.name} onChange={e=>setNewMenuF(p=>({...p,name:e.target.value}))} placeholder="メニュー名" style={{width:"100%",boxSizing:"border-box",background:"#fff",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",marginBottom:5,fontSize:14}}/>
+                <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6,width:"100%",marginBottom:5}}>
+                  <input value={newMenuF.price} onChange={e=>setNewMenuF(p=>({...p,price:e.target.value}))} placeholder="金額" type="number" style={{width:"100%",minWidth:0,background:"#fff",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:14}}/>
                   <button onClick={doAddMenu} style={{background:"#2a2018",color:"#f5f0e8",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontSize:13,fontWeight:700}}>追加</button>
                 </div>
+                <select value={newMenuF.group1} onChange={e=>setNewMenuF(p=>({...p,group1:e.target.value}))} style={{width:"100%",background:"#fff",border:"1px solid #ccc5ba",borderRadius:8,padding:"7px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:13,WebkitAppearance:"none"}}>
+                  <option value="">大項目なし</option>
+                  {repairGroups.map(g=><option key={g} value={g}>{g}</option>)}
+                </select>
               </div>
-              {repairMenus.map(m=>(
-                <div key={m.id} style={{display:"flex",alignItems:"center",gap:7,padding:"8px 10px",borderRadius:9,background:"#f5f0e8",border:"1px solid #e8e2d8",marginBottom:6}}>
-                  <span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:600,color:"#2a2018",fontSize:13}}>{m.name}<span style={{color:"#9a8f82",fontWeight:400,fontSize:11,marginLeft:6}}>¥{(m.price||0).toLocaleString()}</span></span>
-                  <button onClick={()=>setEditRepairMenu({...m})} style={{background:"#d6e4f0",border:"none",cursor:"pointer",borderRadius:6,padding:5,display:"flex",color:"#2563a8"}}><Ico.Edit/></button>
-                  <button onClick={()=>delMenu(m.id)} style={{background:"#f0d9d6",border:"none",cursor:"pointer",borderRadius:6,padding:5,display:"flex",color:"#c0392b"}}><Ico.Trash/></button>
-                </div>
-              ))}
+              {/* 新しい大項目を作成 */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6,width:"100%",marginBottom:12}}>
+                <input placeholder="＋ 新しい大項目名" style={{width:"100%",minWidth:0,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"7px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:13}}
+                  onKeyDown={e=>{ if(e.key==="Enter"&&e.target.value.trim()&&!repairGroups.includes(e.target.value.trim())){ setNewMenuF(p=>({...p,group1:e.target.value.trim()})); e.target.value=""; } }}/>
+                <button style={{background:"#e8e2d8",color:"#2a2018",border:"none",borderRadius:8,padding:"7px 10px",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}
+                  onClick={e=>{ const inp=e.currentTarget.previousSibling; const v=inp.value.trim(); if(v&&!repairGroups.includes(v)){setNewMenuF(p=>({...p,group1:v}));inp.value="";} }}>作成</button>
+              </div>
+              {/* 大項目別リスト */}
+              {[...repairGroups,""].map(grp=>{
+                const items=[...repairMenus].filter(m=>(m.group1||"")===grp).sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+                if(items.length===0) return null;
+                return (
+                  <div key={grp||"__none__"} style={{marginBottom:10}}>
+                    <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
+                      {rnGroup===grp&&grp!==""?(
+                        <input value={rnGroupV} onChange={e=>setRnGroupV(e.target.value)} autoFocus
+                          onBlur={()=>commitRnGroup(grp)}
+                          onKeyDown={e=>{if(e.key==="Enter")commitRnGroup(grp);if(e.key==="Escape")setRnGroup(null);}}
+                          style={{flex:1,background:"#fff",border:"1.5px solid #2a2018",borderRadius:6,padding:"3px 8px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:12,fontWeight:700}}/>
+                      ):(
+                        <>
+                          <span style={{fontSize:11,fontWeight:700,color:"#7a7060",textTransform:"uppercase",letterSpacing:".06em"}}>{grp||"大項目なし"}</span>
+                          {grp!==""&&<button onClick={()=>{setRnGroup(grp);setRnGroupV(grp);}} style={{background:"none",border:"none",cursor:"pointer",color:"#b0a898",padding:2,display:"flex"}}><Ico.Edit/></button>}
+                        </>
+                      )}
+                    </div>
+                    {items.map(m=>(
+                      <div key={m.id} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 9px",borderRadius:9,background:"#f5f0e8",border:"1px solid #e8e2d8",marginBottom:4}}>
+                        <span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:600,color:"#2a2018",fontSize:12}}>{m.name}<span style={{color:"#9a8f82",fontWeight:400,fontSize:11,marginLeft:5}}>¥{(m.price||0).toLocaleString()}</span></span>
+                        <select value={m.group1||""} onChange={e=>moveMenuToGroup(m.id,e.target.value)} style={{background:"#e8e2d8",border:"none",borderRadius:6,padding:"3px 5px",fontSize:11,color:"#5a5048",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",maxWidth:72,cursor:"pointer",flexShrink:0}}>
+                          <option value="">なし</option>
+                          {repairGroups.map(g=><option key={g} value={g}>{g}</option>)}
+                        </select>
+                        <button onClick={()=>setEditRepairMenu({...m})} style={{background:"#d6e4f0",border:"none",cursor:"pointer",borderRadius:6,padding:5,display:"flex",color:"#2563a8",flexShrink:0}}><Ico.Edit/></button>
+                        <button onClick={()=>delMenu(m.id)} style={{background:"#f0d9d6",border:"none",cursor:"pointer",borderRadius:6,padding:5,display:"flex",color:"#c0392b",flexShrink:0}}><Ico.Trash/></button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -786,6 +829,12 @@ export default function App() {
           <div>
             <FG label="メニュー名"><CInput value={editRepairMenu?.name||""} onChange={v=>setEditRepairMenu(p=>({...p,name:v}))}/></FG>
             <FG label="金額（円）"><CInput type="number" value={String(editRepairMenu?.price||"")} onChange={v=>setEditRepairMenu(p=>({...p,price:v}))}/></FG>
+            <FG label="大項目">
+              <select value={editRepairMenu?.group1||""} onChange={e=>setEditRepairMenu(p=>({...p,group1:e.target.value}))} style={{width:"100%",padding:"12px 14px",background:"#f3f0ea",border:"1.5px solid rgba(42,32,24,.1)",borderRadius:9,fontSize:16,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",WebkitAppearance:"none"}}>
+                <option value="">大項目なし</option>
+                {repairGroups.map(g=><option key={g} value={g}>{g}</option>)}
+              </select>
+            </FG>
             <div style={{display:"flex",gap:8,marginTop:4}}>
               <CBtn onClick={()=>setEditRepairMenu(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
               <CBtn onClick={doEditMenu} variant="primary" style={{flex:2}}>💾 保存</CBtn>
