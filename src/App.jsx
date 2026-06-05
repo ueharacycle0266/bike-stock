@@ -361,13 +361,6 @@ export default function App() {
   const delMenu=async(id)=>{ if(!window.confirm("削除しますか？")) return; setSaving(true); try { await api(`repair_menus?id=eq.${id}`,"DELETE"); setRepairMenus(p=>p.filter(m=>m.id!==id)); } catch(e){console.error(e);} finally{setSaving(false);} };
   const doEditMenu=async()=>{ if(!editRepairMenu) return; const{id,name,price,group1,group2}=editRepairMenu; if(!name.trim()) return; setSaving(true); try { await api(`repair_menus?id=eq.${id}`,"PATCH",{name:name.trim(),price:+price||0,group1:(group1||"").trim(),group2:(group2||"").trim()}); setRepairMenus(p=>p.map(m=>m.id===id?{...m,name:name.trim(),price:+price||0}:m).sort((a,b)=>a.name.localeCompare(b.name,"ja"))); setEditRepairMenu(null); } catch(e){console.error(e);} finally{setSaving(false);} };
 
-  // ── 作業ハンドラ ──
-
-    const upd={...editResModal,due_date:editResModal.dueDateUnknown?null:editResModal.due_date||null};
-    setReservations(p=>p.map(r=>r.id===upd.id?upd:r));
-
-
-
   // ── 顧客検索 ──
   const searchCustomerMatch=(c,raw)=>{ const terms=raw.trim().toLowerCase().split(/\s+/).filter(Boolean); if(!terms.length) return true; const phone=(c.phone||"").replace(/[-\s]/g,""); const hay=[c.name||"",c.furigana||"",phone,(c.bikes||[]).map(b=>`${b.maker||""} ${b.color||""}`).join(" ")].join(" ").toLowerCase(); return terms.every(t=>{ const nt=t.replace(/[-\s]/g,""); return hay.includes(t)||(nt&&phone.includes(nt)); }); };
 
@@ -385,14 +378,6 @@ export default function App() {
     if(custSearch.trim()) list=list.filter(c=>searchCustomerMatch(c,custSearch));
     return list;
   },[customers,custSearch,custRankFilter,mainteExpired,mainteThisMonth]);
-
-  // ── ログイン画面 ──
- return (
-    <div style={{background:"#faf8f4",minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",gap:14,flexDirection:"column"}}>
-      <style>{CSS}</style>
-      <div className="spin"/><p style={{color:"#9a9088",fontSize:14,fontFamily:"'Noto Sans JP',sans-serif"}}>読み込み中...</p>
-    </div>
-  );
 
   // ── 共通コンポーネント ──
   const BottomNav=()=>(
