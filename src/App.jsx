@@ -745,7 +745,7 @@ export default function App() {
         {/* 顧客設定（メーカーマスター・修理メニュー） */}
         {stCustOpen&&(
           <div onClick={e=>e.target===e.currentTarget&&setStCustOpen(false)} style={{position:"fixed",inset:0,background:"rgba(42,32,24,.28)",zIndex:900,display:"flex",justifyContent:"flex-end"}}>
-            <div style={{background:"#faf8f4",width:"min(300px,92vw)",height:"100%",overflowY:"auto",padding:"20px 16px",boxShadow:"-4px 0 28px rgba(42,32,24,.13)",animation:"sin .22s cubic-bezier(.22,1,.36,1)"}}>
+            <div style={{background:"#faf8f4",width:"min(300px,92vw)",height:"100%",overflowY:"auto",overflowX:"hidden",padding:"20px 16px",boxShadow:"-4px 0 28px rgba(42,32,24,.13)",animation:"sin .22s cubic-bezier(.22,1,.36,1)"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
                 <span style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:16,color:"#2a2018"}}>⚙️ 設定</span>
                 <button onClick={()=>setStCustOpen(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><IcoX/></button>
@@ -765,14 +765,14 @@ export default function App() {
               <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018",marginTop:18,marginBottom:8}}>🔧 修理メニュー</div>
               <div style={{marginBottom:10}}>
                 <input value={newMenuF.name} onChange={e=>setNewMenuF(p=>({...p,name:e.target.value}))} placeholder="メニュー名" style={{width:"100%",background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",marginBottom:5,fontSize:14}}/>
-                <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6}}>
-                  <input value={newMenuF.price} onChange={e=>setNewMenuF(p=>({...p,price:e.target.value}))} placeholder="金額" type="number" style={{background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:14}}/>
+                <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6,width:"100%"}}>
+                  <input value={newMenuF.price} onChange={e=>setNewMenuF(p=>({...p,price:e.target.value}))} placeholder="金額" type="number" style={{width:"100%",minWidth:0,background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:14}}/>
                   <button onClick={doAddMenu} style={{background:"#2a2018",color:"#f5f0e8",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontSize:13,fontWeight:700}}>追加</button>
                 </div>
               </div>
               {repairMenus.map(m=>(
                 <div key={m.id} style={{display:"flex",alignItems:"center",gap:7,padding:"8px 10px",borderRadius:9,background:"#f5f0e8",border:"1px solid #e8e2d8",marginBottom:6}}>
-                  <span style={{flex:1,fontWeight:600,color:"#2a2018",fontSize:13}}>{m.name}<span style={{color:"#9a8f82",fontWeight:400,fontSize:11,marginLeft:6}}>¥{(m.price||0).toLocaleString()}</span></span>
+                  <span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:600,color:"#2a2018",fontSize:13}}>{m.name}<span style={{color:"#9a8f82",fontWeight:400,fontSize:11,marginLeft:6}}>¥{(m.price||0).toLocaleString()}</span></span>
                   <button onClick={()=>setEditRepairMenu({...m})} style={{background:"#d6e4f0",border:"none",cursor:"pointer",borderRadius:6,padding:5,display:"flex",color:"#2563a8"}}><Ico.Edit/></button>
                   <button onClick={()=>delMenu(m.id)} style={{background:"#f0d9d6",border:"none",cursor:"pointer",borderRadius:6,padding:5,display:"flex",color:"#c0392b"}}><Ico.Trash/></button>
                 </div>
