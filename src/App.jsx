@@ -115,7 +115,7 @@ const Modal = ({open, onClose, title, children}) => {
   // open=falseでもDOMに残す → inputがunmountされずキーボードが閉じない
   return (
     <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(42,32,24,.45)",zIndex:1000,display:open?"flex":"none",alignItems:"flex-end",justifyContent:"center"}}>
-      <div style={{background:"#fff",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:500,maxHeight:"88dvh",overflowY:"auto",paddingBottom:"env(safe-area-inset-bottom,16px)"}}>
+      <div style={{background:"#fff",borderRadius:"16px 16px 0 0",width:"100%",maxWidth:500,maxHeight:"88dvh",overflowY:"auto",overflowX:"hidden",paddingBottom:"env(safe-area-inset-bottom,16px)"}}>
         <div style={{width:36,height:4,background:"#e0d8d0",borderRadius:2,margin:"12px auto 0"}}/>
         <div style={{padding:"16px 18px 14px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:16,fontWeight:700,color:"#2a2018"}}>{title}</div>
@@ -631,8 +631,10 @@ export default function App() {
           <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
           <FG label="車種"><CInput value={editSlotModal?.bike||""} onChange={v=>setEditSlotModal(p=>({...p,bike:v}))} placeholder="ブリヂストン"/></FG>
-          <FG label="入庫日"><CInput type="date" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG>
-          <FG label="引き取り予定日"><CInput type="date" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div style={{minWidth:0}}><FG label="入庫日"><CInput type="date" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
+            <div style={{minWidth:0}}><FG label="引き取り予定日"><CInput type="date" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
+          </div>
           <FG label="金額（円）"><CInput type="number" value={editSlotModal?.amount||""} onChange={v=>setEditSlotModal(p=>({...p,amount:v}))} placeholder="5000"/></FG>
           <FG label="メモ"><CInput value={editSlotModal?.note||""} onChange={v=>setEditSlotModal(p=>({...p,note:v}))} placeholder="作業内容など"/></FG>
           <div style={{display:"flex",gap:8,marginTop:4}}>
