@@ -78,6 +78,7 @@ const packSlotNote = ({note,checkin,pickup,amount,status}) => {
 };
 const normalizeSlot = (s) => { const meta=parseSlotNote(s.note); return {...s,...meta}; };
 const SLOT_STATUS = [
+  {k:"入庫待ち",   bg:"#f5f0e8",c:"#7a6f63"},
   {k:"見積もり",   bg:"#e4eef8",c:"#2e5f90"},
   {k:"連絡中",     bg:"#fdf2d8",c:"#a06c10"},
   {k:"📞❌不在",   bg:"#fde8d0",c:"#b05010"},
