@@ -68,22 +68,40 @@ const normalizeEstimate = (e) => {
   return { ...e, items: all.filter(it=>!it._wd), work_date: e.work_date||meta?._wd||null };
 };
 const parseSlotNote = (raw) => {
-  if (!raw) return {note:"",checkin:"",pickup:"",amount:"",status:""};
-  try { const p=JSON.parse(raw); if(p&&typeof p==="object"&&"_v" in p) return {...{note:"",checkin:"",pickup:"",amount:"",status:""},...p}; } catch {}
-  return {note:raw,checkin:"",pickup:"",amount:"",status:""};
+  const def={note:"",checkin:"",pickup:"",status:"",items:[]};
+  if (!raw) return def;
+  try { const p=JSON.parse(raw); if(p&&typeof p==="object"&&"_v" in p) return {...def,...p,items:Array.isArray(p.items)?p.items:[]}; } catch {}
+  return {...def,note:raw};
 };
-const packSlotNote = ({note,checkin,pickup,amount,status}) => {
-  if(!checkin&&!pickup&&!amount&&!status) return note||"";
-  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",amount:amount||"",status:status||""});
+const packSlotNote = (d) => {
+  const {note,checkin,pickup,status,items}=d;
+  if(!checkin&&!pickup&&!status&&(!items||!items.length)) return note||"";
+  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",status:status||"",items:items||[]});
 };
 const normalizeSlot = (s) => { const meta=parseSlotNote(s.note); return {...s,...meta}; };
+const slotTotal = (items) => (items||[]).reduce((s,it)=>s+((+it.price||0)*(+it.qty||0)),0);
+const slotBorderStyle = (slot) => {
+  const occupied=!!(slot.name||slot.bike);
+  if(!occupied) return {border:"1.5px solid rgba(42,32,24,.05)"};
+  if(slot.status==="出庫待ち") return {border:"2px solid #3d7a56",boxShadow:"0 2px 12px rgba(61,122,86,.18)"};
+  if(slot.pickup){
+    const now=new Date(); now.setHours(0,0,0,0);
+    const pd=new Date(slot.pickup); pd.setHours(0,0,0,0);
+    const d=Math.round((pd-now)/(86400000));
+    if(d===0) return {border:"2px solid #2a2018",boxShadow:"0 2px 12px rgba(42,32,24,.25)"};
+    if(d===1) return {border:"2px solid #6650a0",boxShadow:"0 2px 12px rgba(102,80,160,.25)"};
+    if(d===2) return {border:"2px solid #c0392b",boxShadow:"0 2px 12px rgba(192,57,43,.2)"};
+    if(d===3) return {border:"2px solid #c87a00",boxShadow:"0 2px 12px rgba(200,122,0,.2)"};
+  }
+  return {border:"1.5px solid rgba(42,32,24,.1)"};
+};
 const SLOT_STATUS = [
-  {k:"入庫待ち",   bg:"#f5f0e8",c:"#7a6f63"},
-  {k:"見積もり",   bg:"#e4eef8",c:"#2e5f90"},
-  {k:"📞❌不在",   bg:"#fde8d0",c:"#b05010"},
-  {k:"修理待ち",   bg:"#fdf2d8",c:"#a06c10"},
-  {k:"修理中",     bg:"#f0ecfa",c:"#6650a0"},
-  {k:"引き取り待ち",bg:"#e6f2ec",c:"#3d7a56"},
+  {k:"入庫待ち", bg:"#f5f0e8",c:"#7a6f63"},
+  {k:"📄💰",    bg:"#e4eef8",c:"#2e5f90"},
+  {k:"📞❌",    bg:"#fde8d0",c:"#b05010"},
+  {k:"🛠️⏳",   bg:"#fdf2d8",c:"#a06c10"},
+  {k:"🛠",      bg:"#f0ecfa",c:"#6650a0"},
+  {k:"出庫待ち", bg:"#e6f2ec",c:"#3d7a56"},
 ];
 
 // ── SVG アイコン ──
@@ -337,6 +355,8 @@ export default function App() {
   const [boardSlots, setBoardSlots] = useState([]);
   const [boardLoaded, setBoardLoaded] = useState(false);
   const [editSlotModal, setEditSlotModal] = useState(null);
+  const [exitSlotModal, setExitSlotModal] = useState(null); // {slot, regCustomer, custF}
+  const [showBoardHistory, setShowBoardHistory] = useState(false);
 
   // 電話帳 state
   const [phoneFilter, setPhoneFilter] = useState("all");
@@ -394,10 +414,24 @@ export default function App() {
 
 
   const loadEstimates=async()=>{ try { const d=await api("estimates?select=*&order=created_at.desc").catch(()=>[]); setEstimates((d||[]).map(normalizeEstimate)); } catch(e){console.error(e);} };
-  const loadBoard=async()=>{ try { const d=await api("board_slots?select=*&order=slot_no.asc").catch(()=>[]); setBoardSlots((Array.isArray(d)?d:[]).map(normalizeSlot)); setBoardLoaded(true); } catch(e){console.error(e);setBoardLoaded(true);} };
-  const getBoard=()=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return boardSlots.find(s=>s.slot_no===no)||{slot_no:no,name:"",phone:"",bike:"",note:"",checkin:"",pickup:"",amount:"",status:""}; });
-  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,checkin,pickup,amount,status,note}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,amount,status}); setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
-  const doClearSlot=async(slot_no)=>{ if(!window.confirm("出庫しますか？")) return; setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"DELETE"); setBoardSlots(p=>p.filter(s=>s.slot_no!==slot_no)); setEditSlotModal(null); } catch(e){console.error(e);} finally{setSaving(false);} };
+  const loadBoard=async()=>{ try { const d=await api("board_slots?select=*&order=updated_at.desc").catch(()=>[]); setBoardSlots((Array.isArray(d)?d:[]).map(normalizeSlot)); setBoardLoaded(true); } catch(e){console.error(e);setBoardLoaded(true);} };
+  const activeSlots=(slots)=>slots.filter(s=>/^\d{3}$/.test(s.slot_no));
+  const historySlots=(slots)=>slots.filter(s=>s.slot_no.startsWith("H_")).sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
+  const getBoard=(slots)=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return activeSlots(slots).find(s=>s.slot_no===no)||{slot_no:no,name:"",phone:"",bike:"",note:"",checkin:"",pickup:"",status:"",items:[]}; });
+  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,checkin,pickup,status,note,items}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,status,items:items||[]}); setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
+  const openExitModal=(slot)=>{ setExitSlotModal({slot,regCustomer:false,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); setEditSlotModal(null); };
+  const doConfirmExit=async()=>{ if(!exitSlotModal) return; const{slot,regCustomer,custF}=exitSlotModal; setSaving(true); try {
+    const histId=`H_${Date.now()}`; const rawNote=packSlotNote({note:slot.note||"",checkin:slot.checkin||"",pickup:slot.pickup||"",status:slot.status||"",items:slot.items||[]});
+    await api("board_slots","POST",{slot_no:histId,name:slot.name||"",phone:slot.phone||"",bike:slot.bike||"",note:rawNote,updated_at:new Date().toISOString()},true);
+    await api(`board_slots?slot_no=eq.${slot.slot_no}`,"DELETE");
+    if(regCustomer&&custF.name.trim()){
+      const existing=customers.find(c=>c.phone&&c.phone.replace(/-/g,"")===custF.phone.replace(/-/g,""));
+      if(existing){ await api(`customers?id=eq.${existing.id}`,"PATCH",{name:custF.name.trim(),furigana:toKatakana(custF.furigana||"")||null,phone:custF.phone||null}); setCustomers(p=>p.map(c=>c.id===existing.id?{...c,name:custF.name.trim(),furigana:toKatakana(custF.furigana||""),phone:custF.phone||null}:c));
+      } else { const id=uuid(); const payload={id,name:custF.name.trim(),furigana:toKatakana(custF.furigana||"")||null,phone:custF.phone||null,address:null,memo:null,customer_rank:"通常",bikes:slot.bike?[{maker:slot.bike,color:"",nextMaintenanceDate:null}]:[]}; await api("customers","POST",payload); setCustomers(p=>[normalizeCustomer({...payload,created_at:new Date().toISOString()}),...p]); }
+    }
+    setBoardSlots(p=>[...p.filter(s=>s.slot_no!==slot.slot_no),normalizeSlot({slot_no:histId,name:slot.name||"",phone:slot.phone||"",bike:slot.bike||"",note:rawNote,updated_at:new Date().toISOString()})]);
+    setExitSlotModal(null);
+  } catch(e){console.error(e);alert("出庫に失敗しました");} finally{setSaving(false);} };
   const getEstItemName=(it)=>it?.name||repairMenus.find(m=>m.id===it?.menuId)?.name||"";
   const getEstItemPrice=(it)=>Number(it?.price??repairMenus.find(m=>m.id===it?.menuId)?.price??0);
   const cleanEstItems=(items)=>(items||[]).filter(it=>String(getEstItemName(it)||"").trim()||Number(it.price||0)>0).map(it=>({name:String(getEstItemName(it)||"").trim(),price:Number(getEstItemPrice(it)||0),qty:Number(it.qty||1)}));
@@ -555,8 +589,51 @@ export default function App() {
   // ボード
   // ════════════════════════════════════════
   if (mode==="board") {
-    const board = getBoard();
+    const board = getBoard(boardSlots);
+    const hist = historySlots(boardSlots);
     const occupied_count = board.filter(s=>s.name||s.bike).length;
+    const SlotCard = ({slot}) => {
+      const occupied=!!(slot.name||slot.bike);
+      const st=SLOT_STATUS.find(s=>s.k===slot.status);
+      const total=slotTotal(slot.items);
+      const bs=slotBorderStyle(slot);
+      return (
+        <div onClick={()=>setEditSlotModal({...slot,checkin:slot.checkin||(!occupied?fmt(new Date()):""),pickup:slot.pickup||"",status:slot.status||"",note:slot.note||"",items:slot.items||[]})}
+          style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",
+          background:occupied?"#fff":"#faf8f4",borderRadius:12,marginBottom:8,
+          cursor:"pointer",boxShadow:occupied?"0 1px 8px rgba(42,32,24,.05)":"none",...bs}}>
+          <div style={{width:46,height:46,borderRadius:10,flexShrink:0,
+            background:occupied?"#2a2018":"#f0ece4",color:occupied?"#faf8f4":"#c8bfb0",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700}}>
+            {slot.slot_no}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            {occupied?(
+              <>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
+                  <span style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{slot.name||"—"}</span>
+                  {st&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,background:st.bg,color:st.c}}>{st.k}</span>}
+                </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:2}}>
+                  {slot.phone&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#3a3028"}}>{slot.phone}</span>}
+                  {slot.bike&&<span style={{fontSize:11,color:"#7a7060"}}>🚲 {slot.bike}</span>}
+                </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {slot.checkin&&<span style={{fontSize:10,color:"#9a9088"}}>📥{fmt(slot.checkin,"short")}</span>}
+                  {slot.pickup&&<span style={{fontSize:10,color:"#3d7a56",fontWeight:600}}>🚪{fmt(slot.pickup,"short")}</span>}
+                  {total>0&&<span style={{fontSize:10,fontFamily:"'DM Mono',monospace",color:"#c0724a",fontWeight:600}}>¥{total.toLocaleString()}</span>}
+                </div>
+                {slot.note&&<div style={{fontSize:10,color:"#b0a898",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{slot.note}</div>}
+              </>
+            ):(
+              <div style={{fontSize:13,color:"#c8bfb0"}}>空き</div>
+            )}
+          </div>
+          <span style={{color:occupied?"#c8bfb0":"#e0d9ce",fontSize:20,flexShrink:0}}>›</span>
+        </div>
+      );
+    };
     return (
       <PageWrap mode={mode} switchMode={switchMode}>
         <div style={{padding:"18px 18px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -567,66 +644,48 @@ export default function App() {
           <button onClick={loadBoard} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Refresh/></button>
         </div>
         {!boardLoaded&&<div style={{textAlign:"center",padding:30,color:"#9a9088",fontSize:13}}>読み込み中...</div>}
-        <div style={{padding:"0 18px 20px"}}>
-          {board.map(slot=>{
-            const occupied=!!(slot.name||slot.bike);
-            const st=SLOT_STATUS.find(s=>s.k===slot.status);
-            return (
-              <div key={slot.slot_no} onClick={()=>setEditSlotModal({...slot,checkin:slot.checkin||(occupied?"":fmt(new Date())),pickup:slot.pickup||"",amount:slot.amount||"",status:slot.status||"",note:slot.note||""})}
-                style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",
-                background:occupied?"#fff":"#faf8f4",borderRadius:12,marginBottom:8,
-                border:`1.5px solid ${occupied?"rgba(42,32,24,.1)":"rgba(42,32,24,.05)"}`,
-                cursor:"pointer",boxShadow:occupied?"0 1px 8px rgba(42,32,24,.06)":"none"}}>
-                <div style={{width:46,height:46,borderRadius:10,flexShrink:0,
-                  background:occupied?"#2a2018":"#f0ece4",
-                  color:occupied?"#faf8f4":"#c8bfb0",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700}}>
-                  {slot.slot_no}
-                </div>
-                <div style={{flex:1,minWidth:0}}>
-                  {occupied?(
-                    <>
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
-                        <span style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{slot.name||"—"}</span>
-                        {st&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,background:st.bg,color:st.c}}>{st.k}</span>}
-                      </div>
-                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:slot.checkin||slot.pickup||slot.amount?3:0}}>
-                        {slot.phone&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#3a3028"}}>{slot.phone}</span>}
-                        {slot.bike&&<span style={{fontSize:11,color:"#7a7060"}}>🚲 {slot.bike}</span>}
-                      </div>
-                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                        {slot.checkin&&<span style={{fontSize:10,color:"#9a9088"}}>📥 {fmt(slot.checkin,"short")}</span>}
-                        {slot.pickup&&<span style={{fontSize:10,color:"#3d7a56",fontWeight:600}}>🚪 {fmt(slot.pickup,"short")}</span>}
-                        {slot.amount&&<span style={{fontSize:10,fontFamily:"'DM Mono',monospace",color:"#c0724a",fontWeight:600}}>¥{Number(slot.amount||0).toLocaleString()}</span>}
-                      </div>
-                      {slot.note&&<div style={{fontSize:10,color:"#b0a898",marginTop:2}}>{slot.note}</div>}
-                    </>
-                  ):(
-                    <div style={{fontSize:13,color:"#c8bfb0"}}>空き</div>
-                  )}
-                </div>
-                <span style={{color:occupied?"#c8bfb0":"#e0d9ce",fontSize:20,flexShrink:0}}>›</span>
-              </div>
-            );
-          })}
+        <div style={{padding:"0 18px"}}>
+          {board.map(slot=><SlotCard key={slot.slot_no} slot={slot}/>)}
         </div>
 
+        {/* 出庫履歴 */}
+        {hist.length>0&&(
+          <div style={{padding:"0 18px 20px"}}>
+            <button onClick={()=>setShowBoardHistory(v=>!v)} style={{width:"100%",background:"#f5f0e8",border:"1px solid rgba(42,32,24,.08)",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,fontSize:13,color:"#7a7060",marginBottom:showBoardHistory?8:0}}>
+              <span>🚪 出庫履歴 ({hist.length}件)</span>
+              <span style={{fontSize:12}}>{showBoardHistory?"▲":"▼"}</span>
+            </button>
+            {showBoardHistory&&hist.map(slot=>{
+              const total=slotTotal(slot.items);
+              return (
+                <div key={slot.slot_no} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 13px",background:"#f9f7f4",borderRadius:10,marginBottom:6,border:"1px solid rgba(42,32,24,.07)"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:700,color:"#4a4038"}}>{slot.name||"—"}</div>
+                    <div style={{fontSize:11,color:"#9a9088",display:"flex",gap:8,flexWrap:"wrap",marginTop:2}}>
+                      {slot.bike&&<span>🚲 {slot.bike}</span>}
+                      {total>0&&<span style={{fontFamily:"'DM Mono',monospace",color:"#c0724a"}}>¥{total.toLocaleString()}</span>}
+                      <span>{fmt(slot.updated_at,"short")}</span>
+                    </div>
+                  </div>
+                  <CBtn onClick={()=>{ loadCustomers({silent:true}); setExitSlotModal({slot,regCustomer:true,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); }} variant="outline" size="sm">顧客登録</CBtn>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* スロット編集モーダル */}
         <Modal open={!!editSlotModal} onClose={()=>setEditSlotModal(null)} title={`スロット ${editSlotModal?.slot_no}`}>
-          {/* ステータスチップ */}
-          <div style={{marginBottom:14}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>ステータス</label>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-              {SLOT_STATUS.map(s=>(
-                <button key={s.k} onClick={()=>setEditSlotModal(p=>({...p,status:p.status===s.k?"":s.k}))}
-                  style={{padding:"6px 11px",borderRadius:20,fontSize:12,fontWeight:700,border:"1.5px solid",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",
-                  background:editSlotModal?.status===s.k?s.bg:"#f5f0e8",
-                  color:editSlotModal?.status===s.k?s.c:"#9a9088",
-                  borderColor:editSlotModal?.status===s.k?s.c:"transparent"}}>
-                  {s.k}
-                </button>
-              ))}
-            </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
+            {SLOT_STATUS.map(s=>(
+              <button key={s.k} onClick={()=>setEditSlotModal(p=>({...p,status:p.status===s.k?"":s.k}))}
+                style={{padding:"6px 11px",borderRadius:20,fontSize:12,fontWeight:700,border:"1.5px solid",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",
+                background:editSlotModal?.status===s.k?s.bg:"#f5f0e8",
+                color:editSlotModal?.status===s.k?s.c:"#9a9088",
+                borderColor:editSlotModal?.status===s.k?s.c:"transparent"}}>
+                {s.k}
+              </button>
+            ))}
           </div>
           <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
@@ -635,14 +694,67 @@ export default function App() {
             <div style={{minWidth:0}}><FG label="入庫日"><CInput type="date" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
             <div style={{minWidth:0}}><FG label="引き取り予定日"><CInput type="date" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
           </div>
-          <FG label="金額（円）"><CInput type="number" value={editSlotModal?.amount||""} onChange={v=>setEditSlotModal(p=>({...p,amount:v}))} placeholder="5000"/></FG>
-          <FG label="メモ"><CInput value={editSlotModal?.note||""} onChange={v=>setEditSlotModal(p=>({...p,note:v}))} placeholder="作業内容など"/></FG>
+          {/* 修理内容 */}
+          <div style={{marginBottom:14}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>修理内容</label>
+            {(editSlotModal?.items||[]).map((it,idx)=>(
+              <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 44px 60px 24px",gap:5,marginBottom:5,alignItems:"center"}}>
+                <input value={it.name||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,name:e.target.value}:x)}))} placeholder="品名" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0}}/>
+                <input type="number" value={it.qty||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,qty:e.target.value}:x)}))} placeholder="数" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 5px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
+                <input type="number" value={it.price||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,price:e.target.value}:x)}))} placeholder="単価" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 7px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0}}/>
+                <button onClick={()=>setEditSlotModal(p=>({...p,items:p.items.filter((_,i)=>i!==idx)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
+              </div>
+            ))}
+            {(editSlotModal?.items||[]).length>0&&(
+              <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:13,color:"#c0724a",fontWeight:600,marginBottom:6}}>
+                合計 ¥{slotTotal(editSlotModal?.items).toLocaleString()}
+              </div>
+            )}
+            <button onClick={()=>setEditSlotModal(p=>({...p,items:[...(p.items||[]),{name:"",qty:1,price:""}]}))} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:8,padding:"7px",fontSize:12,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif"}}>＋ 追加</button>
+          </div>
+          <FG label="メモ"><CInput value={editSlotModal?.note||""} onChange={v=>setEditSlotModal(p=>({...p,note:v}))} placeholder="作業メモ"/></FG>
           <div style={{display:"flex",gap:8,marginTop:4}}>
             {(editSlotModal?.name||editSlotModal?.bike)&&(
-              <CBtn onClick={()=>doClearSlot(editSlotModal.slot_no)} variant="outline" style={{flex:1,color:"#a83030",borderColor:"rgba(168,48,48,.25)"}}>🚪 出庫</CBtn>
+              <CBtn onClick={()=>openExitModal(editSlotModal)} variant="outline" style={{flex:1,color:"#3d7a56",borderColor:"rgba(61,122,86,.25)"}}>🚪 出庫</CBtn>
             )}
             <CBtn onClick={doSaveSlot} variant="primary" style={{flex:2}}>💾 保存</CBtn>
           </div>
+        </Modal>
+
+        {/* 出庫モーダル */}
+        <Modal open={!!exitSlotModal} onClose={()=>setExitSlotModal(null)} title="出庫確認">
+          {exitSlotModal&&(
+            <>
+              <div style={{background:"#f5f0e8",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+                <div style={{fontWeight:700,fontSize:15,color:"#2a2018",marginBottom:4}}>{exitSlotModal.slot.name||"—"}</div>
+                <div style={{fontSize:12,color:"#7a7060",display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {exitSlotModal.slot.phone&&<span>{exitSlotModal.slot.phone}</span>}
+                  {exitSlotModal.slot.bike&&<span>🚲 {exitSlotModal.slot.bike}</span>}
+                  {slotTotal(exitSlotModal.slot.items)>0&&<span style={{fontFamily:"'DM Mono',monospace",color:"#c0724a",fontWeight:700}}>¥{slotTotal(exitSlotModal.slot.items).toLocaleString()}</span>}
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:"#fff",borderRadius:10,border:"1px solid rgba(42,32,24,.09)",marginBottom:14,cursor:"pointer"}} onClick={()=>setExitSlotModal(p=>({...p,regCustomer:!p.regCustomer}))}>
+                <span style={{fontSize:13,fontWeight:700,color:"#2a2018"}}>顧客情報を登録/更新する</span>
+                <div style={{width:44,height:24,borderRadius:12,background:exitSlotModal.regCustomer?"#2a2018":"#e0d9ce",position:"relative",transition:"background .15s"}}>
+                  <div style={{position:"absolute",top:3,left:exitSlotModal.regCustomer?22:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left .15s"}}/>
+                </div>
+              </div>
+              {exitSlotModal.regCustomer&&(
+                <div style={{background:"#faf8f4",borderRadius:10,padding:"12px 14px",marginBottom:14,border:"1px solid rgba(42,32,24,.07)"}}>
+                  <FG label="氏名"><CInput value={exitSlotModal.custF.name} onChange={v=>setExitSlotModal(p=>({...p,custF:{...p.custF,name:v}}))}/></FG>
+                  <FG label="フリガナ"><CInput value={exitSlotModal.custF.furigana} onChange={v=>setExitSlotModal(p=>({...p,custF:{...p.custF,furigana:v}}))} placeholder="タナカ ミサキ"/></FG>
+                  <FG label="電話番号"><CInput type="tel" value={exitSlotModal.custF.phone} onChange={v=>setExitSlotModal(p=>({...p,custF:{...p.custF,phone:v}}))} style={{fontFamily:"'DM Mono',monospace"}}/></FG>
+                  {customers.find(c=>c.phone&&c.phone.replace(/-/g,"")===exitSlotModal.custF.phone.replace(/-/g,""))&&(
+                    <div style={{fontSize:11,color:"#3d7a56",fontWeight:600}}>✓ 既存顧客が見つかりました（更新します）</div>
+                  )}
+                </div>
+              )}
+              <div style={{display:"flex",gap:8}}>
+                <CBtn onClick={()=>setExitSlotModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+                <CBtn onClick={doConfirmExit} variant="primary" style={{flex:2}}>🚪 出庫確定</CBtn>
+              </div>
+            </>
+          )}
         </Modal>
       </PageWrap>
     );
@@ -858,8 +970,7 @@ export default function App() {
           {/* 顧客編集モーダル */}
           <Modal open={!!editCustModal} onClose={()=>setEditCustModal(null)} title="顧客情報を編集">
             <div>
-              <div style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr",gap:10,marginBottom:14}}>
-                <FG label="番号"><CInput value={editCustModal?.customer_no||""} onChange={v=>setEditCustModal(p=>({...p,customer_no:v}))} placeholder="001"/></FG>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
                 <FG label="氏名"><CInput value={editCustModal?.name||""} onChange={v=>setEditCustModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
                 <FG label="フリガナ"><CInput value={editCustModal?.furigana||""} onChange={v=>setEditCustModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
               </div>
@@ -966,8 +1077,7 @@ export default function App() {
 
         {/* 顧客追加モーダル */}
         <Modal open={addCustModal} onClose={()=>setAddCustModal(false)} title="新規顧客登録">
-          <div style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr",gap:10,marginBottom:14}}>
-            <FG label="番号"><CInput value={newCust.customer_no} onChange={v=>setNewCust(p=>({...p,customer_no:v}))} placeholder="001"/></FG>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
             <FG label="氏名"><CInput value={newCust.name} onChange={v=>setNewCust(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
             <FG label="フリガナ"><CInput value={newCust.furigana} onChange={v=>setNewCust(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
           </div>
