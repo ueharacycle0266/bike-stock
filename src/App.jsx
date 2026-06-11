@@ -718,16 +718,15 @@ export default function App() {
             <div style={{minWidth:0}}><FG label="引き取り予定日"><CInput type="date" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
           </div>
           {/* 修理内容 */}
-          <datalist id="slot-repair-menus">
-            {repairMenus.map(m=><option key={m.id} value={m.name}/>)}
-          </datalist>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>修理内容</label>
             {(editSlotModal?.items||[]).map((it,idx)=>(
               <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 44px 60px 24px",gap:5,marginBottom:5,alignItems:"center"}}>
-                <input value={it.name||""} list="slot-repair-menus"
-                  onChange={e=>{ const v=e.target.value; const menu=repairMenus.find(m=>m.name===v); setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,name:v,...(menu?{price:String(menu.price)}:{})}:x)})); }}
-                  placeholder="品名" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%"}}/>
+                <select value={it.name||""} onChange={e=>{ const v=e.target.value; const menu=repairMenus.find(m=>m.name===v); setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,name:v,...(menu?{price:String(menu.price)}:{})}:x)})); }}
+                  style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:it.name?"#2a2018":"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%",appearance:"none",WebkitAppearance:"none"}}>
+                  <option value="">品名...</option>
+                  {repairMenus.map(m=><option key={m.id} value={m.name}>{m.name} ¥{(m.price||0).toLocaleString()}</option>)}
+                </select>
                 <input type="number" value={it.qty||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,qty:e.target.value}:x)}))} placeholder="数" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 5px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
                 <input type="number" value={it.price||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,price:e.target.value}:x)}))} placeholder="単価" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 7px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0}}/>
                 <button onClick={()=>setEditSlotModal(p=>({...p,items:p.items.filter((_,i)=>i!==idx)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
