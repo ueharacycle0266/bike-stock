@@ -424,14 +424,36 @@ export default function App() {
     const histId=`H_${Date.now()}`; const rawNote=packSlotNote({note:slot.note||"",checkin:slot.checkin||"",pickup:slot.pickup||"",status:slot.status||"",items:slot.items||[]});
     await api("board_slots","POST",{slot_no:histId,name:slot.name||"",phone:slot.phone||"",bike:slot.bike||"",note:rawNote,updated_at:new Date().toISOString()},true);
     await api(`board_slots?slot_no=eq.${slot.slot_no}`,"DELETE");
+    let custId=null; let bikeIdx=0;
     if(regCustomer&&custF.name.trim()){
-      const existing=customers.find(c=>c.phone&&c.phone.replace(/-/g,"")===custF.phone.replace(/-/g,""));
-      if(existing){ await api(`customers?id=eq.${existing.id}`,"PATCH",{name:custF.name.trim(),furigana:toKatakana(custF.furigana||"")||null,phone:custF.phone||null}); setCustomers(p=>p.map(c=>c.id===existing.id?{...c,name:custF.name.trim(),furigana:toKatakana(custF.furigana||""),phone:custF.phone||null}:c));
-      } else { const id=uuid(); const payload={id,name:custF.name.trim(),furigana:toKatakana(custF.furigana||"")||null,phone:custF.phone||null,address:null,memo:null,customer_rank:"通常",bikes:slot.bike?[{maker:slot.bike,color:"",nextMaintenanceDate:null}]:[]}; await api("customers","POST",payload); setCustomers(p=>[normalizeCustomer({...payload,created_at:new Date().toISOString()}),...p]); }
+      const name=custF.name.trim(); const furigana=toKatakana(custF.furigana||"")||null;
+      const existing=customers.find(c=>c.phone&&custF.phone&&c.phone.replace(/-/g,"")===custF.phone.replace(/-/g,""));
+      if(existing){
+        const existingBikes=existing.bikes||[]; const bi=slot.bike?existingBikes.findIndex(b=>b.maker===slot.bike):-1;
+        const bikes=bi>=0?existingBikes:(slot.bike?[...existingBikes,{maker:slot.bike,color:"",nextMaintenanceDate:null}]:existingBikes);
+        bikeIdx=bi>=0?bi:Math.max(0,bikes.length-1);
+        await api(`customers?id=eq.${existing.id}`,"PATCH",{name,furigana,phone:custF.phone||null,bikes});
+        setCustomers(p=>p.map(c=>c.id===existing.id?{...c,name,furigana,phone:custF.phone||null,bikes}:c));
+        if(custDetail?.id===existing.id) setCustDetail(prev=>({...prev,name,furigana,bikes}));
+        custId=existing.id;
+      } else {
+        const id=uuid(); const bikes=slot.bike?[{maker:slot.bike,color:"",nextMaintenanceDate:null}]:[];
+        const payload={id,name,furigana,phone:custF.phone||null,address:null,memo:null,customer_rank:"通常",bikes};
+        await api("customers","POST",payload); setCustomers(p=>[normalizeCustomer({...payload,created_at:new Date().toISOString()}),...p]);
+        custId=id; bikeIdx=0;
+      }
+      const cleanItems=(slot.items||[]).filter(it=>(it.name||"").trim()).map(it=>({name:it.name.trim(),price:+it.price||0,qty:+it.qty||1}));
+      if(custId&&cleanItems.length>0){
+        const total=cleanItems.reduce((s,it)=>s+(it.price*it.qty),0); const wd=slot.checkin||fmt(new Date()); const estId=uid();
+        const itemsWithMeta=[...cleanItems,{_wd:wd}];
+        await api("estimates","POST",{id:estId,customer_id:custId,bike_index:bikeIdx,items:itemsWithMeta,memo:slot.note||"",total});
+        setEstimates(p=>[normalizeEstimate({id:estId,customer_id:custId,bike_index:bikeIdx,items:itemsWithMeta,memo:slot.note||"",total,created_at:new Date().toISOString()}),...p]);
+      }
     }
     setBoardSlots(p=>[...p.filter(s=>s.slot_no!==slot.slot_no),normalizeSlot({slot_no:histId,name:slot.name||"",phone:slot.phone||"",bike:slot.bike||"",note:rawNote,updated_at:new Date().toISOString()})]);
     setExitSlotModal(null);
   } catch(e){console.error(e);alert("出庫に失敗しました");} finally{setSaving(false);} };
+  const doDeleteHistory=async(slot_no)=>{ setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"DELETE"); setBoardSlots(p=>p.filter(s=>s.slot_no!==slot_no)); } catch(e){console.error(e);} finally{setSaving(false);} };
   const getEstItemName=(it)=>it?.name||repairMenus.find(m=>m.id===it?.menuId)?.name||"";
   const getEstItemPrice=(it)=>Number(it?.price??repairMenus.find(m=>m.id===it?.menuId)?.price??0);
   const cleanEstItems=(items)=>(items||[]).filter(it=>String(getEstItemName(it)||"").trim()||Number(it.price||0)>0).map(it=>({name:String(getEstItemName(it)||"").trim(),price:Number(getEstItemPrice(it)||0),qty:Number(it.qty||1)}));
@@ -449,7 +471,7 @@ export default function App() {
       await loadMasters();
       loadEstimates();
     }
-    if (m==="board") loadBoard();
+    if (m==="board") { loadBoard(); loadMasters(); loadEstimates(); loadCustomers({silent:true}); }
   };
 
   // ── 在庫 派生 ──
@@ -667,7 +689,8 @@ export default function App() {
                       <span>{fmt(slot.updated_at,"short")}</span>
                     </div>
                   </div>
-                  <CBtn onClick={()=>{ loadCustomers({silent:true}); setExitSlotModal({slot,regCustomer:true,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); }} variant="outline" size="sm">顧客登録</CBtn>
+                  <CBtn onClick={()=>{ setExitSlotModal({slot,regCustomer:true,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); }} variant="outline" size="sm">顧客登録</CBtn>
+                  <button onClick={()=>doDeleteHistory(slot.slot_no)} style={{background:"#fae8e8",border:"none",cursor:"pointer",borderRadius:8,padding:"6px 8px",color:"#a83030",display:"flex",alignItems:"center"}}><Ico.Trash/></button>
                 </div>
               );
             })}
@@ -695,11 +718,16 @@ export default function App() {
             <div style={{minWidth:0}}><FG label="引き取り予定日"><CInput type="date" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
           </div>
           {/* 修理内容 */}
+          <datalist id="slot-repair-menus">
+            {repairMenus.map(m=><option key={m.id} value={m.name}/>)}
+          </datalist>
           <div style={{marginBottom:14}}>
             <label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>修理内容</label>
             {(editSlotModal?.items||[]).map((it,idx)=>(
               <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 44px 60px 24px",gap:5,marginBottom:5,alignItems:"center"}}>
-                <input value={it.name||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,name:e.target.value}:x)}))} placeholder="品名" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0}}/>
+                <input value={it.name||""} list="slot-repair-menus"
+                  onChange={e=>{ const v=e.target.value; const menu=repairMenus.find(m=>m.name===v); setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,name:v,...(menu?{price:String(menu.price)}:{})}:x)})); }}
+                  placeholder="品名" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:"#2a2018",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%"}}/>
                 <input type="number" value={it.qty||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,qty:e.target.value}:x)}))} placeholder="数" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 5px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
                 <input type="number" value={it.price||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,price:e.target.value}:x)}))} placeholder="単価" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 7px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0}}/>
                 <button onClick={()=>setEditSlotModal(p=>({...p,items:p.items.filter((_,i)=>i!==idx)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
@@ -858,9 +886,8 @@ export default function App() {
           {/* 保有自転車 */}
           <div style={{padding:"10px 18px 0"}}>
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-              <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)"}}>
                 <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>🚲 保有自転車</div>
-                <CBtn onClick={()=>setAddBikeModal(true)} variant="outline" size="sm">＋ 追加</CBtn>
               </div>
               {(c.bikes||[]).length===0&&<div style={{padding:"20px 16px",fontSize:13,color:"#c8bfb0",textAlign:"center"}}>自転車未登録</div>}
               {(c.bikes||[]).map((b,idx)=>{
@@ -900,9 +927,8 @@ export default function App() {
                   const ests=custEstimates(c.id,bikeIdx);
                   return (
                     <div key={bikeIdx} style={{padding:"12px 16px",borderBottom:"1px solid rgba(42,32,24,.06)"}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:ests.length>0?10:0}}>
+                      <div style={{marginBottom:ests.length>0?10:0}}>
                         <div style={{fontSize:13,fontWeight:700,color:"#2563a8"}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>
-                        <CBtn onClick={()=>{loadEstimates();setAddEstModal({custId:c.id,bikeIdx});setEstItems([]);setEstMemo("");setEstDate(fmt(new Date()));}} variant="outline" size="sm"><Ico.Plus/>作成</CBtn>
                       </div>
                       {ests.map(e=>(
                         <div key={e.id} style={{background:"#faf8f4",borderRadius:9,padding:"10px 12px",marginTop:8,border:"1px solid rgba(42,32,24,.07)"}}>
@@ -940,9 +966,6 @@ export default function App() {
             const ests=custEstimates(c.id,bikeHistModalIdx);
             return (
               <Modal open={true} onClose={()=>setBikeHistModalIdx(null)} title={`🚲 ${b.maker}${b.color?` (${b.color})`:""} 修理履歴`}>
-                <div style={{marginBottom:10}}>
-                  <CBtn onClick={()=>{setAddEstModal({custId:c.id,bikeIdx:bikeHistModalIdx});setEstItems([]);setEstMemo("");setEstDate(fmt(new Date()));}} variant="primary" style={{width:"100%",justifyContent:"center"}}>＋ 見積もり・作業を追加</CBtn>
-                </div>
                 {ests.length===0&&<div style={{textAlign:"center",padding:"30px 0",color:"#c8bfb0",fontSize:13}}>作業履歴なし</div>}
                 {ests.map(e=>(
                   <div key={e.id} style={{background:"#faf8f4",borderRadius:10,padding:"11px 13px",marginBottom:8,border:"1px solid rgba(42,32,24,.08)"}}>
