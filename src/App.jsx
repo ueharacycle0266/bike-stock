@@ -67,6 +67,23 @@ const normalizeEstimate = (e) => {
   const meta = all.find(it=>it._wd);
   return { ...e, items: all.filter(it=>!it._wd), work_date: e.work_date||meta?._wd||null };
 };
+const parseSlotNote = (raw) => {
+  if (!raw) return {note:"",checkin:"",pickup:"",amount:"",status:""};
+  try { const p=JSON.parse(raw); if(p&&typeof p==="object"&&"_v" in p) return {...{note:"",checkin:"",pickup:"",amount:"",status:""},...p}; } catch {}
+  return {note:raw,checkin:"",pickup:"",amount:"",status:""};
+};
+const packSlotNote = ({note,checkin,pickup,amount,status}) => {
+  if(!checkin&&!pickup&&!amount&&!status) return note||"";
+  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",amount:amount||"",status:status||""});
+};
+const normalizeSlot = (s) => { const meta=parseSlotNote(s.note); return {...s,...meta}; };
+const SLOT_STATUS = [
+  {k:"見積もり",   bg:"#e4eef8",c:"#2e5f90"},
+  {k:"連絡中",     bg:"#fdf2d8",c:"#a06c10"},
+  {k:"📞❌不在",   bg:"#fde8d0",c:"#b05010"},
+  {k:"修理中",     bg:"#f0ecfa",c:"#6650a0"},
+  {k:"引き取り待ち",bg:"#e6f2ec",c:"#3d7a56"},
+];
 
 // ── SVG アイコン ──
 const Ico = {
@@ -376,9 +393,9 @@ export default function App() {
 
 
   const loadEstimates=async()=>{ try { const d=await api("estimates?select=*&order=created_at.desc").catch(()=>[]); setEstimates((d||[]).map(normalizeEstimate)); } catch(e){console.error(e);} };
-  const loadBoard=async()=>{ try { const d=await api("board_slots?select=*&order=slot_no.asc").catch(()=>[]); setBoardSlots(Array.isArray(d)?d:[]); setBoardLoaded(true); } catch(e){console.error(e);setBoardLoaded(true);} };
-  const getBoard=()=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return boardSlots.find(s=>s.slot_no===no)||{slot_no:no,name:"",phone:"",bike:"",note:""}; });
-  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,note}=editSlotModal; setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:note||"",updated_at:new Date().toISOString()},true); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?{...editSlotModal}:s):[...p,{...editSlotModal}]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
+  const loadBoard=async()=>{ try { const d=await api("board_slots?select=*&order=slot_no.asc").catch(()=>[]); setBoardSlots((Array.isArray(d)?d:[]).map(normalizeSlot)); setBoardLoaded(true); } catch(e){console.error(e);setBoardLoaded(true);} };
+  const getBoard=()=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return boardSlots.find(s=>s.slot_no===no)||{slot_no:no,name:"",phone:"",bike:"",note:"",checkin:"",pickup:"",amount:"",status:""}; });
+  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,checkin,pickup,amount,status,note}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,amount,status}); setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
   const doClearSlot=async(slot_no)=>{ if(!window.confirm("出庫しますか？")) return; setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"DELETE"); setBoardSlots(p=>p.filter(s=>s.slot_no!==slot_no)); setEditSlotModal(null); } catch(e){console.error(e);} finally{setSaving(false);} };
   const getEstItemName=(it)=>it?.name||repairMenus.find(m=>m.id===it?.menuId)?.name||"";
   const getEstItemPrice=(it)=>Number(it?.price??repairMenus.find(m=>m.id===it?.menuId)?.price??0);
@@ -538,12 +555,13 @@ export default function App() {
   // ════════════════════════════════════════
   if (mode==="board") {
     const board = getBoard();
+    const occupied_count = board.filter(s=>s.name||s.bike).length;
     return (
       <PageWrap mode={mode} switchMode={switchMode}>
         <div style={{padding:"18px 18px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div>
             <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:22,fontWeight:700,color:"#2a2018"}}>ボード</div>
-            <div style={{fontSize:12,color:"#9a9088",marginTop:3}}>001〜020</div>
+            <div style={{fontSize:12,color:"#9a9088",marginTop:3}}>{occupied_count}件入庫中 / 20スロット</div>
           </div>
           <button onClick={loadBoard} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Refresh/></button>
         </div>
@@ -551,13 +569,14 @@ export default function App() {
         <div style={{padding:"0 18px 20px"}}>
           {board.map(slot=>{
             const occupied=!!(slot.name||slot.bike);
+            const st=SLOT_STATUS.find(s=>s.k===slot.status);
             return (
-              <div key={slot.slot_no} onClick={()=>setEditSlotModal({...slot})}
-                style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+              <div key={slot.slot_no} onClick={()=>setEditSlotModal({...slot,checkin:slot.checkin||(occupied?"":fmt(new Date())),pickup:slot.pickup||"",amount:slot.amount||"",status:slot.status||"",note:slot.note||""})}
+                style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",
                 background:occupied?"#fff":"#faf8f4",borderRadius:12,marginBottom:8,
                 border:`1.5px solid ${occupied?"rgba(42,32,24,.1)":"rgba(42,32,24,.05)"}`,
                 cursor:"pointer",boxShadow:occupied?"0 1px 8px rgba(42,32,24,.06)":"none"}}>
-                <div style={{width:48,height:48,borderRadius:10,flexShrink:0,
+                <div style={{width:46,height:46,borderRadius:10,flexShrink:0,
                   background:occupied?"#2a2018":"#f0ece4",
                   color:occupied?"#faf8f4":"#c8bfb0",
                   display:"flex",alignItems:"center",justifyContent:"center",
@@ -567,27 +586,55 @@ export default function App() {
                 <div style={{flex:1,minWidth:0}}>
                   {occupied?(
                     <>
-                      <div style={{fontSize:15,fontWeight:700,color:"#2a2018",marginBottom:3}}>{slot.name||"—"}</div>
-                      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                        {slot.phone&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#3a3028"}}>{slot.phone}</span>}
-                        {slot.bike&&<span style={{fontSize:12,color:"#7a7060"}}>🚲 {slot.bike}</span>}
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
+                        <span style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{slot.name||"—"}</span>
+                        {st&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,background:st.bg,color:st.c}}>{st.k}</span>}
                       </div>
-                      {slot.note&&<div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{slot.note}</div>}
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:slot.checkin||slot.pickup||slot.amount?3:0}}>
+                        {slot.phone&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#3a3028"}}>{slot.phone}</span>}
+                        {slot.bike&&<span style={{fontSize:11,color:"#7a7060"}}>🚲 {slot.bike}</span>}
+                      </div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        {slot.checkin&&<span style={{fontSize:10,color:"#9a9088"}}>📥 {fmt(slot.checkin,"short")}</span>}
+                        {slot.pickup&&<span style={{fontSize:10,color:"#3d7a56",fontWeight:600}}>🚪 {fmt(slot.pickup,"short")}</span>}
+                        {slot.amount&&<span style={{fontSize:10,fontFamily:"'DM Mono',monospace",color:"#c0724a",fontWeight:600}}>¥{Number(slot.amount||0).toLocaleString()}</span>}
+                      </div>
+                      {slot.note&&<div style={{fontSize:10,color:"#b0a898",marginTop:2}}>{slot.note}</div>}
                     </>
                   ):(
                     <div style={{fontSize:13,color:"#c8bfb0"}}>空き</div>
                   )}
                 </div>
-                <span style={{color:occupied?"#c8bfb0":"#e0d9ce",fontSize:20}}>›</span>
+                <span style={{color:occupied?"#c8bfb0":"#e0d9ce",fontSize:20,flexShrink:0}}>›</span>
               </div>
             );
           })}
         </div>
 
         <Modal open={!!editSlotModal} onClose={()=>setEditSlotModal(null)} title={`スロット ${editSlotModal?.slot_no}`}>
+          {/* ステータスチップ */}
+          <div style={{marginBottom:14}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>ステータス</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {SLOT_STATUS.map(s=>(
+                <button key={s.k} onClick={()=>setEditSlotModal(p=>({...p,status:p.status===s.k?"":s.k}))}
+                  style={{padding:"6px 11px",borderRadius:20,fontSize:12,fontWeight:700,border:"1.5px solid",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",
+                  background:editSlotModal?.status===s.k?s.bg:"#f5f0e8",
+                  color:editSlotModal?.status===s.k?s.c:"#9a9088",
+                  borderColor:editSlotModal?.status===s.k?s.c:"transparent"}}>
+                  {s.k}
+                </button>
+              ))}
+            </div>
+          </div>
           <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
           <FG label="車種"><CInput value={editSlotModal?.bike||""} onChange={v=>setEditSlotModal(p=>({...p,bike:v}))} placeholder="ブリヂストン"/></FG>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <FG label="入庫日"><CInput type="date" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG>
+            <FG label="引き取り予定日"><CInput type="date" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG>
+          </div>
+          <FG label="金額（円）"><CInput type="number" value={editSlotModal?.amount||""} onChange={v=>setEditSlotModal(p=>({...p,amount:v}))} placeholder="5000"/></FG>
           <FG label="メモ"><CInput value={editSlotModal?.note||""} onChange={v=>setEditSlotModal(p=>({...p,note:v}))} placeholder="作業内容など"/></FG>
           <div style={{display:"flex",gap:8,marginTop:4}}>
             {(editSlotModal?.name||editSlotModal?.bike)&&(
