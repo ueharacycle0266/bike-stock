@@ -53,8 +53,17 @@ const normalizeJsonArray = (value) => {
   if (typeof value === "string" && value.trim()) { try { const p=JSON.parse(value); return Array.isArray(p)?p:[]; } catch { return []; } }
   return [];
 };
-const normalizeCustomer = (c) => ({ ...c, bikes: normalizeBikes(c.bikes), notes: normalizeJsonArray(c.notes), customer_rank: c.customer_rank||"通常" });
-const normalizeEstimate = (e) => ({ ...e, items: normalizeJsonArray(e.items) });
+const packCustMemo = (no, memo) => { const n=(no||"").trim(); return n?`[#${n}]\n${memo||""}`:(memo||""); };
+const normalizeCustomer = (c) => {
+  const raw = c.memo||"";
+  const m = raw.match(/^\[#(\w+)\]\n?([\s\S]*)/);
+  return { ...c, bikes: normalizeBikes(c.bikes), notes: normalizeJsonArray(c.notes), customer_rank: c.customer_rank||"通常", customer_no: m?m[1]:"", memo: m?m[2]:raw };
+};
+const normalizeEstimate = (e) => {
+  const all = normalizeJsonArray(e.items);
+  const meta = all.find(it=>it._wd);
+  return { ...e, items: all.filter(it=>!it._wd), work_date: e.work_date||meta?._wd||null };
+};
 
 // ── SVG アイコン ──
 const Ico = {
@@ -281,7 +290,9 @@ export default function App() {
   const [custDetail, setCustDetail] = useState(null);
   const [addCustModal, setAddCustModal] = useState(false);
   const [editCustModal, setEditCustModal] = useState(null);
-  const [newCust, setNewCust] = useState({name:"",furigana:"",phone:"",address:"",memo:"",customer_rank:"通常"});
+  const [newCust, setNewCust] = useState({name:"",furigana:"",phone:"",address:"",memo:"",customer_rank:"通常",customer_no:""});
+  const [custView, setCustView] = useState("list");
+  const [bikeHistModalIdx, setBikeHistModalIdx] = useState(null);
   const [makerMaster, setMakerMaster] = useState([]);
   const [newBikeF, setNewBikeF] = useState({maker:"",color:"",nextMaintenanceDate:""});
   const [addBikeModal, setAddBikeModal] = useState(false);
@@ -360,8 +371,8 @@ export default function App() {
   const cleanEstItems=(items)=>(items||[]).filter(it=>String(getEstItemName(it)||"").trim()||Number(it.price||0)>0).map(it=>({name:String(getEstItemName(it)||"").trim(),price:Number(getEstItemPrice(it)||0),qty:Number(it.qty||1)}));
   const estTotal=useMemo(()=>(estItems||[]).reduce((s,it)=>s+getEstItemPrice(it)*(Number(it.qty)||0),0),[estItems,repairMenus]);
   const repairGroups=useMemo(()=>[...new Set((repairMenus||[]).map(m=>m.group1||"").filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ja")),[repairMenus]);
-  const doSaveEst=async()=>{ if(!addEstModal) return; const items=cleanEstItems(estItems); const total=items.reduce((s,it)=>s+(Number(it.price||0)*Number(it.qty||0)),0); const id=uid(); const wd=estDate||fmt(new Date()); const obj={id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total,work_date:wd,created_at:new Date().toISOString()}; setSaving(true); try { const saved=await api("estimates","POST",{id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total,work_date:wd}); const row=normalizeEstimate(Array.isArray(saved)?(saved[0]||obj):obj); setEstimates(p=>[row,...p]); setAddEstModal(null); } catch(e){console.error(e);alert("見積もりの保存に失敗しました。");} finally{setSaving(false);} };
-  const doUpdateEst=async()=>{ if(!editEstModal) return; const items=cleanEstItems(estItems); const total=items.reduce((s,it)=>s+(Number(it.price||0)*Number(it.qty||0)),0); const wd=estDate||fmt(new Date()); const upd={...editEstModal,items,memo:estMemo,total,work_date:wd}; setSaving(true); try { await api(`estimates?id=eq.${upd.id}`,"PATCH",{items,memo:estMemo,total,work_date:wd}); setEstimates(p=>p.map(e=>e.id===upd.id?upd:e)); setEditEstModal(null); } catch(e){console.error(e);alert("見積もりの更新に失敗しました。");} finally{setSaving(false);} };
+  const doSaveEst=async()=>{ if(!addEstModal) return; const cleaned=cleanEstItems(estItems); const total=cleaned.reduce((s,it)=>s+(Number(it.price||0)*Number(it.qty||0)),0); const id=uid(); const wd=estDate||fmt(new Date()); const items=[...cleaned,{_wd:wd}]; const obj={id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items:cleaned,memo:estMemo,total,work_date:wd,created_at:new Date().toISOString()}; setSaving(true); try { const saved=await api("estimates","POST",{id,customer_id:addEstModal.custId,bike_index:addEstModal.bikeIdx,items,memo:estMemo,total}); const row=normalizeEstimate(Array.isArray(saved)?(saved[0]||obj):obj); setEstimates(p=>[row,...p]); setAddEstModal(null); } catch(e){console.error(e);alert("見積もりの保存に失敗しました。");} finally{setSaving(false);} };
+  const doUpdateEst=async()=>{ if(!editEstModal) return; const cleaned=cleanEstItems(estItems); const total=cleaned.reduce((s,it)=>s+(Number(it.price||0)*Number(it.qty||0)),0); const wd=estDate||fmt(new Date()); const items=[...cleaned,{_wd:wd}]; const upd={...editEstModal,items:cleaned,memo:estMemo,total,work_date:wd}; setSaving(true); try { await api(`estimates?id=eq.${upd.id}`,"PATCH",{items,memo:estMemo,total}); setEstimates(p=>p.map(e=>e.id===upd.id?upd:e)); setEditEstModal(null); } catch(e){console.error(e);alert("見積もりの更新に失敗しました。");} finally{setSaving(false);} };
   const delEst=async(id)=>{ if(!window.confirm("削除しますか？")) return; setEstimates(p=>p.filter(e=>e.id!==id)); await api(`estimates?id=eq.${id}`,"DELETE").catch(()=>{}); };
   const custEstimates=(custId,bikeIdx)=>estimates.filter(e=>e.customer_id===custId&&e.bike_index===bikeIdx);
 
@@ -409,13 +420,14 @@ export default function App() {
   const doAddCust=async()=>{
     const name=newCust.name.trim(); if(!name) return;
     const furi=toKatakana(newCust.furigana||"");
-    const payload={id:uuid(),name,furigana:furi||null,phone:newCust.phone||null,address:newCust.address||null,memo:newCust.memo||null,customer_rank:newCust.customer_rank||"通常",bikes:[]};
+    const rawMemo=packCustMemo(newCust.customer_no,newCust.memo);
+    const payload={id:uuid(),name,furigana:furi||null,phone:newCust.phone||null,address:newCust.address||null,memo:rawMemo||null,customer_rank:newCust.customer_rank||"通常",bikes:[]};
     setSaving(true);
     try {
       const saved=await api("customers","POST",payload);
       const row=normalizeCustomer(Array.isArray(saved)?(saved[0]||{...payload,created_at:new Date().toISOString()}):{...payload,created_at:new Date().toISOString()});
       setCustomers(p=>[row,...p.filter(c=>c.id!==row.id)]);
-      setNewCust({name:"",furigana:"",phone:"",address:"",memo:"",customer_rank:"通常"});
+      setNewCust({name:"",furigana:"",phone:"",address:"",memo:"",customer_rank:"通常",customer_no:""});
       setAddCustModal(false);
       await loadCustomers({silent:true});
     } catch(e){ console.error(e); alert("顧客の保存に失敗しました。"); }
@@ -424,10 +436,11 @@ export default function App() {
   const doEditCust=async()=>{
     if(!editCustModal||!editCustModal.name.trim()) return;
     const furi=toKatakana(editCustModal.furigana||"");
+    const rawMemo=packCustMemo(editCustModal.customer_no,editCustModal.memo);
     const upd={...editCustModal,furigana:furi};
     setSaving(true);
     try {
-      await api(`customers?id=eq.${upd.id}`,"PATCH",{name:upd.name,furigana:furi||null,phone:upd.phone||null,address:upd.address||null,memo:upd.memo||null,customer_rank:upd.customer_rank||"通常",bikes:upd.bikes||[]});
+      await api(`customers?id=eq.${upd.id}`,"PATCH",{name:upd.name,furigana:furi||null,phone:upd.phone||null,address:upd.address||null,memo:rawMemo||null,customer_rank:upd.customer_rank||"通常",bikes:upd.bikes||[]});
       setCustomers(p=>p.map(c=>c.id===upd.id?{...c,...upd}:c));
       if(custDetail?.id===upd.id) setCustDetail(prev=>({...prev,...upd}));
       setEditCustModal(null);
@@ -569,7 +582,10 @@ export default function App() {
                 {(c.bikes||[]).length>0&&<CTag color="blue">{(c.bikes||[]).length}台登録</CTag>}
               </div>
             </div>
-            <button onClick={()=>setEditCustModal({...c})} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Edit/></button>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={()=>setEditCustModal({...c})} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Edit/></button>
+              <button onClick={()=>delCust(c.id)} style={{background:"#fae8e8",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#a83030"}}><Ico.Trash/></button>
+            </div>
           </div>
 
           {/* 電話番号 */}
@@ -607,11 +623,15 @@ export default function App() {
               {(c.bikes||[]).length===0&&<div style={{padding:"20px 16px",fontSize:13,color:"#c8bfb0",textAlign:"center"}}>自転車未登録</div>}
               {(c.bikes||[]).map((b,idx)=>{
                 const isExpired=b.nextMaintenanceDate&&new Date(b.nextMaintenanceDate)<today();
+                const bikeEstCount=custEstimates(c.id,idx).length;
                 return (
                   <div key={idx} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:"1px solid rgba(42,32,24,.06)"}}>
-                    <div style={{width:42,height:42,borderRadius:10,background:"#f0ece4",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🚲</div>
+                    <div onClick={()=>{loadEstimates();setBikeHistModalIdx(idx);}} style={{width:42,height:42,borderRadius:10,background:"#f0ece4",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,cursor:"pointer"}}>🚲</div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{b.maker}</div>
+                      <div onClick={()=>{loadEstimates();setBikeHistModalIdx(idx);}} style={{fontSize:14,fontWeight:700,color:"#2a2018",cursor:"pointer"}}>
+                        {b.maker}
+                        {bikeEstCount>0&&<span style={{marginLeft:6,fontSize:11,color:"#9a9088",fontWeight:400}}>履歴{bikeEstCount}件</span>}
+                      </div>
                       <div style={{fontSize:11,color:"#9a9088",marginTop:2}}>{b.color||""}</div>
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5}}>
                         <span style={{fontSize:10,color:"#9a9088"}}>次回メンテ</span>
@@ -619,6 +639,7 @@ export default function App() {
                         {isExpired&&<CTag color="red">期限切れ</CTag>}
                       </div>
                     </div>
+                    <button onClick={()=>{loadEstimates();setBikeHistModalIdx(idx);}} style={{background:"#e4eef8",border:"none",cursor:"pointer",borderRadius:8,padding:"6px 8px",fontSize:11,color:"#2e5f90",fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",flexShrink:0}}>🔧 履歴</button>
                     <button onClick={()=>delBike(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",padding:4}}><Ico.Trash/></button>
                   </div>
                 );
@@ -670,6 +691,35 @@ export default function App() {
             </div>
           </div>
 
+          {/* 自転車別修理履歴モーダル */}
+          {bikeHistModalIdx!==null&&(()=>{
+            const b=(c.bikes||[])[bikeHistModalIdx];
+            if(!b) return null;
+            const ests=custEstimates(c.id,bikeHistModalIdx);
+            return (
+              <Modal open={true} onClose={()=>setBikeHistModalIdx(null)} title={`🚲 ${b.maker}${b.color?` (${b.color})`:""} 修理履歴`}>
+                <div style={{marginBottom:10}}>
+                  <CBtn onClick={()=>{setAddEstModal({custId:c.id,bikeIdx:bikeHistModalIdx});setEstItems([]);setEstMemo("");setEstDate(fmt(new Date()));}} variant="primary" style={{width:"100%",justifyContent:"center"}}>＋ 見積もり・作業を追加</CBtn>
+                </div>
+                {ests.length===0&&<div style={{textAlign:"center",padding:"30px 0",color:"#c8bfb0",fontSize:13}}>作業履歴なし</div>}
+                {ests.map(e=>(
+                  <div key={e.id} style={{background:"#faf8f4",borderRadius:10,padding:"11px 13px",marginBottom:8,border:"1px solid rgba(42,32,24,.08)"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5}}>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:500,color:"#c0724a"}}>¥{(e.total||0).toLocaleString()}</div>
+                      <div style={{fontSize:11,color:"#9a9088"}}>{e.work_date?fmt(e.work_date,"full"):e.created_at?fmt(e.created_at,"full"):""}</div>
+                    </div>
+                    {(e.items||[]).map((it,i)=><div key={i} style={{fontSize:12,color:"#7a7060",marginBottom:1}}>{it.name} × {it.qty} = ¥{((it.price||0)*(it.qty||1)).toLocaleString()}</div>)}
+                    {e.memo&&<div style={{fontSize:11,color:"#9a9088",marginTop:5,borderTop:"1px solid rgba(42,32,24,.06)",paddingTop:5}}>{e.memo}</div>}
+                    <div style={{display:"flex",gap:6,marginTop:8}}>
+                      <button onClick={()=>{setBikeHistModalIdx(null);setEditEstModal(e);setEstItems(e.items||[]);setEstMemo(e.memo||"");setEstDate(e.work_date||fmt(new Date()));}} style={{background:"#e4eef8",border:"none",cursor:"pointer",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#2e5f90",fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif"}}>✏ 編集</button>
+                      <button onClick={()=>delEst(e.id)} style={{background:"#fae8e8",border:"none",cursor:"pointer",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#a83030",fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif"}}>🗑 削除</button>
+                    </div>
+                  </div>
+                ))}
+              </Modal>
+            );
+          })()}
+
           {/* 見積もり作成モーダル */}
           <EstModal open={!!addEstModal} onClose={()=>setAddEstModal(null)} onSave={doSaveEst} title="見積もりを作成" addEstModal={addEstModal} editEstModal={editEstModal} customers={customers} repairMenus={repairMenus} estItems={estItems} setEstItems={setEstItems} estMemo={estMemo} setEstMemo={setEstMemo} estTotal={estTotal} estDate={estDate} setEstDate={setEstDate}/>
           {/* 見積もり編集モーダル */}
@@ -678,7 +728,8 @@ export default function App() {
           {/* 顧客編集モーダル */}
           <Modal open={!!editCustModal} onClose={()=>setEditCustModal(null)} title="顧客情報を編集">
             <div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr",gap:10,marginBottom:14}}>
+                <FG label="番号"><CInput value={editCustModal?.customer_no||""} onChange={v=>setEditCustModal(p=>({...p,customer_no:v}))} placeholder="001"/></FG>
                 <FG label="氏名"><CInput value={editCustModal?.name||""} onChange={v=>setEditCustModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
                 <FG label="フリガナ"><CInput value={editCustModal?.furigana||""} onChange={v=>setEditCustModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
               </div>
@@ -715,7 +766,7 @@ export default function App() {
     // 顧客一覧
     return (
       <PageWrap mode={mode} switchMode={switchMode}>
-        <PageHeaderOuter title="顧客一覧" sub={`${filteredCustomers.length}名`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>{setStCustOpen(true);loadMasters();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><CBtn onClick={()=>setAddCustModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn></div>}/>
+        <PageHeaderOuter title="顧客一覧" sub={`${filteredCustomers.length}名`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>setCustView(v=>v==="board"?"list":"board")} style={{background:custView==="board"?"#2a2018":"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:"8px 12px",display:"flex",alignItems:"center",color:custView==="board"?"#faf8f4":"#7a7060",fontSize:12,fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",gap:4}}>📋 番号表</button><button onClick={()=>{setStCustOpen(true);loadMasters();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><CBtn onClick={()=>setAddCustModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn></div>}/>
         <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
 
         {/* フィルターチップ */}
@@ -725,7 +776,39 @@ export default function App() {
           ))}
         </div>
 
-        <div style={{padding:"0 18px",marginBottom:20}}>
+        {custView==="board"&&(()=>{
+          const boardList=[...filteredCustomers].sort((a,b)=>{
+            const na=a.customer_no||"", nb=b.customer_no||"";
+            if(na&&nb) return na.localeCompare(nb,"ja",{numeric:true});
+            if(na) return -1; if(nb) return 1;
+            return (a.name||"").localeCompare(b.name||"","ja");
+          });
+          return (
+            <div style={{padding:"0 18px",marginBottom:20}}>
+              {custLoading&&<div style={{textAlign:"center",padding:30,color:"#9a9088",fontSize:13}}>読み込み中...</div>}
+              <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
+                {/* ヘッダー */}
+                <div style={{display:"grid",gridTemplateColumns:"44px 1fr 1fr 1fr",gap:0,background:"#f5f0e8",borderBottom:"2px solid rgba(42,32,24,.08)"}}>
+                  {["#","氏名","電話番号","車種"].map(h=><div key={h} style={{padding:"8px 10px",fontSize:11,fontWeight:700,color:"#9a8f82",letterSpacing:".05em"}}>{h}</div>)}
+                </div>
+                {boardList.length===0&&<div style={{padding:"30px 16px",textAlign:"center",color:"#c8bfb0",fontSize:13}}>顧客なし</div>}
+                {boardList.map((c,idx)=>{
+                  const eb=(c.bikes||[]).find(b=>b.nextMaintenanceDate&&new Date(b.nextMaintenanceDate)<today());
+                  return (
+                    <div key={c.id} onClick={()=>setCustDetail(c)} style={{display:"grid",gridTemplateColumns:"44px 1fr 1fr 1fr",gap:0,borderBottom:idx<boardList.length-1?"1px solid rgba(42,32,24,.05)":"none",cursor:"pointer",background:eb?"#fff9f9":"#fff",alignItems:"center"}}>
+                      <div style={{padding:"10px 8px 10px 12px",fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:13,color:c.customer_no?"#c0724a":"#c8bfb0"}}>{c.customer_no||"—"}</div>
+                      <div style={{padding:"10px 8px",fontSize:13,fontWeight:700,color:"#2a2018",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
+                      <div style={{padding:"10px 6px",fontFamily:"'DM Mono',monospace",fontSize:12,color:"#3a3028",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.phone||<span style={{color:"#c8bfb0"}}>—</span>}</div>
+                      <div style={{padding:"10px 8px",fontSize:12,color:"#7a7060",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(c.bikes||[]).length>0?(c.bikes||[]).map(b=>b.maker).join("・"):<span style={{color:"#c8bfb0"}}>—</span>}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {custView==="list"&&(<div style={{padding:"0 18px",marginBottom:20}}>
           {custLoading&&<div style={{textAlign:"center",padding:30,color:"#9a9088",fontSize:13}}>読み込み中...</div>}
           {!custLoading&&filteredCustomers.length===0&&<div style={{textAlign:"center",padding:40,color:"#c8bfb0",fontSize:13}}>顧客が見つかりません</div>}
           {!custLoading&&filteredCustomers.length>0&&(
@@ -734,7 +817,7 @@ export default function App() {
                 const eb=(c.bikes||[]).find(b=>b.nextMaintenanceDate&&new Date(b.nextMaintenanceDate)<today());
                 return (
                   <div key={c.id} onClick={()=>setCustDetail(c)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:idx<filteredCustomers.length-1?"1px solid rgba(42,32,24,.06)":"none",cursor:"pointer"}}>
-                    <div style={{width:42,height:42,borderRadius:"50%",background:eb?"#fae8e8":"#f0ece4",color:eb?"#a83030":"#7a7060",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:17,flexShrink:0}}>{(c.name||"?")[0]}</div>
+                    <div style={{width:42,height:42,borderRadius:"50%",background:eb?"#fae8e8":"#f0ece4",color:eb?"#a83030":"#7a7060",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:17,flexShrink:0}}>{c.customer_no?<span style={{fontSize:12,fontFamily:"'DM Mono',monospace"}}>{c.customer_no}</span>:(c.name||"?")[0]}</div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:14,fontWeight:700,color:"#2a2018",marginBottom:2}}>{c.name}</div>
                       <div style={{fontSize:12,color:"#9a9088"}}>{(c.bikes||[]).length>0?`🚲 ${(c.bikes||[]).map(b=>b.maker).join("・")}`:c.phone||"電話番号未登録"}</div>
@@ -749,11 +832,12 @@ export default function App() {
               })}
             </div>
           )}
-        </div>
+        </div>)}
 
         {/* 顧客追加モーダル */}
         <Modal open={addCustModal} onClose={()=>setAddCustModal(false)} title="新規顧客登録">
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr",gap:10,marginBottom:14}}>
+            <FG label="番号"><CInput value={newCust.customer_no} onChange={v=>setNewCust(p=>({...p,customer_no:v}))} placeholder="001"/></FG>
             <FG label="氏名"><CInput value={newCust.name} onChange={v=>setNewCust(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
             <FG label="フリガナ"><CInput value={newCust.furigana} onChange={v=>setNewCust(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
           </div>
