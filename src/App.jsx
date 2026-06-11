@@ -723,9 +723,18 @@ export default function App() {
             {(editSlotModal?.items||[]).map((it,idx)=>(
               <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 44px 60px 24px",gap:5,marginBottom:5,alignItems:"center"}}>
                 <select value={it.name||""} onChange={e=>{ const v=e.target.value; const menu=repairMenus.find(m=>m.name===v); setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,name:v,...(menu?{price:String(menu.price)}:{})}:x)})); }}
-                  style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:it.name?"#2a2018":"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%",appearance:"none",WebkitAppearance:"none"}}>
-                  <option value="">品名...</option>
-                  {repairMenus.map(m=><option key={m.id} value={m.name}>{m.name} ¥{(m.price||0).toLocaleString()}</option>)}
+                  style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:it.name?"#2a2018":"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%"}}>
+                  <option value="">品名を選択...</option>
+                  {repairGroups.map(g=>(
+                    <optgroup key={g} label={g}>
+                      {repairMenus.filter(m=>(m.group1||"")===g).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}
+                    </optgroup>
+                  ))}
+                  {repairMenus.filter(m=>!m.group1).length>0&&(
+                    <optgroup label="その他">
+                      {repairMenus.filter(m=>!m.group1).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}
+                    </optgroup>
+                  )}
                 </select>
                 <input type="number" value={it.qty||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,qty:e.target.value}:x)}))} placeholder="数" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 5px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
                 <input type="number" value={it.price||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,price:e.target.value}:x)}))} placeholder="単価" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 7px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0}}/>
