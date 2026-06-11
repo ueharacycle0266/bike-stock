@@ -5,14 +5,17 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const PASSWORD = "0266";
 const STAFF = ["あさと", "たけし"];
 
-const api = async (path, method="GET", body=null) => {
+const api = async (path, method="GET", body=null, upsert=false) => {
+  const prefer = method==="POST"
+    ? (upsert?"resolution=merge-duplicates,return=representation":"return=representation")
+    : "return=minimal";
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     method,
     headers: {
       "apikey":SUPABASE_KEY,
       "Authorization":`Bearer ${SUPABASE_KEY}`,
       "Content-Type":"application/json",
-      "Prefer":method==="POST"?"return=representation":"return=minimal",
+      "Prefer":prefer,
       "Cache-Control":"no-cache"
     },
     body: body ? JSON.stringify(body) : null,
@@ -85,6 +88,7 @@ const Ico = {
   Download:()=>(<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>),
   ChevDown:()=>(<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>),
   Chart:()=>(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>),
+  Grid:()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>),
 };
 
 // ── 共通UIコンポーネント（App外 = re-mount なし） ──
@@ -196,6 +200,7 @@ const BottomNav=({mode, switchMode})=>(
     {[
       {id:"stock",icon:<Ico.Box/>,label:"在庫管理"},
       {id:"customers",icon:<Ico.Users/>,label:"顧客管理"},
+      {id:"board",icon:<Ico.Grid/>,label:"ボード"},
       {id:"phone",icon:<Ico.Phone/>,label:"電話帳"},
     ].map(t=>(
       <button key={t.id} onClick={()=>switchMode(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 2px 9px",cursor:"pointer",border:"none",background:"none",color:mode===t.id?"#c0724a":"#9a9088",fontSize:10,fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,letterSpacing:"0.04em",transition:"color .15s"}}>
@@ -310,6 +315,11 @@ export default function App() {
 
   // 作業（予約）state
 
+  // ボード state
+  const [boardSlots, setBoardSlots] = useState([]);
+  const [boardLoaded, setBoardLoaded] = useState(false);
+  const [editSlotModal, setEditSlotModal] = useState(null);
+
   // 電話帳 state
   const [phoneFilter, setPhoneFilter] = useState("all");
 
@@ -366,6 +376,10 @@ export default function App() {
 
 
   const loadEstimates=async()=>{ try { const d=await api("estimates?select=*&order=created_at.desc").catch(()=>[]); setEstimates((d||[]).map(normalizeEstimate)); } catch(e){console.error(e);} };
+  const loadBoard=async()=>{ try { const d=await api("board_slots?select=*&order=slot_no.asc").catch(()=>[]); setBoardSlots(Array.isArray(d)?d:[]); setBoardLoaded(true); } catch(e){console.error(e);setBoardLoaded(true);} };
+  const getBoard=()=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return boardSlots.find(s=>s.slot_no===no)||{slot_no:no,name:"",phone:"",bike:"",note:""}; });
+  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,note}=editSlotModal; setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:note||"",updated_at:new Date().toISOString()},true); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?{...editSlotModal}:s):[...p,{...editSlotModal}]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
+  const doClearSlot=async(slot_no)=>{ if(!window.confirm("出庫しますか？")) return; setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"DELETE"); setBoardSlots(p=>p.filter(s=>s.slot_no!==slot_no)); setEditSlotModal(null); } catch(e){console.error(e);} finally{setSaving(false);} };
   const getEstItemName=(it)=>it?.name||repairMenus.find(m=>m.id===it?.menuId)?.name||"";
   const getEstItemPrice=(it)=>Number(it?.price??repairMenus.find(m=>m.id===it?.menuId)?.price??0);
   const cleanEstItems=(items)=>(items||[]).filter(it=>String(getEstItemName(it)||"").trim()||Number(it.price||0)>0).map(it=>({name:String(getEstItemName(it)||"").trim(),price:Number(getEstItemPrice(it)||0),qty:Number(it.qty||1)}));
@@ -376,13 +390,14 @@ export default function App() {
   const delEst=async(id)=>{ if(!window.confirm("削除しますか？")) return; setEstimates(p=>p.filter(e=>e.id!==id)); await api(`estimates?id=eq.${id}`,"DELETE").catch(()=>{}); };
   const custEstimates=(custId,bikeIdx)=>estimates.filter(e=>e.customer_id===custId&&e.bike_index===bikeIdx);
 
-    const switchMode = async (m) => {
+  const switchMode = async (m) => {
     setMode(m);
     if (m==="customers"||m==="phone") {
       await loadCustomers({silent:custLoaded});
       await loadMasters();
       loadEstimates();
     }
+    if (m==="board") loadBoard();
   };
 
   // ── 在庫 派生 ──
@@ -517,6 +532,73 @@ export default function App() {
 
 
 
+
+  // ════════════════════════════════════════
+  // ボード
+  // ════════════════════════════════════════
+  if (mode==="board") {
+    const board = getBoard();
+    return (
+      <PageWrap mode={mode} switchMode={switchMode}>
+        <div style={{padding:"18px 18px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:22,fontWeight:700,color:"#2a2018"}}>ボード</div>
+            <div style={{fontSize:12,color:"#9a9088",marginTop:3}}>001〜020</div>
+          </div>
+          <button onClick={loadBoard} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Refresh/></button>
+        </div>
+        {!boardLoaded&&<div style={{textAlign:"center",padding:30,color:"#9a9088",fontSize:13}}>読み込み中...</div>}
+        <div style={{padding:"0 18px 20px"}}>
+          {board.map(slot=>{
+            const occupied=!!(slot.name||slot.bike);
+            return (
+              <div key={slot.slot_no} onClick={()=>setEditSlotModal({...slot})}
+                style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+                background:occupied?"#fff":"#faf8f4",borderRadius:12,marginBottom:8,
+                border:`1.5px solid ${occupied?"rgba(42,32,24,.1)":"rgba(42,32,24,.05)"}`,
+                cursor:"pointer",boxShadow:occupied?"0 1px 8px rgba(42,32,24,.06)":"none"}}>
+                <div style={{width:48,height:48,borderRadius:10,flexShrink:0,
+                  background:occupied?"#2a2018":"#f0ece4",
+                  color:occupied?"#faf8f4":"#c8bfb0",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700}}>
+                  {slot.slot_no}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  {occupied?(
+                    <>
+                      <div style={{fontSize:15,fontWeight:700,color:"#2a2018",marginBottom:3}}>{slot.name||"—"}</div>
+                      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                        {slot.phone&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#3a3028"}}>{slot.phone}</span>}
+                        {slot.bike&&<span style={{fontSize:12,color:"#7a7060"}}>🚲 {slot.bike}</span>}
+                      </div>
+                      {slot.note&&<div style={{fontSize:11,color:"#b0a898",marginTop:2}}>{slot.note}</div>}
+                    </>
+                  ):(
+                    <div style={{fontSize:13,color:"#c8bfb0"}}>空き</div>
+                  )}
+                </div>
+                <span style={{color:occupied?"#c8bfb0":"#e0d9ce",fontSize:20}}>›</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <Modal open={!!editSlotModal} onClose={()=>setEditSlotModal(null)} title={`スロット ${editSlotModal?.slot_no}`}>
+          <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
+          <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
+          <FG label="車種"><CInput value={editSlotModal?.bike||""} onChange={v=>setEditSlotModal(p=>({...p,bike:v}))} placeholder="ブリヂストン"/></FG>
+          <FG label="メモ"><CInput value={editSlotModal?.note||""} onChange={v=>setEditSlotModal(p=>({...p,note:v}))} placeholder="作業内容など"/></FG>
+          <div style={{display:"flex",gap:8,marginTop:4}}>
+            {(editSlotModal?.name||editSlotModal?.bike)&&(
+              <CBtn onClick={()=>doClearSlot(editSlotModal.slot_no)} variant="outline" style={{flex:1,color:"#a83030",borderColor:"rgba(168,48,48,.25)"}}>🚪 出庫</CBtn>
+            )}
+            <CBtn onClick={doSaveSlot} variant="primary" style={{flex:2}}>💾 保存</CBtn>
+          </div>
+        </Modal>
+      </PageWrap>
+    );
+  }
 
   // ════════════════════════════════════════
   // 電話帳
