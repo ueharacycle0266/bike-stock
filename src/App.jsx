@@ -68,15 +68,15 @@ const normalizeEstimate = (e) => {
   return { ...e, items: all.filter(it=>!it._wd), work_date: e.work_date||meta?._wd||null };
 };
 const parseSlotNote = (raw) => {
-  const def={note:"",checkin:"",pickup:"",status:"",items:[]};
+  const def={note:"",checkin:"",pickup:"",status:"",items:[],partsOrder:false};
   if (!raw) return def;
   try { const p=JSON.parse(raw); if(p&&typeof p==="object"&&"_v" in p) return {...def,...p,items:Array.isArray(p.items)?p.items:[]}; } catch {}
   return {...def,note:raw};
 };
 const packSlotNote = (d) => {
-  const {note,checkin,pickup,status,items}=d;
-  if(!checkin&&!pickup&&!status&&(!items||!items.length)) return note||"";
-  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",status:status||"",items:items||[]});
+  const {note,checkin,pickup,status,items,partsOrder}=d;
+  if(!checkin&&!pickup&&!status&&(!items||!items.length)&&!partsOrder) return note||"";
+  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",status:status||"",items:items||[],partsOrder:!!partsOrder});
 };
 const normalizeSlot = (s) => { const meta=parseSlotNote(s.note); return {...s,...meta}; };
 const slotTotal = (items) => (items||[]).reduce((s,it)=>s+((+it.price||0)*(+it.qty||0)),0);
@@ -418,10 +418,10 @@ export default function App() {
   const activeSlots=(slots)=>slots.filter(s=>/^\d{3}$/.test(s.slot_no));
   const historySlots=(slots)=>slots.filter(s=>s.slot_no.startsWith("H_")).sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
   const getBoard=(slots)=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return activeSlots(slots).find(s=>s.slot_no===no)||{slot_no:no,name:"",phone:"",bike:"",note:"",checkin:"",pickup:"",status:"",items:[]}; });
-  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,checkin,pickup,status,note,items}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,status,items:items||[]}); setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
+  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,checkin,pickup,status,note,items,partsOrder}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,status,items:items||[],partsOrder:!!partsOrder});setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
   const openExitModal=(slot)=>{ setExitSlotModal({slot,regCustomer:false,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); setEditSlotModal(null); };
   const doConfirmExit=async()=>{ if(!exitSlotModal) return; const{slot,regCustomer,custF}=exitSlotModal; setSaving(true); try {
-    const histId=`H_${Date.now()}`; const rawNote=packSlotNote({note:slot.note||"",checkin:slot.checkin||"",pickup:slot.pickup||"",status:slot.status||"",items:slot.items||[]});
+    const histId=`H_${Date.now()}`; const rawNote=packSlotNote({note:slot.note||"",checkin:slot.checkin||"",pickup:slot.pickup||"",status:slot.status||"",items:slot.items||[],partsOrder:!!slot.partsOrder});
     await api("board_slots","POST",{slot_no:histId,name:slot.name||"",phone:slot.phone||"",bike:slot.bike||"",note:rawNote,updated_at:new Date().toISOString()},true);
     await api(`board_slots?slot_no=eq.${slot.slot_no}`,"DELETE");
     let custId=null; let bikeIdx=0;
@@ -636,6 +636,7 @@ export default function App() {
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
                   <span style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{slot.name||"—"}</span>
                   {st&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,background:st.bg,color:st.c}}>{st.k}</span>}
+                  {slot.partsOrder&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,background:"#fef3e2",color:"#b06000"}}>⚙️📦</span>}
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:2}}>
                   {slot.phone&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#3a3028"}}>{slot.phone}</span>}
@@ -709,6 +710,13 @@ export default function App() {
                 {s.k}
               </button>
             ))}
+            <button onClick={()=>setEditSlotModal(p=>({...p,partsOrder:!p.partsOrder}))}
+              style={{padding:"6px 11px",borderRadius:20,fontSize:12,fontWeight:700,border:"1.5px solid",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",
+              background:editSlotModal?.partsOrder?"#fef3e2":"#f5f0e8",
+              color:editSlotModal?.partsOrder?"#b06000":"#9a9088",
+              borderColor:editSlotModal?.partsOrder?"#b06000":"transparent"}}>
+              ⚙️📦 部品注文
+            </button>
           </div>
           <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
