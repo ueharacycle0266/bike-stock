@@ -715,8 +715,8 @@ export default function App() {
               background:editSlotModal?.partsOrder?"#fef3e2":"#f5f0e8",
               color:editSlotModal?.partsOrder?"#b06000":"#9a9088",
               borderColor:editSlotModal?.partsOrder?"#b06000":"transparent"}}>
-              ⚙️📦 部品注文
-            </button>
+              ⚙️📦
+</button>
           </div>
           <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
