@@ -88,6 +88,7 @@ const slotBorderStyle = (slot) => {
     const now=new Date(); now.setHours(0,0,0,0);
     const pd=new Date(slot.pickup); pd.setHours(0,0,0,0);
     const d=Math.round((pd-now)/(86400000));
+    if(d<0)  return {border:"3px solid #e53935",boxShadow:"0 2px 16px rgba(229,57,53,.40)"};
     if(d===0) return {border:"3px solid #2a2018",boxShadow:"0 2px 14px rgba(42,32,24,.30)"};
     if(d===1) return {border:"3px solid #6650a0",boxShadow:"0 2px 14px rgba(102,80,160,.30)"};
     if(d===2) return {border:"3px solid #c0392b",boxShadow:"0 2px 14px rgba(192,57,43,.25)"};
@@ -419,7 +420,7 @@ export default function App() {
   const historySlots=(slots)=>slots.filter(s=>s.slot_no.startsWith("H_")).sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
   const getBoard=(slots)=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return activeSlots(slots).find(s=>s.slot_no===no)||{slot_no:no,name:"",phone:"",bike:"",note:"",checkin:"",pickup:"",status:"",items:[]}; });
   const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,checkin,pickup,status,note,items,partsOrder}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,status,items:items||[],partsOrder:!!partsOrder});setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
-  const openExitModal=(slot)=>{ setExitSlotModal({slot,regCustomer:false,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); setEditSlotModal(null); };
+  const openExitModal=(slot)=>{ setExitSlotModal({slot,regCustomer:true,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); setEditSlotModal(null); };
   const doConfirmExit=async()=>{ if(!exitSlotModal) return; const{slot,regCustomer,custF}=exitSlotModal; setSaving(true); try {
     const histId=`H_${Date.now()}`; const rawNote=packSlotNote({note:slot.note||"",checkin:slot.checkin||"",pickup:slot.pickup||"",status:slot.status||"",items:slot.items||[],partsOrder:!!slot.partsOrder});
     await api("board_slots","POST",{slot_no:histId,name:slot.name||"",phone:slot.phone||"",bike:slot.bike||"",note:rawNote,updated_at:new Date().toISOString()},true);
@@ -619,6 +620,7 @@ export default function App() {
       const st=SLOT_STATUS.find(s=>s.k===slot.status);
       const total=slotTotal(slot.items);
       const bs=slotBorderStyle(slot);
+      const isOverdue=occupied&&slot.pickup&&(()=>{const now=new Date();now.setHours(0,0,0,0);const pd=new Date(slot.pickup);pd.setHours(0,0,0,0);return pd<now;})();
       return (
         <div onClick={()=>setEditSlotModal({...slot,checkin:slot.checkin||(!occupied?fmt(new Date()):""),pickup:slot.pickup||"",status:slot.status||"",note:slot.note||"",items:slot.items||[]})}
           style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",
@@ -637,6 +639,7 @@ export default function App() {
                   <span style={{fontSize:14,fontWeight:700,color:"#2a2018"}}>{slot.name||"—"}</span>
                   {st&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,background:st.bg,color:st.c}}>{st.k}</span>}
                   {slot.partsOrder&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,background:"#fef3e2",color:"#b06000"}}>⚙️📦</span>}
+                  {isOverdue&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:20,background:"#fde8e8",color:"#e53935"}}>⚠️ 期限超過</span>}
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:2}}>
                   {slot.phone&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#3a3028"}}>{slot.phone}</span>}
@@ -665,6 +668,14 @@ export default function App() {
             <div style={{fontSize:12,color:"#9a9088",marginTop:3}}>{occupied_count}件入庫中 / 20スロット</div>
           </div>
           <button onClick={loadBoard} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><Ico.Refresh/></button>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",padding:"0 18px 12px",alignItems:"center"}}>
+          {[{c:"#e53935",l:"期限超過"},{c:"#2a2018",l:"当日"},{c:"#6650a0",l:"1日前"},{c:"#c0392b",l:"2日前"},{c:"#c87a00",l:"3日前"},{c:"#3d7a56",l:"出庫待ち"}].map(({c,l})=>(
+            <span key={l} style={{display:"flex",alignItems:"center",gap:4,fontSize:10,color:"#7a7060"}}>
+              <span style={{width:10,height:10,borderRadius:3,background:c,display:"inline-block",flexShrink:0}}/>
+              {l}
+            </span>
+          ))}
         </div>
         {!boardLoaded&&<div style={{textAlign:"center",padding:30,color:"#9a9088",fontSize:13}}>読み込み中...</div>}
         <div style={{padding:"0 18px"}}>
@@ -814,7 +825,7 @@ export default function App() {
     return (
       <PageWrap mode={mode} switchMode={switchMode}>
         <PageHeaderOuter title="電話帳" sub={`${phList.length}名表示`}/>
-        <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
+        <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・フリガナ・電話番号で検索…"/>
         <div style={{display:"flex",gap:7,overflowX:"auto",padding:"0 18px 13px",scrollbarWidth:"none"}}>
           {[{k:"all",l:"すべて"},{k:"expired",l:`期限切れ ${mainteExpired.length}名`},{k:"month",l:`今月期限 ${mainteThisMonth.length}名`}].map(f=>(
             <button key={f.k} onClick={()=>setPhoneFilter(f.k)} style={{padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700,whiteSpace:"nowrap",cursor:"pointer",flexShrink:0,border:"1.5px solid",background:phoneFilter===f.k?"#2a2018":"#fff",color:phoneFilter===f.k?"#faf8f4":"#7a7060",borderColor:phoneFilter===f.k?"#2a2018":"rgba(42,32,24,.12)"}}>{f.l}</button>
@@ -1047,7 +1058,7 @@ export default function App() {
     return (
       <PageWrap mode={mode} switchMode={switchMode}>
         <PageHeaderOuter title="顧客一覧" sub={`${filteredCustomers.length}名`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>setCustView(v=>v==="board"?"list":"board")} style={{background:custView==="board"?"#2a2018":"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:"8px 12px",display:"flex",alignItems:"center",color:custView==="board"?"#faf8f4":"#7a7060",fontSize:12,fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",gap:4}}>📋 番号表</button><button onClick={()=>{setStCustOpen(true);loadMasters();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><CBtn onClick={()=>setAddCustModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn></div>}/>
-        <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・電話番号で検索…"/>
+        <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・フリガナ・電話番号で検索…"/>
 
         {/* フィルターチップ */}
         <div style={{display:"flex",gap:7,overflowX:"auto",padding:"0 18px 13px",scrollbarWidth:"none"}}>
