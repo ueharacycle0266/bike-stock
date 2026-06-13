@@ -362,6 +362,7 @@ export default function App() {
   const [makerMaster, setMakerMaster] = useState([]);
   const [newBikeF, setNewBikeF] = useState({maker:"",color:"",nextMaintenanceDate:""});
   const [addBikeModal, setAddBikeModal] = useState(false);
+  const [editBikeModal, setEditBikeModal] = useState(null); // {idx, maker, color, nextMaintenanceDate}
   const [stCustOpen, setStCustOpen] = useState(false);
   const [newMakerF, setNewMakerF] = useState("");
   const [rnMaker, setRnMaker] = useState(null); const [rnMakerV, setRnMakerV] = useState("");
@@ -581,6 +582,14 @@ export default function App() {
     setSaving(true);
     try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); setNewBikeF({maker:"",color:"",nextMaintenanceDate:""}); setAddBikeModal(false); }
     catch(e){ console.error(e); alert("自転車情報の保存に失敗しました。"); }
+    finally { setSaving(false); }
+  };
+  const doEditBike=async()=>{
+    if(!editBikeModal||!custDetail) return;
+    const bikes=(custDetail.bikes||[]).map((b,i)=>i===editBikeModal.idx?{maker:editBikeModal.maker,color:editBikeModal.color,nextMaintenanceDate:editBikeModal.nextMaintenanceDate||null}:b);
+    setSaving(true);
+    try { await api(`customers?id=eq.${custDetail.id}`,"PATCH",{bikes}); setCustDetail(p=>({...p,bikes})); setCustomers(p=>p.map(c=>c.id===custDetail.id?{...c,bikes}:c)); setEditBikeModal(null); }
+    catch(e){ console.error(e); alert("保存に失敗しました"); }
     finally { setSaving(false); }
   };
   const delBike=async(idx)=>{
@@ -966,8 +975,9 @@ export default function App() {
           {/* 保有自転車 */}
           <div style={{padding:"10px 18px 0"}}>
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-              <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)"}}>
+              <div style={{padding:"12px 16px 11px",borderBottom:"1px solid rgba(42,32,24,.06)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018"}}>🚲 保有自転車</div>
+                <CBtn onClick={()=>{loadMasters();setAddBikeModal(true);}} variant="outline" size="sm">＋ 追加</CBtn>
               </div>
               {(c.bikes||[]).length===0&&<div style={{padding:"20px 16px",fontSize:13,color:"#c8bfb0",textAlign:"center"}}>自転車未登録</div>}
               {(c.bikes||[]).map((b,idx)=>{
@@ -989,6 +999,7 @@ export default function App() {
                       </div>
                     </div>
                     <button onClick={()=>{loadEstimates();setBikeHistModalIdx(idx);}} style={{background:"#e4eef8",border:"none",cursor:"pointer",borderRadius:8,padding:"6px 8px",fontSize:11,color:"#2e5f90",fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",flexShrink:0}}>🔧 履歴</button>
+                    <button onClick={()=>setEditBikeModal({idx,maker:b.maker||"",color:b.color||"",nextMaintenanceDate:b.nextMaintenanceDate||""})} style={{background:"#f0ece4",border:"none",cursor:"pointer",borderRadius:8,padding:"6px 8px",fontSize:11,color:"#7a7060",fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",flexShrink:0}}><Ico.Edit/></button>
                     <button onClick={()=>delBike(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",padding:4}}><Ico.Trash/></button>
                   </div>
                 );
@@ -1007,8 +1018,9 @@ export default function App() {
                   const ests=custEstimates(c.id,bikeIdx);
                   return (
                     <div key={bikeIdx} style={{padding:"12px 16px",borderBottom:"1px solid rgba(42,32,24,.06)"}}>
-                      <div style={{marginBottom:ests.length>0?10:0}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:ests.length>0?10:0}}>
                         <div style={{fontSize:13,fontWeight:700,color:"#2563a8"}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>
+                        <CBtn onClick={()=>{loadEstimates();setAddEstModal({custId:c.id,bikeIdx});setEstItems([]);setEstMemo("");setEstDate(fmt(new Date()));}} variant="outline" size="sm"><Ico.Plus/>作成</CBtn>
                       </div>
                       {ests.map(e=>(
                         <div key={e.id} style={{background:"#faf8f4",borderRadius:9,padding:"10px 12px",marginTop:8,border:"1px solid rgba(42,32,24,.07)"}}>
@@ -1046,7 +1058,10 @@ export default function App() {
             const ests=custEstimates(c.id,bikeHistModalIdx);
             return (
               <Modal open={true} onClose={()=>setBikeHistModalIdx(null)} title={`🚲 ${b.maker}${b.color?` (${b.color})`:""} 修理履歴`}>
-                {ests.length===0&&<div style={{textAlign:"center",padding:"30px 0",color:"#c8bfb0",fontSize:13}}>作業履歴なし</div>}
+                <div style={{marginBottom:12}}>
+                  <CBtn onClick={()=>{setBikeHistModalIdx(null);setAddEstModal({custId:c.id,bikeIdx:bikeHistModalIdx});setEstItems([]);setEstMemo("");setEstDate(fmt(new Date()));}} variant="primary" style={{width:"100%",justifyContent:"center"}}><Ico.Plus/>修理履歴を追加</CBtn>
+                </div>
+                {ests.length===0&&<div style={{textAlign:"center",padding:"20px 0",color:"#c8bfb0",fontSize:13}}>作業履歴なし</div>}
                 {ests.map(e=>(
                   <div key={e.id} style={{background:"#faf8f4",borderRadius:10,padding:"11px 13px",marginBottom:8,border:"1px solid rgba(42,32,24,.08)"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5}}>
@@ -1085,6 +1100,22 @@ export default function App() {
                 <CBtn onClick={()=>setEditCustModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
                 <CBtn onClick={doEditCust} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
               </div>
+            </div>
+          </Modal>
+
+          {/* 自転車編集モーダル */}
+          <Modal open={!!editBikeModal} onClose={()=>setEditBikeModal(null)} title="自転車を編集">
+            <FG label="メーカー">
+              <CSelect value={editBikeModal?.maker||""} onChange={v=>setEditBikeModal(p=>({...p,maker:v}))}>
+                <option value="">選択してください</option>
+                {makerMaster.map(m=><option key={m.id}>{m.name}</option>)}
+              </CSelect>
+            </FG>
+            <FG label="カラー"><CInput value={editBikeModal?.color||""} onChange={v=>setEditBikeModal(p=>({...p,color:v}))} placeholder="ブラック・シルバーなど"/></FG>
+            <FG label="次回メンテナンス日"><CInput type="date" value={editBikeModal?.nextMaintenanceDate||""} onChange={v=>setEditBikeModal(p=>({...p,nextMaintenanceDate:v}))}/></FG>
+            <div style={{display:"flex",gap:8,marginTop:4}}>
+              <CBtn onClick={()=>setEditBikeModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+              <CBtn onClick={doEditBike} variant="primary" style={{flex:2}}>💾 保存する</CBtn>
             </div>
           </Modal>
 
