@@ -618,7 +618,7 @@ export default function App() {
   const moveMenuToGroup=async(menuId,grp)=>{ setRepairMenus(p=>p.map(m=>m.id===menuId?{...m,group1:grp}:m)); setSaving(true); try { await api(`repair_menus?id=eq.${menuId}`,"PATCH",{group1:grp}); } catch(e){console.error(e);} finally{setSaving(false);} };
 
   // ── 顧客検索 ──
-  const searchCustomerMatch=(c,raw)=>{ const terms=raw.trim().toLowerCase().split(/\s+/).filter(Boolean); if(!terms.length) return true; const phone=(c.phone||"").replace(/[-\s]/g,""); const hay=[c.name||"",c.furigana||"",phone,(c.bikes||[]).map(b=>`${b.maker||""} ${b.color||""}`).join(" ")].join(" ").toLowerCase(); return terms.every(t=>{ const nt=t.replace(/[-\s]/g,""); return hay.includes(t)||(nt&&phone.includes(nt)); }); };
+  const searchCustomerMatch=(c,raw)=>{ const terms=raw.trim().split(/\s+/).filter(Boolean); if(!terms.length) return true; const phone=(c.phone||"").replace(/[-\s]/g,""); const hay=[c.name||"",c.furigana||"",phone,(c.bikes||[]).map(b=>`${b.maker||""} ${b.color||""}`).join(" ")].join(" ").toLowerCase(); return terms.every(t=>{ const tl=t.toLowerCase(); const tk=toKatakana(t); const nt=t.replace(/[-\s]/g,""); return hay.includes(tl)||hay.includes(tk)||(nt&&phone.includes(nt)); }); };
 
 
   // ── メンテ期限チェック ──
