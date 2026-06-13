@@ -83,15 +83,15 @@ const slotTotal = (items) => (items||[]).reduce((s,it)=>s+((+it.price||0)*(+it.q
 const slotBorderStyle = (slot) => {
   const occupied=!!(slot.name||slot.bike);
   if(!occupied) return {border:"1.5px solid rgba(42,32,24,.05)"};
-  if(slot.status==="出庫待ち") return {border:"2px solid #3d7a56",boxShadow:"0 2px 12px rgba(61,122,86,.18)"};
+  if(slot.status==="出庫待ち") return {border:"3px solid #3d7a56",boxShadow:"0 2px 14px rgba(61,122,86,.22)"};
   if(slot.pickup){
     const now=new Date(); now.setHours(0,0,0,0);
     const pd=new Date(slot.pickup); pd.setHours(0,0,0,0);
     const d=Math.round((pd-now)/(86400000));
-    if(d===0) return {border:"2px solid #2a2018",boxShadow:"0 2px 12px rgba(42,32,24,.25)"};
-    if(d===1) return {border:"2px solid #6650a0",boxShadow:"0 2px 12px rgba(102,80,160,.25)"};
-    if(d===2) return {border:"2px solid #c0392b",boxShadow:"0 2px 12px rgba(192,57,43,.2)"};
-    if(d===3) return {border:"2px solid #c87a00",boxShadow:"0 2px 12px rgba(200,122,0,.2)"};
+    if(d===0) return {border:"3px solid #2a2018",boxShadow:"0 2px 14px rgba(42,32,24,.30)"};
+    if(d===1) return {border:"3px solid #6650a0",boxShadow:"0 2px 14px rgba(102,80,160,.30)"};
+    if(d===2) return {border:"3px solid #c0392b",boxShadow:"0 2px 14px rgba(192,57,43,.25)"};
+    if(d===3) return {border:"3px solid #c87a00",boxShadow:"0 2px 14px rgba(200,122,0,.25)"};
   }
   return {border:"1.5px solid rgba(42,32,24,.1)"};
 };
