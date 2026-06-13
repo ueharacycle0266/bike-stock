@@ -640,6 +640,8 @@ export default function App() {
     let list=customers;
     if(custRankFilter==="expired") list=mainteExpired;
     else if(custRankFilter==="month") list=mainteThisMonth;
+    else if(custRankFilter==="rank3up") list=customers.filter(c=>CUST_RANKS.indexOf(c.customer_rank)>=3);
+    else if(custRankFilter==="rank5") list=customers.filter(c=>c.customer_rank==="⭐⭐⭐⭐⭐");
     else if(custRankFilter!=="all") list=customers.filter(c=>c.customer_rank===custRankFilter);
     if(custSearch.trim()) list=list.filter(c=>searchCustomerMatch(c,custSearch));
     return list;
@@ -938,7 +940,7 @@ export default function App() {
               <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:19,fontWeight:700,color:"#2a2018"}}>{c.name}</div>
               <div style={{fontSize:11,color:"#9a9088",marginTop:2}}>{c.furigana||""}</div>
               <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
-                {c.customer_rank&&c.customer_rank!=="☆☆☆☆☆"&&<CTag color="amber">{c.customer_rank}</CTag>}
+                {(()=>{const ri=CUST_RANKS.indexOf(c.customer_rank);return <CTag color={ri>=4?"accent":ri>=2?"amber":"gray"}>⭐{ri>=0?ri:0}</CTag>;})()}
                 {(c.bikes||[]).length>0&&<CTag color="blue">{(c.bikes||[]).length}台登録</CTag>}
               </div>
             </div>
@@ -964,7 +966,7 @@ export default function App() {
           {/* 基本情報 */}
           <div style={{padding:"10px 18px 0"}}>
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-              {[["住所",c.address||"—"],["メモ",c.memo||"—"],["ランク",c.customer_rank||"☆☆☆☆☆"]].map(([k,v])=>(
+              {[["住所",c.address||"—"],["メモ",c.memo||"—"],["ランク",`⭐${CUST_RANKS.indexOf(c.customer_rank)>=0?CUST_RANKS.indexOf(c.customer_rank):0} ${c.customer_rank||"☆☆☆☆☆"}`]].map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"11px 16px",borderBottom:"1px solid rgba(42,32,24,.06)",gap:10}}>
                   <span style={{fontSize:12,color:"#9a9088",fontWeight:500,flexShrink:0}}>{k}</span>
                   <span style={{fontSize:13,color:"#2a2018",fontWeight:600,textAlign:"right"}}>{v}</span>
@@ -1147,7 +1149,7 @@ export default function App() {
 
         {/* フィルターチップ */}
         <div style={{display:"flex",gap:7,overflowX:"auto",padding:"0 18px 13px",scrollbarWidth:"none"}}>
-          {[{k:"all",l:"すべて"},{k:"⭐⭐⭐⭐⭐",l:"⭐⭐⭐⭐⭐"},{k:"⭐⭐⭐⭐☆",l:"⭐⭐⭐⭐☆"},{k:"expired",l:`期限切れ ${mainteExpired.length}`},{k:"month",l:`今月期限 ${mainteThisMonth.length}`}].map(f=>(
+          {[{k:"all",l:"すべて"},{k:"rank5",l:"⭐5"},{k:"rank3up",l:"⭐3以上"},{k:"expired",l:`🔴期限切れ ${mainteExpired.length}`},{k:"month",l:`🟡今月期限 ${mainteThisMonth.length}`}].map(f=>(
             <button key={f.k} onClick={()=>setCustRankFilter(f.k)} style={{padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700,whiteSpace:"nowrap",cursor:"pointer",flexShrink:0,border:"1.5px solid",background:custRankFilter===f.k?"#2a2018":"#fff",color:custRankFilter===f.k?"#faf8f4":"#7a7060",borderColor:custRankFilter===f.k?"#2a2018":"rgba(42,32,24,.12)"}}>{f.l}</button>
           ))}
         </div>
@@ -1199,7 +1201,7 @@ export default function App() {
                       <div style={{fontSize:12,color:"#9a9088"}}>{(c.bikes||[]).length>0?`🚲 ${(c.bikes||[]).map(b=>b.maker).join("・")}`:c.phone||"電話番号未登録"}</div>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                      {c.customer_rank&&c.customer_rank!=="☆☆☆☆☆"&&<CTag color="amber">{c.customer_rank}</CTag>}
+                      {(()=>{const ri=CUST_RANKS.indexOf(c.customer_rank);return <CTag color={ri>=4?"accent":ri>=2?"amber":"gray"}>⭐{ri>=0?ri:0}</CTag>;})()}
                       {eb&&<CTag color="red">期限切れ</CTag>}
                     </div>
                     <span style={{color:"#c8bfb0",fontSize:18}}>›</span>
