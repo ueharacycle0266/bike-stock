@@ -36,9 +36,19 @@ const fmt = (dt, mode="date") => {
   if (!dt) return "";
   const d = new Date(dt);
   if (mode==="date") return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  if (mode==="short") return `${d.getMonth()+1}/${d.getDate()}`;
+  if (mode==="short") {
+    const s=String(dt); const t=s.includes("T")?s.split("T")[1]?.slice(0,5):"";
+    const showTime=t&&t!=="00:00";
+    return `${d.getMonth()+1}/${d.getDate()}${showTime?` ${t}`:""}`;
+  }
   if (mode==="full") return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`;
   return "";
+};
+const toDateTimeLocal = (dt) => {
+  if (!dt) return "";
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dt)) return dt.slice(0,16);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dt)) return dt+"T00:00";
+  try { const d=new Date(dt); const loc=new Date(d.getTime()-d.getTimezoneOffset()*60000); return loc.toISOString().slice(0,16); } catch { return ""; }
 };
 const today = () => { const d=new Date(); d.setHours(0,0,0,0); return d; };
 const exportCSV = (cats) => {
@@ -695,7 +705,7 @@ export default function App() {
       const bs=slotBorderStyle(slot);
       const isOverdue=occupied&&slot.pickup&&(()=>{const now=new Date();now.setHours(0,0,0,0);const pd=new Date(slot.pickup);pd.setHours(0,0,0,0);return pd<now;})();
       return (
-        <div onClick={()=>setEditSlotModal({...slot,checkin:slot.checkin||(!occupied?fmt(new Date()):""),pickup:slot.pickup||"",status:slot.status||"",note:slot.note||"",bikes:slot.bikes&&slot.bikes.length?slot.bikes:[{name:"",items:[]}]})}
+        <div onClick={()=>setEditSlotModal({...slot,checkin:toDateTimeLocal(slot.checkin)||(!occupied?toDateTimeLocal(new Date().toISOString()):""),pickup:toDateTimeLocal(slot.pickup)||"",status:slot.status||"",note:slot.note||"",bikes:slot.bikes&&slot.bikes.length?slot.bikes:[{name:"",items:[]}]})}
           className={isOverdue?"overdue-slot":undefined}
           style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",
           background:occupied?"#fff":"#faf8f4",borderRadius:12,marginBottom:8,
@@ -815,8 +825,8 @@ export default function App() {
           </div>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:4}}>
-            <div style={{minWidth:0}}><FG label="入庫日"><CInput type="date" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
-            <div style={{minWidth:0}}><FG label="引き取り予定日"><CInput type="date" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
+            <div style={{minWidth:0}}><FG label="入庫日時"><CInput type="datetime-local" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
+            <div style={{minWidth:0}}><FG label="引き取り予定日時"><CInput type="datetime-local" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
           </div>
           {/* 自転車ごとの修理内容 */}
           {(editSlotModal?.bikes||[]).map((bike,bi)=>{
