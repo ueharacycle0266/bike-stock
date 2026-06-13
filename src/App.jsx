@@ -68,20 +68,43 @@ const normalizeEstimate = (e) => {
   return { ...e, items: all.filter(it=>!it._wd), work_date: e.work_date||meta?._wd||null };
 };
 const parseSlotNote = (raw) => {
-  const def={note:"",checkin:"",pickup:"",status:"",items:[],partsOrder:false,extraBikes:[]};
+  const def={note:"",checkin:"",pickup:"",status:"",partsOrder:false,bikes:null};
   if (!raw) return def;
-  try { const p=JSON.parse(raw); if(p&&typeof p==="object"&&"_v" in p) return {...def,...p,items:Array.isArray(p.items)?p.items:[],extraBikes:Array.isArray(p.extraBikes)?p.extraBikes:[]}; } catch {}
+  try {
+    const p=JSON.parse(raw);
+    if(p&&typeof p==="object"&&"_v" in p){
+      if(Array.isArray(p.bikes)) return {...def,...p,bikes:p.bikes.map(b=>({name:b.name||"",items:Array.isArray(b.items)?b.items:[]}))};
+      // 旧形式 (items/extraBikes) → bikes配列に変換 (normalizeSlotで完了)
+      return {...def,...p,_legacy:{items:Array.isArray(p.items)?p.items:[],extraBikes:Array.isArray(p.extraBikes)?p.extraBikes:[]}};
+    }
+  } catch {}
   return {...def,note:raw};
 };
 const packSlotNote = (d) => {
-  const {note,checkin,pickup,status,items,partsOrder,extraBikes}=d;
-  if(!checkin&&!pickup&&!status&&(!items||!items.length)&&!partsOrder&&(!extraBikes||!extraBikes.length)) return note||"";
-  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",status:status||"",items:items||[],partsOrder:!!partsOrder,extraBikes:extraBikes||[]});
+  const {note,checkin,pickup,status,partsOrder,bikes}=d;
+  const hasBikes=bikes&&bikes.some(b=>b.name||(b.items||[]).length);
+  if(!checkin&&!pickup&&!status&&!partsOrder&&!hasBikes) return note||"";
+  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",status:status||"",partsOrder:!!partsOrder,bikes:(bikes||[]).map(b=>({name:b.name||"",items:b.items||[]}))});
 };
-const normalizeSlot = (s) => { const meta=parseSlotNote(s.note); return {...s,...meta}; };
-const slotTotal = (items) => (items||[]).reduce((s,it)=>s+((+it.price||0)*(+it.qty||0)),0);
+const normalizeSlot = (s) => {
+  const meta=parseSlotNote(s.note);
+  let bikes;
+  if(Array.isArray(meta.bikes)){
+    bikes=meta.bikes;
+  } else if(meta._legacy){
+    const main={name:s.bike||"",items:meta._legacy.items};
+    const extras=(meta._legacy.extraBikes||[]).filter(Boolean).map(n=>({name:n,items:[]}));
+    bikes=[main,...extras];
+  } else {
+    bikes=[{name:s.bike||"",items:[]}];
+  }
+  const {_legacy,...rest}=meta;
+  return {...s,...rest,bikes};
+};
+const bikesTotal=(bikes)=>(bikes||[]).reduce((s,b)=>s+((b.items||[]).reduce((ss,it)=>ss+((+it.price||0)*(+it.qty||0)),0)),0);
+const slotTotal=(bikes)=>bikesTotal(bikes);
 const slotBorderStyle = (slot) => {
-  const occupied=!!(slot.name||slot.bike);
+  const occupied=!!(slot.name||(slot.bikes||[]).some(b=>b.name));
   if(!occupied) return {border:"1.5px solid rgba(42,32,24,.05)"};
   if(slot.status==="出庫待ち") return {border:"3px solid #3d7a56",boxShadow:"0 2px 14px rgba(61,122,86,.22)"};
   if(slot.pickup){
@@ -419,41 +442,45 @@ export default function App() {
   const loadBoard=async()=>{ try { const d=await api("board_slots?select=*&order=updated_at.desc").catch(()=>[]); setBoardSlots((Array.isArray(d)?d:[]).map(normalizeSlot)); setBoardLoaded(true); } catch(e){console.error(e);setBoardLoaded(true);} };
   const activeSlots=(slots)=>slots.filter(s=>/^\d{3}$/.test(s.slot_no));
   const historySlots=(slots)=>slots.filter(s=>s.slot_no.startsWith("H_")).sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
-  const getBoard=(slots)=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return activeSlots(slots).find(s=>s.slot_no===no)||{slot_no:no,name:"",phone:"",bike:"",note:"",checkin:"",pickup:"",status:"",items:[]}; });
-  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,bike,checkin,pickup,status,note,items,partsOrder,extraBikes}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,status,items:items||[],partsOrder:!!partsOrder,extraBikes:extraBikes||[]});setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:bike||"",note:rawNote,updated_at:new Date().toISOString()}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
+  const getBoard=(slots)=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return activeSlots(slots).find(s=>s.slot_no===no)||normalizeSlot({slot_no:no,name:"",phone:"",bike:"",note:"",updated_at:""}); });
+  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,checkin,pickup,status,note,partsOrder,bikes}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,status,partsOrder:!!partsOrder,bikes:bikes||[]}); const firstBike=(bikes||[])[0]?.name||""; setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:firstBike,note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:firstBike,note:rawNote,updated_at:new Date().toISOString()}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
   const openExitModal=(slot)=>{ setExitSlotModal({slot,regCustomer:true,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); setEditSlotModal(null); };
   const doConfirmExit=async()=>{ if(!exitSlotModal) return; const{slot,regCustomer,custF}=exitSlotModal; setSaving(true); try {
-    const histId=`H_${Date.now()}`; const rawNote=packSlotNote({note:slot.note||"",checkin:slot.checkin||"",pickup:slot.pickup||"",status:slot.status||"",items:slot.items||[],partsOrder:!!slot.partsOrder,extraBikes:slot.extraBikes||[]});
-    await api("board_slots","POST",{slot_no:histId,name:slot.name||"",phone:slot.phone||"",bike:slot.bike||"",note:rawNote,updated_at:new Date().toISOString()},true);
+    const slotBikes=slot.bikes||[{name:slot.bike||"",items:[]}];
+    const rawNote=packSlotNote({note:slot.note||"",checkin:slot.checkin||"",pickup:slot.pickup||"",status:slot.status||"",partsOrder:!!slot.partsOrder,bikes:slotBikes});
+    await api("board_slots","POST",{slot_no:`H_${Date.now()}`,name:slot.name||"",phone:slot.phone||"",bike:slotBikes[0]?.name||"",note:rawNote,updated_at:new Date().toISOString()},true);
     await api(`board_slots?slot_no=eq.${slot.slot_no}`,"DELETE");
-    const allBikes=[slot.bike,...(slot.extraBikes||[])].map(b=>(b||"").trim()).filter(Boolean);
-    let custId=null; let bikeIdx=0;
+    let custId=null;
     if(regCustomer&&custF.name.trim()){
       const name=custF.name.trim(); const furigana=toKatakana(custF.furigana||"")||null;
       const existing=customers.find(c=>c.phone&&custF.phone&&c.phone.replace(/-/g,"")===custF.phone.replace(/-/g,""));
+      let custBikes;
       if(existing){
-        let bikes=[...(existing.bikes||[])];
-        allBikes.forEach(bk=>{ if(!bikes.find(b=>b.maker===bk)) bikes.push({maker:bk,color:"",nextMaintenanceDate:null}); });
-        bikeIdx=Math.max(0,bikes.findIndex(b=>b.maker===(allBikes[0]||"")));
-        await api(`customers?id=eq.${existing.id}`,"PATCH",{name,furigana,phone:custF.phone||null,bikes});
-        setCustomers(p=>p.map(c=>c.id===existing.id?{...c,name,furigana,phone:custF.phone||null,bikes}:c));
-        if(custDetail?.id===existing.id) setCustDetail(prev=>({...prev,name,furigana,bikes}));
+        custBikes=[...(existing.bikes||[])];
+        slotBikes.forEach(sb=>{ if(sb.name&&!custBikes.find(b=>b.maker===sb.name)) custBikes.push({maker:sb.name,color:"",nextMaintenanceDate:null}); });
+        await api(`customers?id=eq.${existing.id}`,"PATCH",{name,furigana,phone:custF.phone||null,bikes:custBikes});
+        setCustomers(p=>p.map(c=>c.id===existing.id?{...c,name,furigana,phone:custF.phone||null,bikes:custBikes}:c));
+        if(custDetail?.id===existing.id) setCustDetail(prev=>({...prev,name,furigana,bikes:custBikes}));
         custId=existing.id;
       } else {
-        const id=uuid(); const bikes=allBikes.map(bk=>({maker:bk,color:"",nextMaintenanceDate:null}));
-        const payload={id,name,furigana,phone:custF.phone||null,address:null,memo:null,customer_rank:"通常",bikes};
+        const id=uuid(); custBikes=slotBikes.filter(b=>b.name).map(b=>({maker:b.name,color:"",nextMaintenanceDate:null}));
+        const payload={id,name,furigana,phone:custF.phone||null,address:null,memo:null,customer_rank:"通常",bikes:custBikes};
         await api("customers","POST",payload); setCustomers(p=>[normalizeCustomer({...payload,created_at:new Date().toISOString()}),...p]);
-        custId=id; bikeIdx=0;
+        custId=id;
       }
-      const cleanItems=(slot.items||[]).filter(it=>(it.name||"").trim()).map(it=>({name:it.name.trim(),price:+it.price||0,qty:+it.qty||1}));
-      if(custId&&cleanItems.length>0){
-        const total=cleanItems.reduce((s,it)=>s+(it.price*it.qty),0); const wd=slot.checkin||fmt(new Date()); const estId=uid();
+      const wd=slot.checkin||fmt(new Date()); const newEsts=[];
+      for(const sb of slotBikes){
+        const cleanItems=(sb.items||[]).filter(it=>(it.name||"").trim()).map(it=>({name:it.name.trim(),price:+it.price||0,qty:+it.qty||1}));
+        if(!cleanItems.length) continue;
+        const bikeIdx=custBikes.findIndex(b=>b.maker===sb.name); const safeIdx=bikeIdx>=0?bikeIdx:0;
+        const total=cleanItems.reduce((s,it)=>s+(it.price*it.qty),0); const estId=uid();
         const itemsWithMeta=[...cleanItems,{_wd:wd}];
-        await api("estimates","POST",{id:estId,customer_id:custId,bike_index:bikeIdx,items:itemsWithMeta,memo:slot.note||"",total});
-        setEstimates(p=>[normalizeEstimate({id:estId,customer_id:custId,bike_index:bikeIdx,items:itemsWithMeta,memo:slot.note||"",total,created_at:new Date().toISOString()}),...p]);
+        await api("estimates","POST",{id:estId,customer_id:custId,bike_index:safeIdx,items:itemsWithMeta,memo:slot.note||"",total});
+        newEsts.push(normalizeEstimate({id:estId,customer_id:custId,bike_index:safeIdx,items:itemsWithMeta,memo:slot.note||"",total,created_at:new Date().toISOString()}));
       }
+      if(newEsts.length) setEstimates(p=>[...newEsts,...p]);
     }
-    setBoardSlots(p=>[...p.filter(s=>s.slot_no!==slot.slot_no),normalizeSlot({slot_no:histId,name:slot.name||"",phone:slot.phone||"",bike:slot.bike||"",note:rawNote,updated_at:new Date().toISOString()})]);
+    setBoardSlots(p=>p.filter(s=>s.slot_no!==slot.slot_no));
     setExitSlotModal(null);
   } catch(e){console.error(e);alert("出庫に失敗しました");} finally{setSaving(false);} };
   const doDeleteHistory=async(slot_no)=>{ setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"DELETE"); setBoardSlots(p=>p.filter(s=>s.slot_no!==slot_no)); } catch(e){console.error(e);} finally{setSaving(false);} };
@@ -631,13 +658,13 @@ export default function App() {
     const hist = historySlots(boardSlots);
     const occupied_count = getBoard(boardSlots).filter(s=>s.name||s.bike).length;
     const SlotCard = ({slot}) => {
-      const occupied=!!(slot.name||slot.bike);
+      const occupied=!!(slot.name||(slot.bikes||[]).some(b=>b.name));
       const st=SLOT_STATUS.find(s=>s.k===slot.status);
-      const total=slotTotal(slot.items);
+      const total=slotTotal(slot.bikes);
       const bs=slotBorderStyle(slot);
       const isOverdue=occupied&&slot.pickup&&(()=>{const now=new Date();now.setHours(0,0,0,0);const pd=new Date(slot.pickup);pd.setHours(0,0,0,0);return pd<now;})();
       return (
-        <div onClick={()=>setEditSlotModal({...slot,checkin:slot.checkin||(!occupied?fmt(new Date()):""),pickup:slot.pickup||"",status:slot.status||"",note:slot.note||"",items:slot.items||[],extraBikes:slot.extraBikes||[]})}
+        <div onClick={()=>setEditSlotModal({...slot,checkin:slot.checkin||(!occupied?fmt(new Date()):""),pickup:slot.pickup||"",status:slot.status||"",note:slot.note||"",bikes:slot.bikes&&slot.bikes.length?slot.bikes:[{name:"",items:[]}]})}
           style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",
           background:occupied?"#fff":"#faf8f4",borderRadius:12,marginBottom:8,
           cursor:"pointer",boxShadow:occupied?"0 1px 8px rgba(42,32,24,.05)":"none",...bs}}>
@@ -658,8 +685,7 @@ export default function App() {
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:2}}>
                   {slot.phone&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#3a3028"}}>{slot.phone}</span>}
-                  {slot.bike&&<span style={{fontSize:11,color:"#7a7060"}}>🚲 {slot.bike}</span>}
-                  {(slot.extraBikes||[]).map((b,i)=>b&&<span key={i} style={{fontSize:11,color:"#7a7060"}}>🚲 {b}</span>)}
+                  {(slot.bikes||[]).filter(b=>b.name).map((b,i)=><span key={i} style={{fontSize:11,color:"#7a7060"}}>🚲 {b.name}</span>)}
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                   {slot.checkin&&<span style={{fontSize:10,color:"#9a9088"}}>📥{fmt(slot.checkin,"short")}</span>}
@@ -712,13 +738,13 @@ export default function App() {
               <span style={{fontSize:12}}>{showBoardHistory?"▲":"▼"}</span>
             </button>
             {showBoardHistory&&hist.map(slot=>{
-              const total=slotTotal(slot.items);
+              const total=slotTotal(slot.bikes);
               return (
                 <div key={slot.slot_no} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 13px",background:"#f9f7f4",borderRadius:10,marginBottom:6,border:"1px solid rgba(42,32,24,.07)"}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:700,color:"#4a4038"}}>{slot.name||"—"}</div>
                     <div style={{fontSize:11,color:"#9a9088",display:"flex",gap:8,flexWrap:"wrap",marginTop:2}}>
-                      {slot.bike&&<span>🚲 {slot.bike}</span>}
+                      {(slot.bikes||[]).filter(b=>b.name).map((b,i)=><span key={i}>🚲 {b.name}</span>)}
                       {total>0&&<span style={{fontFamily:"'DM Mono',monospace",color:"#c0724a"}}>¥{total.toLocaleString()}</span>}
                       <span>{fmt(slot.updated_at,"short")}</span>
                     </div>
@@ -753,57 +779,48 @@ export default function App() {
           </div>
           <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
-          <div style={{marginBottom:14}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>車種</label>
-            <div style={{display:"flex",gap:6,marginBottom:5,alignItems:"center"}}>
-              <CInput value={editSlotModal?.bike||""} onChange={v=>setEditSlotModal(p=>({...p,bike:v}))} placeholder="ブリヂストン" style={{flex:1}}/>
-            </div>
-            {(editSlotModal?.extraBikes||[]).map((b,i)=>(
-              <div key={i} style={{display:"flex",gap:6,marginBottom:5,alignItems:"center"}}>
-                <CInput value={b} onChange={v=>setEditSlotModal(p=>({...p,extraBikes:p.extraBikes.map((x,j)=>j===i?v:x)}))} placeholder="車種2台目…" style={{flex:1}}/>
-                <button onClick={()=>setEditSlotModal(p=>({...p,extraBikes:p.extraBikes.filter((_,j)=>j!==i)}))} style={{background:"#fae8e8",border:"none",cursor:"pointer",borderRadius:7,padding:"7px 9px",color:"#a83030",flexShrink:0,fontFamily:"'Noto Sans JP',sans-serif",fontSize:13}}>✕</button>
-              </div>
-            ))}
-            <button onClick={()=>setEditSlotModal(p=>({...p,extraBikes:[...(p.extraBikes||[]),""]})) } style={{fontSize:12,color:"#7a7060",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif"}}>🚲 ＋ 台追加</button>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:4}}>
             <div style={{minWidth:0}}><FG label="入庫日"><CInput type="date" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
             <div style={{minWidth:0}}><FG label="引き取り予定日"><CInput type="date" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
           </div>
-          {/* 修理内容 */}
-          <div style={{marginBottom:14}}>
-            <label style={{display:"block",fontSize:11,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:"#9a9088",marginBottom:7}}>修理内容</label>
-            {(editSlotModal?.items||[]).map((it,idx)=>(
-              <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 44px 60px 24px",gap:5,marginBottom:5,alignItems:"center"}}>
-                <select value={it.name||""} onChange={e=>{ const v=e.target.value; const menu=repairMenus.find(m=>m.name===v); setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,name:v,...(menu?{price:String(menu.price)}:{})}:x)})); }}
-                  style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:it.name?"#2a2018":"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%"}}>
-                  <option value="">品名を選択...</option>
-                  {repairGroups.map(g=>(
-                    <optgroup key={g} label={g}>
-                      {repairMenus.filter(m=>(m.group1||"")===g).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}
-                    </optgroup>
-                  ))}
-                  {repairMenus.filter(m=>!m.group1).length>0&&(
-                    <optgroup label="その他">
-                      {repairMenus.filter(m=>!m.group1).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}
-                    </optgroup>
-                  )}
-                </select>
-                <input type="number" value={it.qty||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,qty:e.target.value}:x)}))} placeholder="数" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 5px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
-                <input type="number" value={it.price||""} onChange={e=>setEditSlotModal(p=>({...p,items:p.items.map((x,i)=>i===idx?{...x,price:e.target.value}:x)}))} placeholder="単価" style={{background:"#f3f0ea",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 7px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0}}/>
-                <button onClick={()=>setEditSlotModal(p=>({...p,items:p.items.filter((_,i)=>i!==idx)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
+          {/* 自転車ごとの修理内容 */}
+          {(editSlotModal?.bikes||[]).map((bike,bi)=>{
+            const updBike=(fn)=>setEditSlotModal(p=>({...p,bikes:p.bikes.map((b,i)=>i===bi?fn(b):b)}));
+            const bikeSubtotal=(bike.items||[]).reduce((s,it)=>s+((+it.price||0)*(+it.qty||0)),0);
+            return (
+              <div key={bi} style={{marginBottom:12,background:"#faf8f4",borderRadius:10,padding:"10px 12px",border:"1px solid rgba(42,32,24,.08)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <span style={{fontSize:11,fontWeight:700,color:"#9a9088",letterSpacing:".05em"}}>🚲 自転車{bi+1}</span>
+                  {bi>0&&<button onClick={()=>setEditSlotModal(p=>({...p,bikes:p.bikes.filter((_,i)=>i!==bi)}))} style={{marginLeft:"auto",background:"#fae8e8",border:"none",cursor:"pointer",borderRadius:6,padding:"3px 8px",color:"#a83030",fontSize:11,fontFamily:"'Noto Sans JP',sans-serif"}}>削除</button>}
+                </div>
+                <CInput value={bike.name||""} onChange={v=>updBike(b=>({...b,name:v}))} placeholder="車種（ブリヂストン など）" style={{marginBottom:8}}/>
+                {(bike.items||[]).map((it,idx)=>(
+                  <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 44px 60px 24px",gap:5,marginBottom:5,alignItems:"center"}}>
+                    <select value={it.name||""} onChange={e=>{ const v=e.target.value; const menu=repairMenus.find(m=>m.name===v); updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,name:v,...(menu?{price:String(menu.price)}:{})}:x)})); }}
+                      style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:it.name?"#2a2018":"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%"}}>
+                      <option value="">品名...</option>
+                      {repairGroups.map(g=>(
+                        <optgroup key={g} label={g}>
+                          {repairMenus.filter(m=>(m.group1||"")===g).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}
+                        </optgroup>
+                      ))}
+                      {repairMenus.filter(m=>!m.group1).length>0&&<optgroup label="その他">{repairMenus.filter(m=>!m.group1).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}</optgroup>}
+                    </select>
+                    <input type="number" value={it.qty||""} onChange={e=>updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,qty:e.target.value}:x)}))} placeholder="数" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 5px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
+                    <input type="number" value={it.price||""} onChange={e=>updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,price:e.target.value}:x)}))} placeholder="単価" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 7px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0}}/>
+                    <button onClick={()=>updBike(b=>({...b,items:b.items.filter((_,i)=>i!==idx)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
+                  </div>
+                ))}
+                {bikeSubtotal>0&&<div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:12,color:"#c0724a",fontWeight:600,marginBottom:4}}>小計 ¥{bikeSubtotal.toLocaleString()}</div>}
+                <button onClick={()=>updBike(b=>({...b,items:[...(b.items||[]),{name:"",qty:1,price:""}]}))} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.12)",borderRadius:7,padding:"6px",fontSize:12,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif"}}>＋ 修理内容を追加</button>
               </div>
-            ))}
-            {(editSlotModal?.items||[]).length>0&&(
-              <div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:13,color:"#c0724a",fontWeight:600,marginBottom:6}}>
-                合計 ¥{slotTotal(editSlotModal?.items).toLocaleString()}
-              </div>
-            )}
-            <button onClick={()=>setEditSlotModal(p=>({...p,items:[...(p.items||[]),{name:"",qty:1,price:""}]}))} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:8,padding:"7px",fontSize:12,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif"}}>＋ 追加</button>
-          </div>
+            );
+          })}
+          <button onClick={()=>setEditSlotModal(p=>({...p,bikes:[...(p.bikes||[]),{name:"",items:[]}]}))} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:8,padding:"7px",fontSize:12,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",marginBottom:12}}>🚲 ＋ 自転車を追加</button>
+          {slotTotal(editSlotModal?.bikes)>0&&<div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:13,color:"#c0724a",fontWeight:700,marginBottom:10}}>合計 ¥{slotTotal(editSlotModal?.bikes).toLocaleString()}</div>}
           <FG label="メモ"><CInput value={editSlotModal?.note||""} onChange={v=>setEditSlotModal(p=>({...p,note:v}))} placeholder="作業メモ"/></FG>
           <div style={{display:"flex",gap:8,marginTop:4}}>
-            {(editSlotModal?.name||editSlotModal?.bike)&&(
+            {(editSlotModal?.name||(editSlotModal?.bikes||[]).some(b=>b.name))&&(
               <CBtn onClick={()=>openExitModal(editSlotModal)} variant="outline" style={{flex:1,color:"#3d7a56",borderColor:"rgba(61,122,86,.25)"}}>🚪 出庫</CBtn>
             )}
             <CBtn onClick={doSaveSlot} variant="primary" style={{flex:2}}>💾 保存</CBtn>
@@ -818,8 +835,8 @@ export default function App() {
                 <div style={{fontWeight:700,fontSize:15,color:"#2a2018",marginBottom:4}}>{exitSlotModal.slot.name||"—"}</div>
                 <div style={{fontSize:12,color:"#7a7060",display:"flex",gap:8,flexWrap:"wrap"}}>
                   {exitSlotModal.slot.phone&&<span>{exitSlotModal.slot.phone}</span>}
-                  {exitSlotModal.slot.bike&&<span>🚲 {exitSlotModal.slot.bike}</span>}
-                  {slotTotal(exitSlotModal.slot.items)>0&&<span style={{fontFamily:"'DM Mono',monospace",color:"#c0724a",fontWeight:700}}>¥{slotTotal(exitSlotModal.slot.items).toLocaleString()}</span>}
+                  {(exitSlotModal.slot.bikes||[]).filter(b=>b.name).map((b,i)=><span key={i}>🚲 {b.name}</span>)}
+                  {slotTotal(exitSlotModal.slot.bikes)>0&&<span style={{fontFamily:"'DM Mono',monospace",color:"#c0724a",fontWeight:700}}>¥{slotTotal(exitSlotModal.slot.bikes).toLocaleString()}</span>}
                 </div>
               </div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:"#fff",borderRadius:10,border:"1px solid rgba(42,32,24,.09)",marginBottom:14,cursor:"pointer"}} onClick={()=>setExitSlotModal(p=>({...p,regCustomer:!p.regCustomer}))}>
