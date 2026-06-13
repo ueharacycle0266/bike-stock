@@ -825,8 +825,8 @@ export default function App() {
           </div>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:4}}>
-            <div style={{minWidth:0}}><FG label="入庫日時"><CInput type="datetime-local" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
-            <div style={{minWidth:0}}><FG label="引き取り予定日時"><CInput type="datetime-local" value={editSlotModal?.pickup||""} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
+            <div style={{minWidth:0}}><FG label="入庫日"><CInput type="date" value={(editSlotModal?.checkin||"").slice(0,10)} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
+            <div style={{minWidth:0}}><FG label="引き取り予定日"><CInput type="date" value={(editSlotModal?.pickup||"").slice(0,10)} onChange={v=>setEditSlotModal(p=>({...p,pickup:v}))}/></FG></div>
           </div>
           {/* 自転車ごとの修理内容 */}
           {(editSlotModal?.bikes||[]).map((bike,bi)=>{
@@ -863,7 +863,7 @@ export default function App() {
           })}
           <button onClick={()=>setEditSlotModal(p=>({...p,bikes:[...(p.bikes||[]),{name:"",items:[]}]}))} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:8,padding:"7px",fontSize:12,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",marginBottom:12}}>🚲 ＋ 自転車を追加</button>
           {slotTotal(editSlotModal?.bikes)>0&&<div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:13,color:"#c0724a",fontWeight:700,marginBottom:10}}>合計 ¥{slotTotal(editSlotModal?.bikes).toLocaleString()}</div>}
-          <FG label="メモ"><CInput value={editSlotModal?.note||""} onChange={v=>setEditSlotModal(p=>({...p,note:v}))} placeholder="作業メモ"/></FG>
+          <FG label="メモ"><CTextarea value={editSlotModal?.note||""} onChange={v=>setEditSlotModal(p=>({...p,note:v}))} placeholder="作業メモ・連絡事項など" rows={3}/></FG>
           <div style={{display:"flex",gap:8,marginTop:4}}>
             {(editSlotModal?.name||(editSlotModal?.bikes||[]).some(b=>b.name))&&(
               <CBtn onClick={()=>openExitModal(editSlotModal)} variant="outline" style={{flex:1,color:"#3d7a56",borderColor:"rgba(61,122,86,.25)"}}>🚪 出庫</CBtn>
