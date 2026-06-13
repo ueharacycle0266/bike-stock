@@ -1202,6 +1202,40 @@ export default function App() {
                 <span style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:16,color:"#2a2018"}}>⚙️ 設定</span>
                 <button onClick={()=>setStCustOpen(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><IcoX/></button>
               </div>
+              {/* CSV エクスポート */}
+              <div style={{marginBottom:20}}>
+                <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018",marginBottom:8}}>📊 CSVエクスポート</div>
+                <p style={{fontSize:11,color:"#9a9088",marginBottom:8}}>ExcelでそのままひらけるCSVをダウンロード</p>
+                <button onClick={()=>{
+                  const rows=[["氏名","フリガナ","電話番号","住所","ランク","保有自転車","次回メンテ","メモ"]];
+                  customers.forEach(c=>{
+                    const bikes=(c.bikes||[]).map(b=>`${b.maker||""}${b.color?` (${b.color})`:""}`).join(" / ");
+                    const nxt=(c.bikes||[]).map(b=>b.nextMaintenanceDate||"").filter(Boolean).join(" / ");
+                    rows.push([c.name||"",c.furigana||"",c.phone||"",c.address||"",c.customer_rank||"",bikes,nxt,(c.memo||"").replace(/\n/g," ")]);
+                  });
+                  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+                  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"})); a.download=`顧客リスト_${fmt(new Date())}.csv`; a.click();
+                }} style={{width:"100%",background:"#2a2018",color:"#faf8f4",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",cursor:"pointer",marginBottom:8}}>
+                  📥 顧客リスト.csv
+                </button>
+                <button onClick={()=>{
+                  const rows=[["顧客名","フリガナ","電話番号","自転車","作業日","品名","数量","単価","小計","合計","メモ"]];
+                  [...estimates].sort((a,b)=>new Date(b.work_date||b.created_at||0)-new Date(a.work_date||a.created_at||0)).forEach(e=>{
+                    const c=customers.find(x=>x.id===e.customer_id);
+                    const bike=(c?.bikes||[])[e.bike_index]?.maker||"";
+                    const its=e.items||[];
+                    if(its.length){
+                      its.forEach((it,i)=>rows.push([c?.name||"",c?.furigana||"",c?.phone||"",bike,e.work_date||"",it.name||"",it.qty||1,it.price||0,(it.price||0)*(it.qty||1),i===0?e.total||0:"",i===0?e.memo||"":""]));
+                    } else {
+                      rows.push([c?.name||"",c?.furigana||"",c?.phone||"",bike,e.work_date||"","","","",e.total||0,e.total||0,e.memo||""]);
+                    }
+                  });
+                  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+                  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"})); a.download=`修理履歴_${fmt(new Date())}.csv`; a.click();
+                }} style={{width:"100%",background:"#f0ece4",color:"#2a2018",border:"1px solid rgba(42,32,24,.15)",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",cursor:"pointer"}}>
+                  📥 修理履歴.csv
+                </button>
+              </div>
               <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018",marginBottom:8}}>🚲 メーカー</div>
               <div className="compact-form" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) auto",gap:6,marginBottom:10}}>
                 <input value={newMakerF} onChange={e=>setNewMakerF(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doAddMaker()} placeholder="メーカー名" style={{background:"#f5f0e8",border:"1px solid #ccc5ba",borderRadius:8,padding:"8px 10px",fontFamily:"'Noto Sans JP',sans-serif",color:"#2a2018",outline:"none",fontSize:14}}/>
