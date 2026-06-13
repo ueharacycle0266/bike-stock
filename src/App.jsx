@@ -233,6 +233,8 @@ const CSS = `
   .tcrit { background: #c0392b15; color: #c0392b; border: 1px solid #c0392b40; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #c0392b; display: inline-block; animation: pulse 1.5s infinite; flex-shrink: 0; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  @keyframes overdueGlow { 0%,100%{box-shadow:0 2px 16px rgba(229,57,53,.35);border-color:#e53935} 50%{box-shadow:0 2px 28px rgba(229,57,53,.80);border-color:#ff5252} }
+  .overdue-slot { animation: overdueGlow 2s ease-in-out infinite !important; }
   .big-adj { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 28px; font-weight: 700; display: flex; align-items: center; justify-content: center; font-family: 'Noto Sans JP', sans-serif; }
   .big-adj.dec { background: #f0d9d6; color: #c0392b; }
   .big-adj.inc { background: #d6ead9; color: #2d7a44; }
@@ -678,6 +680,7 @@ export default function App() {
       const isOverdue=occupied&&slot.pickup&&(()=>{const now=new Date();now.setHours(0,0,0,0);const pd=new Date(slot.pickup);pd.setHours(0,0,0,0);return pd<now;})();
       return (
         <div onClick={()=>setEditSlotModal({...slot,checkin:slot.checkin||(!occupied?fmt(new Date()):""),pickup:slot.pickup||"",status:slot.status||"",note:slot.note||"",bikes:slot.bikes&&slot.bikes.length?slot.bikes:[{name:"",items:[]}]})}
+          className={isOverdue?"overdue-slot":undefined}
           style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",
           background:occupied?"#fff":"#faf8f4",borderRadius:12,marginBottom:8,
           cursor:"pointer",boxShadow:occupied?"0 1px 8px rgba(42,32,24,.05)":"none",...bs}}>
@@ -966,7 +969,7 @@ export default function App() {
           {/* 基本情報 */}
           <div style={{padding:"10px 18px 0"}}>
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-              {[["住所",c.address||"—"],["メモ",c.memo||"—"],["ランク",`⭐${CUST_RANKS.indexOf(c.customer_rank)>=0?CUST_RANKS.indexOf(c.customer_rank):0} ${c.customer_rank||"☆☆☆☆☆"}`]].map(([k,v])=>(
+              {[["住所",c.address||"—"],["メモ",c.memo||"—"],["ランク",c.customer_rank||"☆☆☆☆☆"]].map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"11px 16px",borderBottom:"1px solid rgba(42,32,24,.06)",gap:10}}>
                   <span style={{fontSize:12,color:"#9a9088",fontWeight:500,flexShrink:0}}>{k}</span>
                   <span style={{fontSize:13,color:"#2a2018",fontWeight:600,textAlign:"right"}}>{v}</span>
@@ -1144,7 +1147,7 @@ export default function App() {
     // 顧客一覧
     return (
       <PageWrap mode={mode} switchMode={switchMode}>
-        <PageHeaderOuter title="顧客一覧" sub={`${filteredCustomers.length}名`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>setCustView(v=>v==="board"?"list":"board")} style={{background:custView==="board"?"#2a2018":"#f0ece4",border:"none",cursor:"pointer",borderRadius:9,padding:"8px 12px",display:"flex",alignItems:"center",color:custView==="board"?"#faf8f4":"#7a7060",fontSize:12,fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",gap:4}}>📋 番号表</button><button onClick={()=>{setStCustOpen(true);loadMasters();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><CBtn onClick={()=>setAddCustModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn></div>}/>
+        <PageHeaderOuter title="顧客一覧" sub={`${filteredCustomers.length}名`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>{setStCustOpen(true);loadMasters();}} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><CBtn onClick={()=>setAddCustModal(true)} variant="primary" size="sm"><Ico.Plus/>追加</CBtn></div>}/>
         <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・フリガナ・電話番号で検索…"/>
 
         {/* フィルターチップ */}
@@ -1154,39 +1157,7 @@ export default function App() {
           ))}
         </div>
 
-        {custView==="board"&&(()=>{
-          const boardList=[...filteredCustomers].sort((a,b)=>{
-            const na=a.customer_no||"", nb=b.customer_no||"";
-            if(na&&nb) return na.localeCompare(nb,"ja",{numeric:true});
-            if(na) return -1; if(nb) return 1;
-            return (a.name||"").localeCompare(b.name||"","ja");
-          });
-          return (
-            <div style={{padding:"0 18px",marginBottom:20}}>
-              {custLoading&&<div style={{textAlign:"center",padding:30,color:"#9a9088",fontSize:13}}>読み込み中...</div>}
-              <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-                {/* ヘッダー */}
-                <div style={{display:"grid",gridTemplateColumns:"44px 1fr 1fr 1fr",gap:0,background:"#f5f0e8",borderBottom:"2px solid rgba(42,32,24,.08)"}}>
-                  {["#","氏名","電話番号","車種"].map(h=><div key={h} style={{padding:"8px 10px",fontSize:11,fontWeight:700,color:"#9a8f82",letterSpacing:".05em"}}>{h}</div>)}
-                </div>
-                {boardList.length===0&&<div style={{padding:"30px 16px",textAlign:"center",color:"#c8bfb0",fontSize:13}}>顧客なし</div>}
-                {boardList.map((c,idx)=>{
-                  const eb=(c.bikes||[]).find(b=>b.nextMaintenanceDate&&new Date(b.nextMaintenanceDate)<today());
-                  return (
-                    <div key={c.id} onClick={()=>setCustDetail(c)} style={{display:"grid",gridTemplateColumns:"44px 1fr 1fr 1fr",gap:0,borderBottom:idx<boardList.length-1?"1px solid rgba(42,32,24,.05)":"none",cursor:"pointer",background:eb?"#fff9f9":"#fff",alignItems:"center"}}>
-                      <div style={{padding:"10px 8px 10px 12px",fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:13,color:c.customer_no?"#c0724a":"#c8bfb0"}}>{c.customer_no||"—"}</div>
-                      <div style={{padding:"10px 8px",fontSize:13,fontWeight:700,color:"#2a2018",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</div>
-                      <div style={{padding:"10px 6px",fontFamily:"'DM Mono',monospace",fontSize:12,color:"#3a3028",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.phone||<span style={{color:"#c8bfb0"}}>—</span>}</div>
-                      <div style={{padding:"10px 8px",fontSize:12,color:"#7a7060",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(c.bikes||[]).length>0?(c.bikes||[]).map(b=>b.maker).join("・"):<span style={{color:"#c8bfb0"}}>—</span>}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
-
-        {custView==="list"&&(<div style={{padding:"0 18px",marginBottom:20}}>
+        <div style={{padding:"0 18px",marginBottom:20}}>
           {custLoading&&<div style={{textAlign:"center",padding:30,color:"#9a9088",fontSize:13}}>読み込み中...</div>}
           {!custLoading&&filteredCustomers.length===0&&<div style={{textAlign:"center",padding:40,color:"#c8bfb0",fontSize:13}}>顧客が見つかりません</div>}
           {!custLoading&&filteredCustomers.length>0&&(
@@ -1210,7 +1181,7 @@ export default function App() {
               })}
             </div>
           )}
-        </div>)}
+        </div>
 
         {/* 顧客追加モーダル */}
         <Modal open={addCustModal} onClose={()=>setAddCustModal(false)} title="新規顧客登録">
