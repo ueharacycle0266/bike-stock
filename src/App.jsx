@@ -68,7 +68,7 @@ const normalizeEstimate = (e) => {
   return { ...e, items: all.filter(it=>!it._wd), work_date: e.work_date||meta?._wd||null };
 };
 const parseSlotNote = (raw) => {
-  const def={note:"",checkin:"",pickup:"",status:"",partsOrder:false,bikes:null};
+  const def={note:"",checkin:"",pickup:"",status:"",partsOrder:false,furigana:"",bikes:null};
   if (!raw) return def;
   try {
     const p=JSON.parse(raw);
@@ -84,7 +84,8 @@ const packSlotNote = (d) => {
   const {note,checkin,pickup,status,partsOrder,bikes}=d;
   const hasBikes=bikes&&bikes.some(b=>b.name||(b.items||[]).length);
   if(!checkin&&!pickup&&!status&&!partsOrder&&!hasBikes) return note||"";
-  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",status:status||"",partsOrder:!!partsOrder,bikes:(bikes||[]).map(b=>({name:b.name||"",items:b.items||[]}))});
+  const {furigana}=d;
+  return JSON.stringify({_v:1,note:note||"",checkin:checkin||"",pickup:pickup||"",status:status||"",partsOrder:!!partsOrder,furigana:furigana||"",bikes:(bikes||[]).map(b=>({name:b.name||"",items:b.items||[]}))});
 };
 const normalizeSlot = (s) => {
   const meta=parseSlotNote(s.note);
@@ -443,8 +444,8 @@ export default function App() {
   const activeSlots=(slots)=>slots.filter(s=>/^\d{3}$/.test(s.slot_no));
   const historySlots=(slots)=>slots.filter(s=>s.slot_no.startsWith("H_")).sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
   const getBoard=(slots)=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return activeSlots(slots).find(s=>s.slot_no===no)||normalizeSlot({slot_no:no,name:"",phone:"",bike:"",note:"",updated_at:""}); });
-  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,checkin,pickup,status,note,partsOrder,bikes}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,status,partsOrder:!!partsOrder,bikes:bikes||[]}); const firstBike=(bikes||[])[0]?.name||""; setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:firstBike,note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:firstBike,note:rawNote,updated_at:new Date().toISOString()}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
-  const openExitModal=(slot)=>{ setExitSlotModal({slot,regCustomer:true,custF:{name:slot.name||"",furigana:"",phone:slot.phone||""}}); setEditSlotModal(null); };
+  const doSaveSlot=async()=>{ if(!editSlotModal) return; const{slot_no,name,phone,furigana,checkin,pickup,status,note,partsOrder,bikes}=editSlotModal; const rawNote=packSlotNote({note,checkin,pickup,status,partsOrder:!!partsOrder,furigana:furigana||"",bikes:bikes||[]}); const firstBike=(bikes||[])[0]?.name||""; setSaving(true); try { await api("board_slots","POST",{slot_no,name:name||"",phone:phone||"",bike:firstBike,note:rawNote,updated_at:new Date().toISOString()},true); const normalized=normalizeSlot({slot_no,name:name||"",phone:phone||"",bike:firstBike,note:rawNote,updated_at:new Date().toISOString()}); setBoardSlots(p=>{ const ex=p.find(s=>s.slot_no===slot_no); return ex?p.map(s=>s.slot_no===slot_no?normalized:s):[...p,normalized]; }); setEditSlotModal(null); } catch(e){console.error(e);alert("保存に失敗しました");} finally{setSaving(false);} };
+  const openExitModal=(slot)=>{ setExitSlotModal({slot,regCustomer:true,custF:{name:slot.name||"",furigana:slot.furigana||"",phone:slot.phone||""}}); setEditSlotModal(null); };
   const doConfirmExit=async()=>{ if(!exitSlotModal) return; const{slot,regCustomer,custF}=exitSlotModal; setSaving(true); try {
     const slotBikes=slot.bikes||[{name:slot.bike||"",items:[]}];
     const rawNote=packSlotNote({note:slot.note||"",checkin:slot.checkin||"",pickup:slot.pickup||"",status:slot.status||"",partsOrder:!!slot.partsOrder,bikes:slotBikes});
@@ -778,6 +779,7 @@ export default function App() {
 </button>
           </div>
           <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
+          <FG label="フリガナ"><CInput value={editSlotModal?.furigana||""} onChange={v=>setEditSlotModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:4}}>
             <div style={{minWidth:0}}><FG label="入庫日"><CInput type="date" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
