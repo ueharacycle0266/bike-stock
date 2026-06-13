@@ -30,6 +30,7 @@ const api = async (path, method="GET", body=null, upsert=false) => {
 
 const uid = () => "x"+Math.random().toString(36).slice(2,9);
 const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+const CUST_RANKS = ["☆☆☆☆☆","⭐☆☆☆☆","⭐⭐☆☆☆","⭐⭐⭐☆☆","⭐⭐⭐⭐☆","⭐⭐⭐⭐⭐"];
 const toKatakana = s => s.replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0)+0x60));
 const fmt = (dt, mode="date") => {
   if (!dt) return "";
@@ -60,7 +61,7 @@ const packCustMemo = (no, memo) => { const n=(no||"").trim(); return n?`[#${n}]\
 const normalizeCustomer = (c) => {
   const raw = c.memo||"";
   const m = raw.match(/^\[#(\w+)\]\n?([\s\S]*)/);
-  return { ...c, bikes: normalizeBikes(c.bikes), notes: normalizeJsonArray(c.notes), customer_rank: c.customer_rank||"通常", customer_no: m?m[1]:"", memo: m?m[2]:raw };
+  return { ...c, bikes: normalizeBikes(c.bikes), notes: normalizeJsonArray(c.notes), customer_rank: c.customer_rank||"☆☆☆☆☆", customer_no: m?m[1]:"", memo: m?m[2]:raw };
 };
 const normalizeEstimate = (e) => {
   const all = normalizeJsonArray(e.items);
@@ -356,7 +357,7 @@ export default function App() {
   const [custDetail, setCustDetail] = useState(null);
   const [addCustModal, setAddCustModal] = useState(false);
   const [editCustModal, setEditCustModal] = useState(null);
-  const [newCust, setNewCust] = useState({name:"",furigana:"",phone:"",address:"",memo:"",customer_rank:"通常",customer_no:""});
+  const [newCust, setNewCust] = useState({name:"",furigana:"",phone:"",address:"",memo:"",customer_rank:"☆☆☆☆☆",customer_no:""});
   const [custView, setCustView] = useState("list");
   const [bikeHistModalIdx, setBikeHistModalIdx] = useState(null);
   const [makerMaster, setMakerMaster] = useState([]);
@@ -466,7 +467,7 @@ export default function App() {
         custId=existing.id;
       } else {
         const id=uuid(); custBikes=slotBikes.filter(b=>b.name).map(b=>({maker:b.name,color:"",nextMaintenanceDate:null}));
-        const payload={id,name,furigana,phone:custF.phone||null,address:null,memo:null,customer_rank:"通常",bikes:custBikes};
+        const payload={id,name,furigana,phone:custF.phone||null,address:null,memo:null,customer_rank:"☆☆☆☆☆",bikes:custBikes};
         await api("customers","POST",payload); setCustomers(p=>[normalizeCustomer({...payload,created_at:new Date().toISOString()}),...p]);
         custId=id;
       }
@@ -548,7 +549,7 @@ export default function App() {
       const saved=await api("customers","POST",payload);
       const row=normalizeCustomer(Array.isArray(saved)?(saved[0]||{...payload,created_at:new Date().toISOString()}):{...payload,created_at:new Date().toISOString()});
       setCustomers(p=>[row,...p.filter(c=>c.id!==row.id)]);
-      setNewCust({name:"",furigana:"",phone:"",address:"",memo:"",customer_rank:"通常",customer_no:""});
+      setNewCust({name:"",furigana:"",phone:"",address:"",memo:"",customer_rank:"☆☆☆☆☆",customer_no:""});
       setAddCustModal(false);
       await loadCustomers({silent:true});
     } catch(e){ console.error(e); alert("顧客の保存に失敗しました。"); }
@@ -561,7 +562,7 @@ export default function App() {
     const upd={...editCustModal,furigana:furi};
     setSaving(true);
     try {
-      await api(`customers?id=eq.${upd.id}`,"PATCH",{name:upd.name,furigana:furi||null,phone:upd.phone||null,address:upd.address||null,memo:rawMemo||null,customer_rank:upd.customer_rank||"通常",bikes:upd.bikes||[]});
+      await api(`customers?id=eq.${upd.id}`,"PATCH",{name:upd.name,furigana:furi||null,phone:upd.phone||null,address:upd.address||null,memo:rawMemo||null,customer_rank:upd.customer_rank||"☆☆☆☆☆",bikes:upd.bikes||[]});
       setCustomers(p=>p.map(c=>c.id===upd.id?{...c,...upd}:c));
       if(custDetail?.id===upd.id) setCustDetail(prev=>({...prev,...upd}));
       setEditCustModal(null);
@@ -937,7 +938,7 @@ export default function App() {
               <div style={{fontFamily:"'Shippori Mincho',serif",fontSize:19,fontWeight:700,color:"#2a2018"}}>{c.name}</div>
               <div style={{fontSize:11,color:"#9a9088",marginTop:2}}>{c.furigana||""}</div>
               <div style={{display:"flex",gap:5,marginTop:6,flexWrap:"wrap"}}>
-                {c.customer_rank&&c.customer_rank!=="通常"&&<CTag color="amber">{c.customer_rank}</CTag>}
+                {c.customer_rank&&c.customer_rank!=="☆☆☆☆☆"&&<CTag color="amber">{c.customer_rank}</CTag>}
                 {(c.bikes||[]).length>0&&<CTag color="blue">{(c.bikes||[]).length}台登録</CTag>}
               </div>
             </div>
@@ -963,7 +964,7 @@ export default function App() {
           {/* 基本情報 */}
           <div style={{padding:"10px 18px 0"}}>
             <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-              {[["住所",c.address||"—"],["メモ",c.memo||"—"],["ランク",c.customer_rank||"通常"]].map(([k,v])=>(
+              {[["住所",c.address||"—"],["メモ",c.memo||"—"],["ランク",c.customer_rank||"☆☆☆☆☆"]].map(([k,v])=>(
                 <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"11px 16px",borderBottom:"1px solid rgba(42,32,24,.06)",gap:10}}>
                   <span style={{fontSize:12,color:"#9a9088",fontWeight:500,flexShrink:0}}>{k}</span>
                   <span style={{fontSize:13,color:"#2a2018",fontWeight:600,textAlign:"right"}}>{v}</span>
@@ -1094,7 +1095,7 @@ export default function App() {
               </div>
               <FG label="電話番号"><CInput value={editCustModal?.phone||""} onChange={v=>setEditCustModal(p=>({...p,phone:v}))} type="tel" placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",fontSize:15,letterSpacing:"0.04em"}}/></FG>
               <FG label="住所"><CInput value={editCustModal?.address||""} onChange={v=>setEditCustModal(p=>({...p,address:v}))} placeholder="諏訪市○○"/></FG>
-              <FG label="ランク"><CSelect value={editCustModal?.customer_rank||"通常"} onChange={v=>setEditCustModal(p=>({...p,customer_rank:v}))}><option>通常</option><option>常連</option><option>VIP</option><option>見込み</option></CSelect></FG>
+              <FG label="ランク"><CSelect value={editCustModal?.customer_rank||"通常"} onChange={v=>setEditCustModal(p=>({...p,customer_rank:v}))}>{CUST_RANKS.map(r=><option key={r}>{r}</option>)}</CSelect></FG>
               <FG label="メモ"><CTextarea value={editCustModal?.memo||""} onChange={v=>setEditCustModal(p=>({...p,memo:v}))} placeholder="メモ…" rows={3}/></FG>
               <div style={{display:"flex",gap:8,marginTop:4}}>
                 <CBtn onClick={()=>setEditCustModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
@@ -1146,7 +1147,7 @@ export default function App() {
 
         {/* フィルターチップ */}
         <div style={{display:"flex",gap:7,overflowX:"auto",padding:"0 18px 13px",scrollbarWidth:"none"}}>
-          {[{k:"all",l:"すべて"},{k:"VIP",l:"VIP"},{k:"常連",l:"常連"},{k:"見込み",l:"見込み"},{k:"expired",l:`期限切れ ${mainteExpired.length}`},{k:"month",l:`今月期限 ${mainteThisMonth.length}`}].map(f=>(
+          {[{k:"all",l:"すべて"},{k:"⭐⭐⭐⭐⭐",l:"⭐⭐⭐⭐⭐"},{k:"⭐⭐⭐⭐☆",l:"⭐⭐⭐⭐☆"},{k:"expired",l:`期限切れ ${mainteExpired.length}`},{k:"month",l:`今月期限 ${mainteThisMonth.length}`}].map(f=>(
             <button key={f.k} onClick={()=>setCustRankFilter(f.k)} style={{padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700,whiteSpace:"nowrap",cursor:"pointer",flexShrink:0,border:"1.5px solid",background:custRankFilter===f.k?"#2a2018":"#fff",color:custRankFilter===f.k?"#faf8f4":"#7a7060",borderColor:custRankFilter===f.k?"#2a2018":"rgba(42,32,24,.12)"}}>{f.l}</button>
           ))}
         </div>
@@ -1198,7 +1199,7 @@ export default function App() {
                       <div style={{fontSize:12,color:"#9a9088"}}>{(c.bikes||[]).length>0?`🚲 ${(c.bikes||[]).map(b=>b.maker).join("・")}`:c.phone||"電話番号未登録"}</div>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                      {c.customer_rank&&c.customer_rank!=="通常"&&<CTag color={c.customer_rank==="VIP"?"accent":c.customer_rank==="常連"?"amber":"gray"}>{c.customer_rank}</CTag>}
+                      {c.customer_rank&&c.customer_rank!=="☆☆☆☆☆"&&<CTag color="amber">{c.customer_rank}</CTag>}
                       {eb&&<CTag color="red">期限切れ</CTag>}
                     </div>
                     <span style={{color:"#c8bfb0",fontSize:18}}>›</span>
@@ -1217,7 +1218,7 @@ export default function App() {
           </div>
           <FG label="電話番号"><CInput value={newCust.phone} onChange={v=>setNewCust(p=>({...p,phone:v}))} type="tel" placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",fontSize:15,letterSpacing:"0.04em"}}/></FG>
           <FG label="住所"><CInput value={newCust.address} onChange={v=>setNewCust(p=>({...p,address:v}))} placeholder="諏訪市○○"/></FG>
-          <FG label="ランク"><CSelect value={newCust.customer_rank} onChange={v=>setNewCust(p=>({...p,customer_rank:v}))}><option>通常</option><option>常連</option><option>VIP</option><option>見込み</option></CSelect></FG>
+          <FG label="ランク"><CSelect value={newCust.customer_rank} onChange={v=>setNewCust(p=>({...p,customer_rank:v}))}>{CUST_RANKS.map(r=><option key={r}>{r}</option>)}</CSelect></FG>
           <FG label="メモ"><CTextarea value={newCust.memo} onChange={v=>setNewCust(p=>({...p,memo:v}))} placeholder="初回来店時のメモなど" rows={3}/></FG>
           <div style={{display:"flex",gap:8,marginTop:4}}>
             <CBtn onClick={()=>setAddCustModal(false)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
