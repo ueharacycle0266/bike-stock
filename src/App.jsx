@@ -812,20 +812,24 @@ export default function App() {
                 </div>
                 <CInput value={bike.name||""} onChange={v=>updBike(b=>({...b,name:v}))} placeholder="車種（ブリヂストン など）" style={{marginBottom:8}}/>
                 {(bike.items||[]).map((it,idx)=>(
-                  <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 44px 60px 24px",gap:5,marginBottom:5,alignItems:"center"}}>
-                    <select value={it.name||""} onChange={e=>{ const v=e.target.value; const menu=repairMenus.find(m=>m.name===v); updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,name:v,...(menu?{price:String(menu.price)}:{})}:x)})); }}
-                      style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:it.name?"#2a2018":"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%"}}>
-                      <option value="">品名...</option>
-                      {repairGroups.map(g=>(
-                        <optgroup key={g} label={g}>
-                          {repairMenus.filter(m=>(m.group1||"")===g).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}
-                        </optgroup>
-                      ))}
-                      {repairMenus.filter(m=>!m.group1).length>0&&<optgroup label="その他">{repairMenus.filter(m=>!m.group1).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}</optgroup>}
-                    </select>
-                    <input type="number" value={it.qty||""} onChange={e=>updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,qty:e.target.value}:x)}))} placeholder="数" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 5px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
-                    <input type="number" value={it.price||""} onChange={e=>updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,price:e.target.value}:x)}))} placeholder="単価" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 7px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0}}/>
-                    <button onClick={()=>updBike(b=>({...b,items:b.items.filter((_,i)=>i!==idx)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
+                  <div key={idx} style={{marginBottom:6}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 26px",gap:4,marginBottom:4}}>
+                      <input value={it.name||""} onChange={e=>{ const v=e.target.value; const menu=repairMenus.find(m=>m.name===v); updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,name:v,...(menu&&!x.price?{price:String(menu.price)}:{})}:x)})); }} placeholder="品名（自由入力）" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:it.name?"#2a2018":"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%"}}/>
+                      <div style={{position:"relative"}}>
+                        <select value="" onChange={e=>{ const v=e.target.value; if(!v) return; const menu=repairMenus.find(m=>m.name===v); updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,name:v,...(menu?{price:String(menu.price)}:{})}:x)})); e.target.value=""; }}
+                          style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%",height:"100%"}}>
+                          <option value=""/>
+                          {repairGroups.map(g=>(<optgroup key={g} label={g}>{repairMenus.filter(m=>(m.group1||"")===g).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}</optgroup>))}
+                          {repairMenus.filter(m=>!m.group1).length>0&&<optgroup label="その他">{repairMenus.filter(m=>!m.group1).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}</optgroup>}
+                        </select>
+                        <div style={{width:26,height:34,background:"#f0ece4",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#7a7060",pointerEvents:"none"}}>▾</div>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"44px 1fr 24px",gap:4,alignItems:"center"}}>
+                      <input type="number" value={it.qty||""} onChange={e=>updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,qty:e.target.value}:x)}))} placeholder="数" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 5px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
+                      <input type="number" value={it.price||""} onChange={e=>updBike(b=>({...b,items:b.items.map((x,i)=>i===idx?{...x,price:e.target.value}:x)}))} placeholder="単価（円）" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:7,padding:"7px 9px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0,width:"100%"}}/>
+                      <button onClick={()=>updBike(b=>({...b,items:b.items.filter((_,i)=>i!==idx)}))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
+                    </div>
                   </div>
                 ))}
                 {bikeSubtotal>0&&<div style={{textAlign:"right",fontFamily:"'DM Mono',monospace",fontSize:12,color:"#c0724a",fontWeight:600,marginBottom:4}}>小計 ¥{bikeSubtotal.toLocaleString()}</div>}
