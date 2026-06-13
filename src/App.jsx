@@ -265,7 +265,7 @@ const BottomNav=({mode, switchMode})=>(
       {id:"stock",icon:<Ico.Box/>,label:"在庫管理"},
       {id:"customers",icon:<Ico.Users/>,label:"顧客管理"},
       {id:"board",icon:<Ico.Grid/>,label:"ボード"},
-      {id:"phone",icon:<Ico.Phone/>,label:"電話帳"},
+      {id:"rental",icon:<Ico.Phone/>,label:"レンタル"},
     ].map(t=>(
       <button key={t.id} onClick={()=>switchMode(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 2px 9px",cursor:"pointer",border:"none",background:"none",color:mode===t.id?"#c0724a":"#9a9088",fontSize:10,fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,letterSpacing:"0.04em",transition:"color .15s"}}>
         {t.icon}
@@ -381,8 +381,18 @@ export default function App() {
   const [showBoardHistory, setShowBoardHistory] = useState(false);
   const [boardSort, setBoardSort] = useState("slot"); // "slot" | "pickup"
 
-  // 電話帳 state
-  const [phoneFilter, setPhoneFilter] = useState("all");
+  // レンタル state
+  const [rentals, setRentals] = useState([]);
+  const [rentalsLoaded, setRentalsLoaded] = useState(false);
+  const [rentalTick, setRentalTick] = useState(0);
+  const [addRentalModal, setAddRentalModal] = useState(false);
+  const [returnRentalModal, setReturnRentalModal] = useState(null);
+  const [rentalSettingsOpen, setRentalSettingsOpen] = useState(false);
+  const [showRentalHistory, setShowRentalHistory] = useState(false);
+  const [rentalBikes, setRentalBikes] = useState(()=>{ try { const s=localStorage.getItem("rentalBikes"); return s?JSON.parse(s):[]; } catch { return []; } });
+  const [addRentalF, setAddRentalF] = useState({bikeId:"",customerName:"",phone:"",plannedHours:"",memo:""});
+  const [newRentalBikeF, setNewRentalBikeF] = useState({label:"",grade:"",pricePerHour:""});
+  const [editRentalBikeF, setEditRentalBikeF] = useState(null);
 
   // 見積もり state
   const [estimates, setEstimates] = useState([]);
@@ -404,6 +414,7 @@ export default function App() {
 
   // 初回自動ロード
   React.useEffect(()=>{ loadStock(); },[]);
+  React.useEffect(()=>{ const id=setInterval(()=>setRentalTick(t=>t+1),30000); return ()=>clearInterval(id); },[]);
 
 
   const loadCustomers = async ({ silent=false } = {}) => {
@@ -438,6 +449,14 @@ export default function App() {
 
   const loadEstimates=async()=>{ try { const d=await api("estimates?select=*&order=created_at.desc").catch(()=>[]); setEstimates((d||[]).map(normalizeEstimate)); } catch(e){console.error(e);} };
   const loadBoard=async()=>{ try { const d=await api("board_slots?select=*&order=updated_at.desc").catch(()=>[]); setBoardSlots((Array.isArray(d)?d:[]).map(normalizeSlot)); setBoardLoaded(true); } catch(e){console.error(e);setBoardLoaded(true);} };
+  const parseRentalNote=(note)=>{ try { const p=JSON.parse(note); if(p&&p._type==="rental") return p; } catch {} return null; };
+  const getElapsedTime=(startTime,endTime=null)=>{ const diff=Math.max(0,(endTime?new Date(endTime).getTime():Date.now())-new Date(startTime).getTime()); const totalMins=Math.floor(diff/60000); return {hours:Math.floor(totalMins/60),mins:totalMins%60,totalMins}; };
+  const calcRentalCost=(startTime,pricePerHour,endTime=null)=>{ const end=endTime?new Date(endTime).getTime():Date.now(); const diffMs=Math.max(0,end-new Date(startTime).getTime()); return Math.ceil(diffMs/3600000*pricePerHour); };
+  const loadRentals=async()=>{ try { const d=await api("board_slots?select=*&slot_no=like.RENT_%25&order=updated_at.desc").catch(()=>[]); setRentals(Array.isArray(d)?d:[]); setRentalsLoaded(true); } catch(e){console.error(e);setRentalsLoaded(true);} };
+  const saveRentalBikes=(bikes)=>{ setRentalBikes(bikes); localStorage.setItem("rentalBikes",JSON.stringify(bikes)); };
+  const doStartRental=async()=>{ const bike=rentalBikes.find(b=>b.id===addRentalF.bikeId); if(!bike||!addRentalF.customerName.trim()) return; const startTime=new Date().toISOString(); const note=JSON.stringify({_type:"rental",bikeId:bike.id,bikeLabel:bike.label,grade:bike.grade,pricePerHour:+bike.pricePerHour,startTime,plannedHours:+addRentalF.plannedHours||0,endTime:null,memo:addRentalF.memo||""}); const slot_no=`RENT_${Date.now()}`; setSaving(true); try { await api("board_slots","POST",{slot_no,name:addRentalF.customerName.trim(),phone:addRentalF.phone||"",bike:bike.label,note,updated_at:startTime},true); setRentals(p=>[{slot_no,name:addRentalF.customerName.trim(),phone:addRentalF.phone||"",bike:bike.label,note,updated_at:startTime},...p]); setAddRentalModal(false); setAddRentalF({bikeId:"",customerName:"",phone:"",plannedHours:"",memo:""}); } catch(e){console.error(e);alert("貸し出しの開始に失敗しました");} finally{setSaving(false);} };
+  const doReturnRental=async(slot_no)=>{ const rental=rentals.find(r=>r.slot_no===slot_no); if(!rental) return; const n=parseRentalNote(rental.note); if(!n) return; const endTime=new Date().toISOString(); const updNote=JSON.stringify({...n,endTime}); setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"PATCH",{note:updNote,updated_at:endTime}); setRentals(p=>p.map(r=>r.slot_no===slot_no?{...r,note:updNote,updated_at:endTime}:r)); setReturnRentalModal(null); } catch(e){console.error(e);alert("返却処理に失敗しました");} finally{setSaving(false);} };
+  const doDeleteRental=async(slot_no)=>{ if(!window.confirm("削除しますか？")) return; setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"DELETE"); setRentals(p=>p.filter(r=>r.slot_no!==slot_no)); } catch(e){console.error(e);} finally{setSaving(false);} };
   const activeSlots=(slots)=>slots.filter(s=>/^\d{3}$/.test(s.slot_no));
   const historySlots=(slots)=>slots.filter(s=>s.slot_no.startsWith("H_")).sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
   const getBoard=(slots)=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return activeSlots(slots).find(s=>s.slot_no===no)||normalizeSlot({slot_no:no,name:"",phone:"",bike:"",note:"",updated_at:""}); });
@@ -494,12 +513,13 @@ export default function App() {
 
   const switchMode = async (m) => {
     setMode(m);
-    if (m==="customers"||m==="phone") {
+    if (m==="customers") {
       await loadCustomers({silent:custLoaded});
       await loadMasters();
       loadEstimates();
     }
     if (m==="board") { loadBoard(); loadMasters(); loadEstimates(); loadCustomers({silent:true}); }
+    if (m==="rental") { loadRentals(); }
   };
 
   // ── 在庫 派生 ──
@@ -879,42 +899,192 @@ export default function App() {
   }
 
   // ════════════════════════════════════════
-  // 電話帳
+  // レンタル
   // ════════════════════════════════════════
-  if (mode==="phone") {
-    const phFilter=phoneFilter==="expired"?mainteExpired:phoneFilter==="month"?mainteThisMonth:customers;
-    const phList=custSearch?phFilter.filter(c=>searchCustomerMatch(c,custSearch)):phFilter;
-
+  if (mode==="rental") {
+    const void_tick=rentalTick; // eslint-disable-line
+    const activeRentals=rentals.filter(r=>{const n=parseRentalNote(r.note);return n&&!n.endTime;});
+    const histRentals=[...rentals.filter(r=>{const n=parseRentalNote(r.note);return n&&n.endTime;})].sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
+    const DEFAULT_BIKES=[{id:"rb1",label:"1号機",grade:"スタンダード",pricePerHour:500},{id:"rb2",label:"2号機",grade:"スタンダード",pricePerHour:500},{id:"rb3",label:"3号機",grade:"電動アシスト",pricePerHour:1200}];
+    const bikes=rentalBikes.length?rentalBikes:DEFAULT_BIKES;
     return (
       <PageWrap mode={mode} switchMode={switchMode}>
-        <PageHeaderOuter title="電話帳" sub={`${phList.length}名表示`}/>
-        <SearchBarOuter value={custSearch} onChange={setCustSearch} placeholder="名前・フリガナ・電話番号で検索…"/>
-        <div style={{display:"flex",gap:7,overflowX:"auto",padding:"0 18px 13px",scrollbarWidth:"none"}}>
-          {[{k:"all",l:"すべて"},{k:"expired",l:`期限切れ ${mainteExpired.length}名`},{k:"month",l:`今月期限 ${mainteThisMonth.length}名`}].map(f=>(
-            <button key={f.k} onClick={()=>setPhoneFilter(f.k)} style={{padding:"7px 14px",borderRadius:20,fontSize:12,fontWeight:700,whiteSpace:"nowrap",cursor:"pointer",flexShrink:0,border:"1.5px solid",background:phoneFilter===f.k?"#2a2018":"#fff",color:phoneFilter===f.k?"#faf8f4":"#7a7060",borderColor:phoneFilter===f.k?"#2a2018":"rgba(42,32,24,.12)"}}>{f.l}</button>
-          ))}
-        </div>
-        <div style={{padding:"0 18px",marginBottom:20}}>
-          <div style={{background:"#fff",borderRadius:14,border:"1px solid rgba(42,32,24,.09)",overflow:"hidden",boxShadow:"0 1px 8px rgba(42,32,24,.06)"}}>
-            {phList.length===0&&<div style={{padding:"40px 20px",textAlign:"center",color:"#c8bfb0",fontSize:13}}>該当する顧客がいません</div>}
-            {phList.map((c,idx)=>{ const eb=(c.bikes||[]).find(b=>b.nextMaintenanceDate&&new Date(b.nextMaintenanceDate)<today()); const mb=!eb&&(c.bikes||[]).find(b=>{ if(!b.nextMaintenanceDate) return false; const d=new Date(b.nextMaintenanceDate); const t2=today(); return d>=t2&&d<=new Date(t2.getTime()+30*24*60*60*1000); }); return (
-              <div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderBottom:idx<phList.length-1?"1px solid rgba(42,32,24,.06)":"none"}}>
-                <div style={{width:44,height:44,borderRadius:"50%",background:eb?"#fae8e8":mb?"#fdf2d8":"#f0ece4",color:eb?"#a83030":mb?"#a06c10":"#7a7060",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:18,flexShrink:0}}>{(c.name||"?")[0]}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:700,color:"#2a2018",marginBottom:2}}>{c.name}</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:500,color:"#3a3028",letterSpacing:"0.04em",marginBottom:2}}>{c.phone||<span style={{color:"#c8bfb0",fontSize:12}}>電話番号未登録</span>}</div>
-                  {eb&&<div style={{fontSize:11,color:"#a83030",fontWeight:600}}>⚠ {eb.maker} メンテ期限切れ</div>}
-                  {mb&&<div style={{fontSize:11,color:"#a06c10",fontWeight:600}}>⚠ {mb.maker} 今月期限</div>}
-                  {!eb&&!mb&&(c.bikes||[]).length>0&&<div style={{fontSize:11,color:"#9a9088"}}>🚲 {(c.bikes||[]).map(b=>b.maker).join("・")}</div>}
-                </div>
-                <div style={{display:"flex",gap:7,alignItems:"center",flexShrink:0}}>
-                  {c.phone&&<a href={`tel:${(c.phone||"").replace(/-/g,"")}`} style={{width:44,height:44,borderRadius:"50%",background:"#e6f2ec",border:"1.5px solid rgba(61,122,86,.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,textDecoration:"none"}}>📞</a>}
-                  <button onClick={()=>{setCustDetail(c);switchMode("customers");}} style={{width:34,height:34,borderRadius:"50%",background:"#f0ece4",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060",fontSize:16}}>›</button>
-                </div>
-              </div>
-            );})}
+        <PageHeaderOuter title="レンタル" sub={`${activeRentals.length}件貸出中`} right={<div style={{display:"flex",gap:8}}><button onClick={()=>setRentalSettingsOpen(true)} style={{background:"#f0ece4",border:"none",cursor:"pointer",width:36,height:36,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:"#7a7060"}}><Ico.Settings/></button><CBtn onClick={()=>{setAddRentalF({bikeId:bikes[0]?.id||"",customerName:"",phone:"",plannedHours:"",memo:""});setAddRentalModal(true);}} variant="primary" size="sm"><Ico.Plus/>貸し出す</CBtn></div>}/>
+
+        {!rentalsLoaded&&<div style={{textAlign:"center",padding:30,color:"#9a9088",fontSize:13}}>読み込み中...</div>}
+
+        {rentalsLoaded&&activeRentals.length===0&&(
+          <div style={{textAlign:"center",padding:"60px 20px",color:"#c8bfb0"}}>
+            <div style={{fontSize:48,marginBottom:12}}>🚲</div>
+            <div style={{fontSize:14,fontWeight:700,color:"#9a9088"}}>貸し出し中の自転車はありません</div>
+            <div style={{fontSize:12,marginTop:6}}>「貸し出す」ボタンから開始してください</div>
           </div>
+        )}
+
+        <div style={{padding:"0 18px",marginBottom:8}}>
+          {activeRentals.map(r=>{
+            const n=parseRentalNote(r.note); if(!n) return null;
+            const {hours,mins}=getElapsedTime(n.startTime);
+            const cost=calcRentalCost(n.startTime,n.pricePerHour);
+            const isOver=n.plannedHours>0&&(hours*60+mins)>=n.plannedHours*60;
+            return (
+              <div key={r.slot_no} style={{background:"#fff",borderRadius:14,border:isOver?"3px solid #e53935":"1.5px solid rgba(42,32,24,.1)",padding:"14px 16px",marginBottom:10,boxShadow:"0 2px 12px rgba(42,32,24,.07)"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:15,fontWeight:700,color:"#2a2018"}}>🚲 {n.bikeLabel}</span>
+                    <span style={{fontSize:11,background:"#f0ece4",borderRadius:20,padding:"2px 9px",color:"#7a7060",fontWeight:600}}>{n.grade}</span>
+                    <span style={{fontSize:11,background:"#fdf0e8",borderRadius:20,padding:"2px 9px",color:"#c0724a",fontWeight:700,fontFamily:"'DM Mono',monospace"}}>¥{n.pricePerHour}/h</span>
+                  </div>
+                  {isOver&&<span style={{fontSize:11,fontWeight:700,color:"#e53935",animation:"pulse 1.5s infinite"}}>⚠️ 時間超過</span>}
+                </div>
+                <div style={{fontSize:15,fontWeight:700,color:"#2a2018",marginBottom:2}}>{r.name||"—"}</div>
+                {r.phone&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#7a7060",marginBottom:10}}>{r.phone}</div>}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12,background:"#faf8f4",borderRadius:10,padding:"10px 14px"}}>
+                  <div>
+                    <div style={{fontSize:10,color:"#9a9088",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:4}}>経過時間</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:700,color:isOver?"#e53935":"#2a2018",lineHeight:1}}>{hours}<span style={{fontSize:14}}>h</span>{String(mins).padStart(2,"0")}<span style={{fontSize:14}}>m</span></div>
+                    {n.plannedHours>0&&<div style={{fontSize:11,color:"#9a9088",marginTop:3}}>予定: {n.plannedHours}時間</div>}
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:"#9a9088",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:4}}>現在料金</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:700,color:"#c0724a",lineHeight:1}}>¥{cost.toLocaleString()}</div>
+                    <div style={{fontSize:11,color:"#9a9088",marginTop:3}}>{new Date(n.startTime).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}〜</div>
+                  </div>
+                </div>
+                <CBtn onClick={()=>setReturnRentalModal(r)} variant="green" style={{width:"100%",justifyContent:"center"}}>✅ 返却する</CBtn>
+              </div>
+            );
+          })}
         </div>
+
+        {histRentals.length>0&&(
+          <div style={{padding:"0 18px 20px"}}>
+            <button onClick={()=>setShowRentalHistory(v=>!v)} style={{width:"100%",background:"#f5f0e8",border:"1px solid rgba(42,32,24,.08)",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,fontSize:13,color:"#7a7060",marginBottom:showRentalHistory?8:0}}>
+              <span>🗂 返却履歴 ({histRentals.length}件)</span>
+              <span style={{fontSize:12}}>{showRentalHistory?"▲":"▼"}</span>
+            </button>
+            {showRentalHistory&&histRentals.map(r=>{
+              const n=parseRentalNote(r.note); if(!n) return null;
+              const {hours,mins}=getElapsedTime(n.startTime,n.endTime);
+              const finalCost=calcRentalCost(n.startTime,n.pricePerHour,n.endTime);
+              return (
+                <div key={r.slot_no} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 13px",background:"#f9f7f4",borderRadius:10,marginBottom:6,border:"1px solid rgba(42,32,24,.07)"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:700,color:"#4a4038"}}>{r.name||"—"}<span style={{fontSize:11,color:"#9a9088",fontWeight:400,marginLeft:6}}>🚲 {n.bikeLabel}</span></div>
+                    <div style={{fontSize:11,color:"#9a9088",display:"flex",gap:8,marginTop:2}}>
+                      <span style={{fontFamily:"'DM Mono',monospace",color:"#c0724a",fontWeight:700}}>¥{finalCost.toLocaleString()}</span>
+                      <span>{hours}h{String(mins).padStart(2,"0")}m</span>
+                      <span>{new Date(n.startTime).toLocaleDateString("ja-JP",{month:"numeric",day:"numeric"})}</span>
+                    </div>
+                  </div>
+                  <button onClick={()=>doDeleteRental(r.slot_no)} style={{background:"#fae8e8",border:"none",cursor:"pointer",borderRadius:8,padding:"6px 8px",color:"#a83030",display:"flex",alignItems:"center"}}><Ico.Trash/></button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 貸し出しモーダル */}
+        <Modal open={addRentalModal} onClose={()=>setAddRentalModal(false)} title="🚲 貸し出し開始">
+          <FG label="自転車">
+            <CSelect value={addRentalF.bikeId} onChange={v=>setAddRentalF(p=>({...p,bikeId:v}))}>
+              <option value="">選択してください</option>
+              {bikes.map(b=><option key={b.id} value={b.id}>{b.label}　{b.grade}　¥{b.pricePerHour}/h</option>)}
+            </CSelect>
+          </FG>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <FG label="利用者名"><CInput value={addRentalF.customerName} onChange={v=>setAddRentalF(p=>({...p,customerName:v}))} placeholder="田中 太郎"/></FG>
+            <FG label="電話番号"><CInput type="tel" value={addRentalF.phone} onChange={v=>setAddRentalF(p=>({...p,phone:v}))} placeholder="090-…" style={{fontFamily:"'DM Mono',monospace"}}/></FG>
+          </div>
+          <FG label="予定時間">
+            <CSelect value={addRentalF.plannedHours} onChange={v=>setAddRentalF(p=>({...p,plannedHours:v}))}>
+              <option value="">未定</option>
+              {[1,2,3,4,5,6,8].map(h=><option key={h} value={h}>{h}時間</option>)}
+            </CSelect>
+          </FG>
+          {addRentalF.bikeId&&(()=>{const b=bikes.find(x=>x.id===addRentalF.bikeId); return b&&<div style={{background:"#fdf0e8",borderRadius:10,padding:"10px 14px",marginBottom:8,fontSize:12,color:"#c0724a",fontWeight:700}}>¥{b.pricePerHour}/h{addRentalF.plannedHours?` → 予定 ¥${(b.pricePerHour*addRentalF.plannedHours).toLocaleString()}`:" (時間に応じて計算)"}</div>;})()}
+          <div style={{display:"flex",gap:8,marginTop:4}}>
+            <CBtn onClick={()=>setAddRentalModal(false)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+            <CBtn onClick={doStartRental} variant="primary" style={{flex:2}}>🚲 貸し出し開始！</CBtn>
+          </div>
+        </Modal>
+
+        {/* 返却確認モーダル */}
+        <Modal open={!!returnRentalModal} onClose={()=>setReturnRentalModal(null)} title="返却確認">
+          {returnRentalModal&&(()=>{
+            const n=parseRentalNote(returnRentalModal.note); if(!n) return null;
+            const {hours,mins}=getElapsedTime(n.startTime);
+            const cost=calcRentalCost(n.startTime,n.pricePerHour);
+            return (
+              <>
+                <div style={{background:"#faf8f4",borderRadius:12,padding:"16px",marginBottom:16}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
+                    <span style={{fontSize:14,fontWeight:700}}>🚲 {n.bikeLabel}</span>
+                    <span style={{fontSize:12,background:"#f0ece4",borderRadius:20,padding:"2px 8px",color:"#7a7060"}}>{n.grade}</span>
+                  </div>
+                  <div style={{fontSize:15,fontWeight:700,color:"#2a2018",marginBottom:8}}>{returnRentalModal.name}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div><div style={{fontSize:11,color:"#9a9088",marginBottom:2}}>利用時間</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:20,fontWeight:700}}>{hours}h{String(mins).padStart(2,"0")}m</div></div>
+                    <div><div style={{fontSize:11,color:"#9a9088",marginBottom:2}}>料金</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:20,fontWeight:700,color:"#c0724a"}}>¥{cost.toLocaleString()}</div></div>
+                  </div>
+                  <div style={{fontSize:11,color:"#9a9088",marginTop:8}}>¥{n.pricePerHour}/h × {hours}h{mins}m（切り上げ計算）</div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <CBtn onClick={()=>setReturnRentalModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+                  <CBtn onClick={()=>doReturnRental(returnRentalModal.slot_no)} variant="primary" style={{flex:2}}>✅ 返却完了</CBtn>
+                </div>
+              </>
+            );
+          })()}
+        </Modal>
+
+        {/* ⚙️ 自転車マスター設定 */}
+        {rentalSettingsOpen&&(
+          <div onClick={e=>e.target===e.currentTarget&&setRentalSettingsOpen(false)} style={{position:"fixed",inset:0,background:"rgba(42,32,24,.28)",zIndex:900,display:"flex",justifyContent:"flex-end"}}>
+            <div style={{background:"#faf8f4",width:"min(320px,92vw)",height:"100%",overflowY:"auto",padding:"20px 16px",boxShadow:"-4px 0 28px rgba(42,32,24,.13)",animation:"sin .22s cubic-bezier(.22,1,.36,1)"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                <span style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:16}}>🚲 自転車マスター</span>
+                <button onClick={()=>setRentalSettingsOpen(false)} style={{background:"#e8e2d8",border:"none",cursor:"pointer",borderRadius:9,padding:8,display:"flex",color:"#7a6f63"}}><IcoX/></button>
+              </div>
+              <div style={{fontSize:11,color:"#9a9088",marginBottom:12}}>グレード別の時間単価を設定します</div>
+              {(rentalBikes.length?rentalBikes:DEFAULT_BIKES).map((b,i)=>(
+                <div key={b.id} style={{background:"#fff",borderRadius:10,padding:"10px 12px",marginBottom:8,border:"1px solid rgba(42,32,24,.09)"}}>
+                  {editRentalBikeF?.id===b.id?(
+                    <>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                        <div className="fg"><label>名前</label><input value={editRentalBikeF.label} onChange={e=>setEditRentalBikeF(p=>({...p,label:e.target.value}))} placeholder="1号機"/></div>
+                        <div className="fg"><label>グレード</label><input value={editRentalBikeF.grade} onChange={e=>setEditRentalBikeF(p=>({...p,grade:e.target.value}))} placeholder="スタンダード"/></div>
+                      </div>
+                      <div className="fg"><label>時間単価（円/h）</label><input type="number" value={editRentalBikeF.pricePerHour} onChange={e=>setEditRentalBikeF(p=>({...p,pricePerHour:e.target.value}))} placeholder="500"/></div>
+                      <div style={{display:"flex",gap:6}}>
+                        <button className="pbtn" style={{flex:1}} onClick={()=>{ const updated=(rentalBikes.length?rentalBikes:DEFAULT_BIKES).map(x=>x.id===editRentalBikeF.id?{...editRentalBikeF,pricePerHour:+editRentalBikeF.pricePerHour}:x); saveRentalBikes(updated); setEditRentalBikeF(null); }}>保存</button>
+                        <button className="gbtn" onClick={()=>setEditRentalBikeF(null)}>キャンセル</button>
+                      </div>
+                    </>
+                  ):(
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#2a2018"}}>{b.label}</div>
+                        <div style={{fontSize:11,color:"#9a9088"}}>{b.grade}　¥{b.pricePerHour}/h</div>
+                      </div>
+                      <button className="sico sedit" onClick={()=>setEditRentalBikeF({...b})}><Ico.Edit/></button>
+                      <button className="sico sdel" onClick={()=>{ const upd=(rentalBikes.length?rentalBikes:DEFAULT_BIKES).filter((_,j)=>j!==i); saveRentalBikes(upd); }}><Ico.Trash/></button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div style={{marginTop:16,borderTop:"1px solid rgba(42,32,24,.08)",paddingTop:14}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#2a2018",marginBottom:8}}>＋ 自転車を追加</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                  <div className="fg"><label>名前</label><input value={newRentalBikeF.label} onChange={e=>setNewRentalBikeF(p=>({...p,label:e.target.value}))} placeholder="4号機"/></div>
+                  <div className="fg"><label>グレード</label><input value={newRentalBikeF.grade} onChange={e=>setNewRentalBikeF(p=>({...p,grade:e.target.value}))} placeholder="電動アシスト"/></div>
+                </div>
+                <div className="fg"><label>時間単価（円/h）</label><input type="number" value={newRentalBikeF.pricePerHour} onChange={e=>setNewRentalBikeF(p=>({...p,pricePerHour:e.target.value}))} placeholder="1200"/></div>
+                <button className="pbtn" style={{width:"100%"}} onClick={()=>{ if(!newRentalBikeF.label.trim()) return; const id="rb"+Date.now(); const updated=[...(rentalBikes.length?rentalBikes:DEFAULT_BIKES),{id,label:newRentalBikeF.label.trim(),grade:newRentalBikeF.grade.trim()||"スタンダード",pricePerHour:+newRentalBikeF.pricePerHour||500}]; saveRentalBikes(updated); setNewRentalBikeF({label:"",grade:"",pricePerHour:""}); }}>追加</button>
+              </div>
+            </div>
+          </div>
+        )}
       </PageWrap>
     );
   }
