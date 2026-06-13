@@ -151,6 +151,7 @@ const Ico = {
   ChevDown:()=>(<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>),
   Chart:()=>(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>),
   Grid:()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>),
+  Rental:()=>(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17" r="3.5"/><polyline points="5.5,14.8 5.5,17 7.5,17"/><circle cx="18.5" cy="17" r="3.5"/><path d="M9 17L12 9L18.5 17"/><path d="M12 9L5.5 17"/><line x1="10" y1="7" x2="14" y2="7"/><line x1="12" y1="9" x2="12" y2="7"/></svg>),
 };
 
 // ── 共通UIコンポーネント（App外 = re-mount なし） ──
@@ -265,7 +266,7 @@ const BottomNav=({mode, switchMode})=>(
       {id:"stock",icon:<Ico.Box/>,label:"在庫管理"},
       {id:"customers",icon:<Ico.Users/>,label:"顧客管理"},
       {id:"board",icon:<Ico.Grid/>,label:"ボード"},
-      {id:"rental",icon:<Ico.Phone/>,label:"レンタル"},
+      {id:"rental",icon:<Ico.Rental/>,label:"レンタル"},
     ].map(t=>(
       <button key={t.id} onClick={()=>switchMode(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 2px 9px",cursor:"pointer",border:"none",background:"none",color:mode===t.id?"#c0724a":"#9a9088",fontSize:10,fontFamily:"'Noto Sans JP',sans-serif",fontWeight:700,letterSpacing:"0.04em",transition:"color .15s"}}>
         {t.icon}
