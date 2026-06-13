@@ -793,8 +793,10 @@ export default function App() {
               ⚙️📦
 </button>
           </div>
-          <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
-          <FG label="フリガナ"><CInput value={editSlotModal?.furigana||""} onChange={v=>setEditSlotModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <FG label="氏名"><CInput value={editSlotModal?.name||""} onChange={v=>setEditSlotModal(p=>({...p,name:v}))} placeholder="田中 美咲"/></FG>
+            <FG label="フリガナ"><CInput value={editSlotModal?.furigana||""} onChange={v=>setEditSlotModal(p=>({...p,furigana:v}))} placeholder="タナカ ミサキ"/></FG>
+          </div>
           <FG label="電話番号"><CInput type="tel" value={editSlotModal?.phone||""} onChange={v=>setEditSlotModal(p=>({...p,phone:v}))} placeholder="090-XXXX-XXXX" style={{fontFamily:"'DM Mono',monospace",letterSpacing:"0.04em"}}/></FG>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:4}}>
             <div style={{minWidth:0}}><FG label="入庫日"><CInput type="date" value={editSlotModal?.checkin||""} onChange={v=>setEditSlotModal(p=>({...p,checkin:v}))}/></FG></div>
