@@ -1207,33 +1207,29 @@ export default function App() {
                 <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018",marginBottom:8}}>📊 CSVエクスポート</div>
                 <p style={{fontSize:11,color:"#9a9088",marginBottom:8}}>ExcelでそのままひらけるCSVをダウンロード</p>
                 <button onClick={()=>{
-                  const rows=[["氏名","フリガナ","電話番号","住所","ランク","保有自転車","次回メンテ","メモ"]];
-                  customers.forEach(c=>{
-                    const bikes=(c.bikes||[]).map(b=>`${b.maker||""}${b.color?` (${b.color})`:""}`).join(" / ");
-                    const nxt=(c.bikes||[]).map(b=>b.nextMaintenanceDate||"").filter(Boolean).join(" / ");
-                    rows.push([c.name||"",c.furigana||"",c.phone||"",c.address||"",c.customer_rank||"",bikes,nxt,(c.memo||"").replace(/\n/g," ")]);
-                  });
-                  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-                  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"})); a.download=`顧客リスト_${fmt(new Date())}.csv`; a.click();
-                }} style={{width:"100%",background:"#2a2018",color:"#faf8f4",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",cursor:"pointer",marginBottom:8}}>
-                  📥 顧客リスト.csv
-                </button>
-                <button onClick={()=>{
-                  const rows=[["顧客名","フリガナ","電話番号","自転車","作業日","品名","数量","単価","小計","合計","メモ"]];
-                  [...estimates].sort((a,b)=>new Date(b.work_date||b.created_at||0)-new Date(a.work_date||a.created_at||0)).forEach(e=>{
+                  const rows=[["氏名","フリガナ","電話番号","住所","ランク","自転車","作業日","品名","数量","単価","小計","合計","メモ"]];
+                  const sorted=[...estimates].sort((a,b)=>new Date(b.work_date||b.created_at||0)-new Date(a.work_date||a.created_at||0));
+                  const custWithEst=new Set(sorted.map(e=>e.customer_id));
+                  // 修理履歴あり顧客（修理行ごとに展開）
+                  sorted.forEach(e=>{
                     const c=customers.find(x=>x.id===e.customer_id);
                     const bike=(c?.bikes||[])[e.bike_index]?.maker||"";
                     const its=e.items||[];
                     if(its.length){
-                      its.forEach((it,i)=>rows.push([c?.name||"",c?.furigana||"",c?.phone||"",bike,e.work_date||"",it.name||"",it.qty||1,it.price||0,(it.price||0)*(it.qty||1),i===0?e.total||0:"",i===0?e.memo||"":""]));
+                      its.forEach((it,i)=>rows.push([c?.name||"",c?.furigana||"",c?.phone||"",c?.address||"",c?.customer_rank||"",bike,e.work_date||"",it.name||"",it.qty||1,it.price||0,(+it.price||0)*(+it.qty||1),i===0?e.total||0:"",(i===0&&e.memo)?e.memo:""]));
                     } else {
-                      rows.push([c?.name||"",c?.furigana||"",c?.phone||"",bike,e.work_date||"","","","",e.total||0,e.total||0,e.memo||""]);
+                      rows.push([c?.name||"",c?.furigana||"",c?.phone||"",c?.address||"",c?.customer_rank||"",bike,e.work_date||"","","","",e.total||0,e.total||0,e.memo||""]);
                     }
                   });
+                  // 修理履歴なし顧客（1行）
+                  customers.filter(c=>!custWithEst.has(c.id)).forEach(c=>{
+                    const bikes=(c.bikes||[]).map(b=>b.maker||"").join(" / ");
+                    rows.push([c.name||"",c.furigana||"",c.phone||"",c.address||"",c.customer_rank||"",bikes,"","","","","","",c.memo||""]);
+                  });
                   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
-                  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"})); a.download=`修理履歴_${fmt(new Date())}.csv`; a.click();
-                }} style={{width:"100%",background:"#f0ece4",color:"#2a2018",border:"1px solid rgba(42,32,24,.15)",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",cursor:"pointer"}}>
-                  📥 修理履歴.csv
+                  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"})); a.download=`顧客・修理履歴_${fmt(new Date())}.csv`; a.click();
+                }} style={{width:"100%",background:"#2a2018",color:"#faf8f4",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:700,fontFamily:"'Noto Sans JP',sans-serif",cursor:"pointer"}}>
+                  📥 顧客・修理履歴をダウンロード
                 </button>
               </div>
               <div style={{fontFamily:"'Shippori Mincho',serif",fontWeight:700,fontSize:14,color:"#2a2018",marginBottom:8}}>🚲 メーカー</div>
