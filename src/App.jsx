@@ -394,6 +394,7 @@ export default function App() {
   const [addRentalF, setAddRentalF] = useState({bikeId:"",customerName:"",phone:"",plannedHours:"",memo:""});
   const [newRentalBikeF, setNewRentalBikeF] = useState({label:"",grade:"",pricePerHour:""});
   const [editRentalBikeF, setEditRentalBikeF] = useState(null);
+  const [editStartTimeModal, setEditStartTimeModal] = useState(null); // {slot_no, startTime}
 
   // 見積もり state
   const [estimates, setEstimates] = useState([]);
@@ -458,6 +459,7 @@ export default function App() {
   const doStartRental=async()=>{ const bike=rentalBikes.find(b=>b.id===addRentalF.bikeId); if(!bike||!addRentalF.customerName.trim()) return; const startTime=new Date().toISOString(); const note=JSON.stringify({_type:"rental",bikeId:bike.id,bikeLabel:bike.label,grade:bike.grade,pricePerHour:+bike.pricePerHour,startTime,plannedHours:+addRentalF.plannedHours||0,endTime:null,memo:addRentalF.memo||""}); const slot_no=`RENT_${Date.now()}`; setSaving(true); try { await api("board_slots","POST",{slot_no,name:addRentalF.customerName.trim(),phone:addRentalF.phone||"",bike:bike.label,note,updated_at:startTime},true); setRentals(p=>[{slot_no,name:addRentalF.customerName.trim(),phone:addRentalF.phone||"",bike:bike.label,note,updated_at:startTime},...p]); setAddRentalModal(false); setAddRentalF({bikeId:"",customerName:"",phone:"",plannedHours:"",memo:""}); } catch(e){console.error(e);alert("貸し出しの開始に失敗しました");} finally{setSaving(false);} };
   const doReturnRental=async(slot_no)=>{ const rental=rentals.find(r=>r.slot_no===slot_no); if(!rental) return; const n=parseRentalNote(rental.note); if(!n) return; const endTime=new Date().toISOString(); const updNote=JSON.stringify({...n,endTime}); setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"PATCH",{note:updNote,updated_at:endTime}); setRentals(p=>p.map(r=>r.slot_no===slot_no?{...r,note:updNote,updated_at:endTime}:r)); setReturnRentalModal(null); } catch(e){console.error(e);alert("返却処理に失敗しました");} finally{setSaving(false);} };
   const doDeleteRental=async(slot_no)=>{ if(!window.confirm("削除しますか？")) return; setSaving(true); try { await api(`board_slots?slot_no=eq.${slot_no}`,"DELETE"); setRentals(p=>p.filter(r=>r.slot_no!==slot_no)); } catch(e){console.error(e);} finally{setSaving(false);} };
+  const doEditStartTime=async()=>{ if(!editStartTimeModal) return; const rental=rentals.find(r=>r.slot_no===editStartTimeModal.slot_no); if(!rental) return; const n=parseRentalNote(rental.note); if(!n) return; const newStart=new Date(editStartTimeModal.startTime).toISOString(); const updNote=JSON.stringify({...n,startTime:newStart}); setSaving(true); try { await api(`board_slots?slot_no=eq.${editStartTimeModal.slot_no}`,"PATCH",{note:updNote,updated_at:new Date().toISOString()}); setRentals(p=>p.map(r=>r.slot_no===editStartTimeModal.slot_no?{...r,note:updNote}:r)); setEditStartTimeModal(null); } catch(e){console.error(e);alert("更新に失敗しました");} finally{setSaving(false);} };
   const activeSlots=(slots)=>slots.filter(s=>/^\d{3}$/.test(s.slot_no));
   const historySlots=(slots)=>slots.filter(s=>s.slot_no.startsWith("H_")).sort((a,b)=>new Date(b.updated_at||0)-new Date(a.updated_at||0));
   const getBoard=(slots)=>Array.from({length:20},(_,i)=>{ const no=String(i+1).padStart(3,"0"); return activeSlots(slots).find(s=>s.slot_no===no)||normalizeSlot({slot_no:no,name:"",phone:"",bike:"",note:"",updated_at:""}); });
@@ -949,7 +951,7 @@ export default function App() {
                   <div>
                     <div style={{fontSize:10,color:"#9a9088",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:4}}>現在料金</div>
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:700,color:"#c0724a",lineHeight:1}}>¥{cost.toLocaleString()}</div>
-                    <div style={{fontSize:11,color:"#9a9088",marginTop:3}}>{new Date(n.startTime).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}〜</div>
+                    <button onClick={()=>{ const d=new Date(n.startTime); const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16); setEditStartTimeModal({slot_no:r.slot_no,startTime:local}); }} style={{background:"none",border:"none",cursor:"pointer",padding:0,fontSize:11,color:"#9a9088",marginTop:3,textDecoration:"underline dotted",fontFamily:"'Noto Sans JP',sans-serif"}}>✏️ {new Date(n.startTime).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}〜</button>
                   </div>
                 </div>
                 <CBtn onClick={()=>setReturnRentalModal(r)} variant="green" style={{width:"100%",justifyContent:"center"}}>✅ 返却する</CBtn>
@@ -1037,6 +1039,21 @@ export default function App() {
               </>
             );
           })()}
+        </Modal>
+
+        {/* スタート時間編集モーダル */}
+        <Modal open={!!editStartTimeModal} onClose={()=>setEditStartTimeModal(null)} title="スタート時間を変更">
+          {editStartTimeModal&&(
+            <>
+              <FG label="開始日時">
+                <CInput type="datetime-local" value={editStartTimeModal.startTime||""} onChange={v=>setEditStartTimeModal(p=>({...p,startTime:v}))}/>
+              </FG>
+              <div style={{display:"flex",gap:8,marginTop:4}}>
+                <CBtn onClick={()=>setEditStartTimeModal(null)} variant="outline" style={{flex:1}}>キャンセル</CBtn>
+                <CBtn onClick={doEditStartTime} variant="primary" style={{flex:2}}>💾 変更する</CBtn>
+              </div>
+            </>
+          )}
         </Modal>
 
         {/* ⚙️ 自転車マスター設定 */}
