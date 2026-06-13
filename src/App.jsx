@@ -290,27 +290,20 @@ const EstModal=({open,onClose,onSave,title,addEstModal,editEstModal,customers,re
       {c&&<div style={{background:"#faf8f4",borderRadius:10,padding:"10px 14px",marginBottom:14}}><div style={{fontWeight:700,fontSize:14,color:"#2a2018"}}>{c.name}</div>{b&&<div style={{fontSize:12,color:"#9a9088",marginTop:2}}>🚲 {b.maker}{b.color?` (${b.color})`:""}</div>}</div>}
       <div style={{marginBottom:10}}>
         {(estItems||[]).map((it,idx)=>(
-          <div key={idx} style={{background:"#f5f0e8",borderRadius:10,padding:"9px 10px",marginBottom:8,border:"1px solid rgba(42,32,24,.08)"}}>
-            <div style={{marginBottom:6}}>
-              <select value={it.menuId||""} onChange={e=>{ const m=repairMenus.find(x=>x.id===e.target.value); setEstItems(p=>p.map((x,i)=>i===idx?{...x,menuId:e.target.value,name:m?.name||"",price:m?.price??x.price}:x)); }} style={selStyle}>
-                <option value="">メニュー選択</option>
-                {groups.map(g=>(
-                  <optgroup key={g} label={g}>
-                    {(repairMenus||[]).filter(m=>(m.group1||"")===g).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-                  </optgroup>
-                ))}
-                {noGroup.length>0&&(
-                  <optgroup label="グループなし">
-                    {noGroup.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-                  </optgroup>
-                )}
+          <div key={idx} style={{display:"grid",gridTemplateColumns:"1fr 36px 72px 24px 20px",gap:4,marginBottom:5,alignItems:"center"}}>
+            <input value={it.name||""} onChange={e=>{ const v=e.target.value; const m=repairMenus.find(x=>x.name===v); setEstItems(p=>p.map((x,i)=>i===idx?{...x,name:v,...(m&&!x.price?{price:String(m.price)}:{})}:x)); }} placeholder="品名" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:6,padding:"6px 8px",fontSize:12,color:it.name?"#2a2018":"#9a9088",fontFamily:"'Noto Sans JP',sans-serif",outline:"none",minWidth:0,width:"100%"}}/>
+            <input type="number" value={it.qty||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,qty:e.target.value}:x))} placeholder="数" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:6,padding:"6px 4px",fontSize:12,color:"#2a2018",textAlign:"center",outline:"none",minWidth:0}}/>
+            <input type="number" value={it.price||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,price:e.target.value}:x))} placeholder="単価" style={{background:"#fff",border:"1px solid rgba(42,32,24,.1)",borderRadius:6,padding:"6px 6px",fontSize:12,color:"#2a2018",textAlign:"right",outline:"none",minWidth:0,fontFamily:"'DM Mono',monospace"}}/>
+            <div style={{position:"relative"}}>
+              <select value="" onChange={e=>{ const v=e.target.value; if(!v) return; const m=repairMenus.find(x=>x.name===v); setEstItems(p=>p.map((x,i)=>i===idx?{...x,name:v,...(m?{price:String(m.price)}:{})}:x)); e.target.value=""; }}
+                style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%",height:"100%"}}>
+                <option value=""/>
+                {groups.map(g=>(<optgroup key={g} label={g}>{(repairMenus||[]).filter(m=>(m.group1||"")===g).map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}</optgroup>))}
+                {noGroup.length>0&&<optgroup label="その他">{noGroup.map(m=><option key={m.id} value={m.name}>{m.name}　¥{(m.price||0).toLocaleString()}</option>)}</optgroup>}
               </select>
+              <div style={{width:24,height:30,background:"#f0ece4",border:"1px solid rgba(42,32,24,.1)",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#7a7060",pointerEvents:"none"}}>▾</div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 58px 30px",gap:6,alignItems:"center"}}>
-              <input type="number" value={it.price||""} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,price:e.target.value}:x))} placeholder="金額（円）" style={{background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:8,padding:"8px 10px",fontSize:13,color:"#2a2018",textAlign:"right",outline:"none",fontFamily:"'DM Mono',monospace",width:"100%"}}/>
-              <input type="number" value={it.qty||1} onChange={e=>setEstItems(p=>p.map((x,i)=>i===idx?{...x,qty:+e.target.value}:x))} min={1} style={{background:"#fff",border:"1px solid rgba(42,32,24,.12)",borderRadius:8,padding:"8px 6px",fontSize:13,color:"#2a2018",textAlign:"center",outline:"none",width:"100%"}}/>
-              <button onClick={()=>setEstItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center"}}><Ico.Trash/></button>
-            </div>
+            <button onClick={()=>setEstItems(p=>p.filter((_,i)=>i!==idx))} style={{background:"none",border:"none",cursor:"pointer",color:"#c8bfb0",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}><Ico.Trash/></button>
           </div>
         ))}
         <button onClick={()=>setEstItems(p=>[...(p||[]),{menuId:"",name:"",price:"",qty:1}])} style={{width:"100%",background:"#f3f0ea",border:"1px dashed rgba(42,32,24,.15)",borderRadius:9,padding:"9px",fontSize:13,color:"#7a7060",cursor:"pointer",fontFamily:"'Noto Sans JP',sans-serif",fontWeight:600}}>＋ 行を追加</button>
